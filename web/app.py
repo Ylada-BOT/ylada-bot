@@ -579,9 +579,35 @@ def get_conversations():
     }), 200
 
 
-@app.route('/api/chats/<chat_id>/messages', methods=['GET'])
+@app.route('/api/chats/<chat_id>/messages', methods=['GET', 'POST'])
 def get_chat_messages(chat_id):
-    """Busca mensagens de um chat específico"""
+    """Busca ou envia mensagens de um chat específico"""
+    if request.method == 'POST':
+        # Enviar mensagem
+        try:
+            data = request.get_json()
+            message = data.get('message', '')
+            if not message:
+                return jsonify({"success": False, "error": "Mensagem vazia"}), 400
+            
+            wjs = get_whatsapp_webjs()
+            if not wjs:
+                return jsonify({"success": False, "error": "WhatsApp Web.js não disponível"}), 503
+            
+            # Envia mensagem via WhatsApp Web.js
+            result = wjs.send_message(chat_id, message)
+            return jsonify({
+                "success": True,
+                "message": "Mensagem enviada",
+                "result": result
+            }), 200
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "error": str(e)
+            }), 500
+    
+    # GET - Buscar mensagens
     try:
         limit = request.args.get('limit', 50, type=int)
         wjs = get_whatsapp_webjs()

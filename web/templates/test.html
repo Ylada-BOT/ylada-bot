@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Testes - Ylada BOT</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .endpoint-card {
+            background: #f9fafb;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        
+        .endpoint-card h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .endpoint-card .method {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.85em;
+            margin-right: 10px;
+        }
+        
+        .method.get {
+            background: #10b981;
+            color: white;
+        }
+        
+        .method.post {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .url {
+            font-family: 'Courier New', monospace;
+            background: #1f2937;
+            color: #10b981;
+            padding: 8px 12px;
+            border-radius: 4px;
+            display: inline-block;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+        
+        .test-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+        
+        .test-btn:hover {
+            background: #5568d3;
+        }
+        
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: #1f2937;
+            color: #10b981;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .result.show {
+            display: block;
+        }
+        
+        .input-group {
+            margin: 15px 0;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #374151;
+            font-weight: 500;
+        }
+        
+        .input-group input,
+        .input-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-family: inherit;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .status-badge.online {
+            background: #10b981;
+            color: white;
+        }
+        
+        .status-badge.offline {
+            background: #ef4444;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Páginas de Teste - Ylada BOT</h1>
+        
+        <div style="text-align: center; margin-bottom: 30px;">
+            <span id="server-status" class="status-badge offline">Verificando...</span>
+        </div>
+        
+        <!-- Health Check -->
+        <div class="endpoint-card">
+            <h3>
+                <span class="method get">GET</span>
+                Health Check
+            </h3>
+            <div class="url">http://localhost:5001/health</div>
+            <p style="margin: 10px 0; color: #6b7280;">Verifica se o servidor está online</p>
+            <button class="test-btn" onclick="testHealth()">Testar</button>
+            <div class="result" id="health-result"></div>
+        </div>
+        
+        <!-- Dashboard -->
+        <div class="endpoint-card">
+            <h3>
+                <span class="method get">GET</span>
+                Dashboard Principal
+            </h3>
+            <div class="url">http://localhost:5001/</div>
+            <p style="margin: 10px 0; color: #6b7280;">Interface web do bot</p>
+            <button class="test-btn" onclick="window.open('/', '_blank')">Abrir Dashboard</button>
+        </div>
+        
+        <!-- Conversations -->
+        <div class="endpoint-card">
+            <h3>
+                <span class="method get">GET</span>
+                Listar Conversas
+            </h3>
+            <div class="url">http://localhost:5001/conversations</div>
+            <p style="margin: 10px 0; color: #6b7280;">Lista todas as conversas ativas e mensagens</p>
+            <button class="test-btn" onclick="testConversations()">Testar</button>
+            <div class="result" id="conversations-result"></div>
+        </div>
+        
+        <!-- Send Message -->
+        <div class="endpoint-card">
+            <h3>
+                <span class="method post">POST</span>
+                Enviar Mensagem
+            </h3>
+            <div class="url">http://localhost:5001/send</div>
+            <p style="margin: 10px 0; color: #6b7280;">Envia uma mensagem de teste</p>
+            <div class="input-group">
+                <label>Telefone:</label>
+                <input type="text" id="send-phone" placeholder="5511999999999" value="5511999999999">
+            </div>
+            <div class="input-group">
+                <label>Mensagem:</label>
+                <textarea id="send-message" rows="3" placeholder="Digite sua mensagem...">Olá! Teste do Ylada BOT</textarea>
+            </div>
+            <button class="test-btn" onclick="testSend()">Enviar Mensagem</button>
+            <div class="result" id="send-result"></div>
+        </div>
+        
+        <!-- Webhook Test -->
+        <div class="endpoint-card">
+            <h3>
+                <span class="method post">POST</span>
+                Testar Webhook
+            </h3>
+            <div class="url">http://localhost:5001/webhook</div>
+            <p style="margin: 10px 0; color: #6b7280;">Simula recebimento de mensagem via webhook</p>
+            <div class="input-group">
+                <label>Telefone:</label>
+                <input type="text" id="webhook-phone" placeholder="5511999999999" value="5511999999999">
+            </div>
+            <div class="input-group">
+                <label>Mensagem Recebida:</label>
+                <textarea id="webhook-message" rows="3" placeholder="Mensagem que o bot receberá...">oi</textarea>
+            </div>
+            <button class="test-btn" onclick="testWebhook()">Testar Webhook</button>
+            <div class="result" id="webhook-result"></div>
+        </div>
+        
+        <!-- Connect WhatsApp (se modo web) -->
+        <div class="endpoint-card">
+            <h3>
+                <span class="method post">POST</span>
+                Conectar WhatsApp Web
+            </h3>
+            <div class="url">http://localhost:5001/connect</div>
+            <p style="margin: 10px 0; color: #6b7280;">Conecta ao WhatsApp Web (apenas modo web)</p>
+            <button class="test-btn" onclick="testConnect()">Conectar</button>
+            <div class="result" id="connect-result"></div>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = 'http://localhost:5001';
+        
+        // Verifica status do servidor
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                const badge = document.getElementById('server-status');
+                if (data.status === 'ok') {
+                    badge.textContent = '✅ Online';
+                    badge.className = 'status-badge online';
+                } else {
+                    badge.textContent = '❌ Erro';
+                    badge.className = 'status-badge offline';
+                }
+            } catch (e) {
+                const badge = document.getElementById('server-status');
+                badge.textContent = '❌ Offline';
+                badge.className = 'status-badge offline';
+            }
+        }
+        
+        // Testa Health
+        async function testHealth() {
+            const resultEl = document.getElementById('health-result');
+            resultEl.classList.add('show');
+            resultEl.textContent = 'Testando...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                resultEl.textContent = JSON.stringify(data, null, 2);
+            } catch (e) {
+                resultEl.textContent = `Erro: ${e.message}`;
+            }
+        }
+        
+        // Testa Conversations
+        async function testConversations() {
+            const resultEl = document.getElementById('conversations-result');
+            resultEl.classList.add('show');
+            resultEl.textContent = 'Carregando...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/conversations`);
+                const data = await response.json();
+                resultEl.textContent = JSON.stringify(data, null, 2);
+            } catch (e) {
+                resultEl.textContent = `Erro: ${e.message}`;
+            }
+        }
+        
+        // Testa Send
+        async function testSend() {
+            const resultEl = document.getElementById('send-result');
+            const phone = document.getElementById('send-phone').value;
+            const message = document.getElementById('send-message').value;
+            
+            resultEl.classList.add('show');
+            resultEl.textContent = 'Enviando...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/send`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phone: phone,
+                        message: message
+                    })
+                });
+                const data = await response.json();
+                resultEl.textContent = JSON.stringify(data, null, 2);
+                
+                // Atualiza conversas
+                setTimeout(testConversations, 500);
+            } catch (e) {
+                resultEl.textContent = `Erro: ${e.message}`;
+            }
+        }
+        
+        // Testa Webhook
+        async function testWebhook() {
+            const resultEl = document.getElementById('webhook-result');
+            const phone = document.getElementById('webhook-phone').value;
+            const message = document.getElementById('webhook-message').value;
+            
+            resultEl.classList.add('show');
+            resultEl.textContent = 'Enviando webhook...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/webhook`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phone: phone,
+                        message: message
+                    })
+                });
+                const data = await response.json();
+                resultEl.textContent = JSON.stringify(data, null, 2);
+                
+                // Atualiza conversas
+                setTimeout(testConversations, 500);
+            } catch (e) {
+                resultEl.textContent = `Erro: ${e.message}`;
+            }
+        }
+        
+        // Testa Connect
+        async function testConnect() {
+            const resultEl = document.getElementById('connect-result');
+            resultEl.classList.add('show');
+            resultEl.textContent = 'Conectando...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/connect`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                resultEl.textContent = JSON.stringify(data, null, 2);
+            } catch (e) {
+                resultEl.textContent = `Erro: ${e.message}`;
+            }
+        }
+        
+        // Verifica status ao carregar
+        checkServerStatus();
+        setInterval(checkServerStatus, 5000);
+    </script>
+</body>
+</html>
+

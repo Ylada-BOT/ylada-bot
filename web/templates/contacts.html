@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audiência - Ylada BOT</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* Sidebar - Reutilizar */
+        .sidebar {
+            width: 260px;
+            background: white;
+            border-right: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .sidebar-logo {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .sidebar-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .sidebar-menu {
+            flex: 1;
+            padding: 10px 0;
+            overflow-y: auto;
+        }
+        
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            color: #6b7280;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        
+        .menu-item:hover {
+            background: #f9fafb;
+            color: #1f2937;
+        }
+        
+        .menu-item.active {
+            background: #eff6ff;
+            color: #3b82f6;
+            border-left: 3px solid #3b82f6;
+        }
+        
+        .sidebar-footer {
+            padding: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .account-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .account-avatar {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .account-details {
+            flex: 1;
+        }
+        
+        .account-name {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 14px;
+        }
+        
+        .account-id {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        /* Filtros Laterais */
+        .filters-sidebar {
+            width: 280px;
+            background: white;
+            border-right: 1px solid #e5e7eb;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .filters-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+        }
+        
+        .filter-section {
+            margin-bottom: 24px;
+        }
+        
+        .filter-section-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .tags-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .tag-filter {
+            padding: 6px 12px;
+            background: #f3f4f6;
+            color: #1f2937;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        
+        .tag-filter:hover {
+            background: #e5e7eb;
+        }
+        
+        .tag-filter.active {
+            background: #eff6ff;
+            color: #3b82f6;
+            border-color: #3b82f6;
+        }
+        
+        /* Content Area */
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .top-bar {
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 16px 24px;
+        }
+        
+        .page-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 16px;
+        }
+        
+        .top-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-green {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-green:hover {
+            background: #059669;
+        }
+        
+        .search-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .search-input {
+            padding: 10px 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            width: 300px;
+        }
+        
+        .contacts-table-container {
+            flex: 1;
+            overflow-y: auto;
+            background: white;
+            margin: 24px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .contacts-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .table-header {
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .table-header th {
+            padding: 12px 20px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 14px;
+            color: #6b7280;
+        }
+        
+        .table-row {
+            border-bottom: 1px solid #e5e7eb;
+            transition: background 0.2s;
+        }
+        
+        .table-row:hover {
+            background: #f9fafb;
+        }
+        
+        .table-row td {
+            padding: 16px 20px;
+            font-size: 14px;
+            color: #1f2937;
+        }
+        
+        .user-cell {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .user-info {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .user-name {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 2px;
+        }
+        
+        .user-id {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .phone-cell {
+            color: #3b82f6;
+            font-weight: 500;
+        }
+        
+        .date-cell {
+            color: #6b7280;
+        }
+        
+        .menu-dots {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-radius: 4px;
+            color: #6b7280;
+        }
+        
+        .menu-dots:hover {
+            background: #f3f4f6;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">Y</div>
+            <div class="sidebar-title">Ylada BOT</div>
+        </div>
+        
+        <div class="sidebar-menu">
+            <a href="/" class="menu-item">
+                <span>🏠</span>
+                <span>Painel de Controle</span>
+            </a>
+            <a href="/contacts" class="menu-item active">
+                <span>👥</span>
+                <span>Audiência</span>
+            </a>
+            <a href="/campaigns" class="menu-item">
+                <span>📢</span>
+                <span>Campanhas</span>
+            </a>
+            <a href="/broadcast" class="menu-item">
+                <span>📡</span>
+                <span>Transmissão</span>
+            </a>
+            <a href="/live-chat" class="menu-item">
+                <span>💬</span>
+                <span>Bate-papo ao vivo</span>
+            </a>
+            <a href="/automation" class="menu-item">
+                <span>⚙️</span>
+                <span>Automação</span>
+            </a>
+            <a href="/flow-builder" class="menu-item">
+                <span>🔀</span>
+                <span>Fluxos de conversa</span>
+            </a>
+            <a href="/settings" class="menu-item">
+                <span>⚙️</span>
+                <span>Configurações</span>
+            </a>
+        </div>
+        
+        <div style="border-top: 1px solid #e5e7eb; margin-top: 10px; padding-top: 10px;">
+            <div style="padding: 0 20px; margin-bottom: 8px;">
+                <div style="font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase;">Modelos</div>
+            </div>
+        </div>
+        
+        <div class="sidebar-footer">
+            <div class="account-info" style="cursor: pointer;">
+                <div class="account-avatar">Y</div>
+                <div class="account-details">
+                    <div class="account-name">Ylada Suporte</div>
+                    <div class="account-id">ID 46470</div>
+                </div>
+                <span style="color: #6b7280;">→</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Filtros Laterais -->
+        <div class="filters-sidebar">
+            <div class="filters-title">Filtros</div>
+            
+            <div class="filter-section">
+                <div class="filter-section-title">
+                    <span>Mais popular</span>
+                </div>
+                <div style="font-size: 11px; color: #9ca3af; margin-bottom: 12px;">
+                    (Use o botão 'Adicionar filtro' para filtrar etiquetas menos populares)
+                </div>
+            </div>
+            
+            <div class="filter-section">
+                <div class="filter-section-title">
+                    <span>ETIQUETAS</span>
+                    <span>🔽</span>
+                </div>
+                <div class="tags-list" id="tags-list">
+                    <!-- Tags aparecerão aqui -->
+                </div>
+            </div>
+            
+            <div class="filter-section">
+                <div class="filter-section-title">
+                    <span>SEQUÊNCIAS</span>
+                </div>
+                <div style="font-size: 12px; color: #9ca3af;">NENHUM ITEM</div>
+            </div>
+            
+            <div class="filter-section">
+                <div class="filter-section-title">
+                    <span>CAMPANHAS</span>
+                    <span>🔽</span>
+                </div>
+                <div style="font-size: 12px; color: #9ca3af;">Nenhuma campanha</div>
+            </div>
+        </div>
+        
+        <!-- Content Area -->
+        <div class="content-area">
+            <div class="top-bar">
+                <h1 class="page-title">Audiência</h1>
+                <div class="top-actions">
+                    <div class="action-buttons">
+                        <button class="btn btn-green" onclick="importContacts()">
+                            <span>⬆️</span>
+                            <span>Importar Contatos</span>
+                        </button>
+                        <button class="btn btn-green" onclick="downloadReport()">
+                            <span>⬇️</span>
+                            <span>Baixe Relatório</span>
+                        </button>
+                        <button class="btn btn-green" onclick="createContact()">
+                            <span>👤</span>
+                            <span>Criar Contato</span>
+                        </button>
+                    </div>
+                    <div class="search-bar">
+                        <input type="text" class="search-input" placeholder="Busca" id="search-input" onkeyup="filterContacts()">
+                        <span style="color: #6b7280;">🔍</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="contacts-table-container">
+                <table class="contacts-table">
+                    <thead class="table-header">
+                        <tr>
+                            <th style="width: 50px;">
+                                <input type="checkbox">
+                            </th>
+                            <th>Usuários</th>
+                            <th>WhatsApp</th>
+                            <th>Data de inscrição</th>
+                            <th style="width: 40px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="contacts-tbody">
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 40px; color: #9ca3af;">
+                                Carregando contatos...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let allContacts = [];
+        let allTags = [];
+        
+        async function loadContacts() {
+            try {
+                const response = await fetch('/contacts');
+                const data = await response.json();
+                allContacts = data.contacts || [];
+                
+                // Extrai tags únicas
+                const tagsSet = new Set();
+                allContacts.forEach(contact => {
+                    if (contact.tags && Array.isArray(contact.tags)) {
+                        contact.tags.forEach(tag => tagsSet.add(tag));
+                    }
+                });
+                allTags = Array.from(tagsSet).sort();
+                
+                renderTags();
+                renderContacts(allContacts);
+            } catch (e) {
+                console.error('Erro ao carregar contatos:', e);
+                document.getElementById('contacts-tbody').innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 40px; color: #ef4444;">
+                            Erro ao carregar contatos. Verifique se o WhatsApp está conectado.
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+        
+        function renderTags() {
+            const tagsList = document.getElementById('tags-list');
+            if (allTags.length === 0) {
+                tagsList.innerHTML = '<div style="font-size: 12px; color: #9ca3af;">Nenhuma etiqueta</div>';
+                return;
+            }
+            
+            tagsList.innerHTML = allTags.map(tag => `
+                <div class="tag-filter" onclick="filterByTag('${tag}')">${tag}</div>
+            `).join('');
+        }
+        
+        function renderContacts(contacts) {
+            const tbody = document.getElementById('contacts-tbody');
+            
+            if (contacts.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 40px; color: #9ca3af;">
+                            Nenhum contato encontrado
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tbody.innerHTML = contacts.map(contact => {
+                const name = contact.name || 'Sem nome';
+                const phone = contact.phone || '';
+                const id = contact.id || contact.phone || '-';
+                const initial = name.charAt(0).toUpperCase();
+                
+                // Formata data
+                let dateStr = '-';
+                if (contact.last_message_time) {
+                    const date = new Date(contact.last_message_time);
+                    dateStr = date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                } else if (contact.created_at) {
+                    const date = new Date(contact.created_at);
+                    dateStr = date.toLocaleDateString('pt-BR');
+                }
+                
+                // Formata telefone
+                let phoneFormatted = phone;
+                if (phone && phone.length > 0) {
+                    if (!phone.startsWith('+')) {
+                        phoneFormatted = '+' + phone;
+                    }
+                }
+                
+                return `
+                    <tr class="table-row">
+                        <td>
+                            <input type="checkbox">
+                        </td>
+                        <td>
+                            <div class="user-cell">
+                                <div class="user-avatar">${initial}</div>
+                                <div class="user-info">
+                                    <div class="user-name">${escapeHtml(name)}</div>
+                                    <div class="user-id">${id}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="phone-cell">${phoneFormatted || '-'}</td>
+                        <td class="date-cell">${dateStr}</td>
+                        <td>
+                            <div class="menu-dots" onclick="showMenu('${id}')">⋮</div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        function filterContacts() {
+            const search = document.getElementById('search-input').value.toLowerCase();
+            
+            let filtered = allContacts;
+            
+            if (search) {
+                filtered = filtered.filter(c => {
+                    const name = (c.name || '').toLowerCase();
+                    const phone = (c.phone || '').toLowerCase();
+                    return name.includes(search) || phone.includes(search);
+                });
+            }
+            
+            renderContacts(filtered);
+        }
+        
+        function filterByTag(tag) {
+            // Toggle tag filter
+            const tagElement = event.target;
+            tagElement.classList.toggle('active');
+            
+            // Filtra contatos
+            const activeTags = Array.from(document.querySelectorAll('.tag-filter.active')).map(el => el.textContent);
+            
+            let filtered = allContacts;
+            
+            if (activeTags.length > 0) {
+                filtered = filtered.filter(c => {
+                    const contactTags = c.tags || [];
+                    return activeTags.some(tag => contactTags.includes(tag));
+                });
+            }
+            
+            renderContacts(filtered);
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function importContacts() {
+            alert('Funcionalidade de importação em desenvolvimento');
+        }
+        
+        function downloadReport() {
+            alert('Funcionalidade de relatório em desenvolvimento');
+        }
+        
+        function createContact() {
+            alert('Funcionalidade de criar contato em desenvolvimento');
+        }
+        
+        function showMenu(contactId) {
+            alert('Menu do contato: ' + contactId);
+        }
+        
+        // Carrega contatos ao iniciar
+        loadContacts();
+        setInterval(loadContacts, 30000); // Atualiza a cada 30 segundos
+    </script>
+</body>
+</html>

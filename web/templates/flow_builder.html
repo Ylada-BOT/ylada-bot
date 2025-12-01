@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Construtor de Fluxos - Ylada BOT</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: white;
+            border-right: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .sidebar-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .components-list {
+            padding: 20px;
+        }
+        
+        .component-category {
+            margin-bottom: 24px;
+        }
+        
+        .category-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+        
+        .component-item {
+            background: #f9fafb;
+            border: 2px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            cursor: move;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        
+        .component-item:hover {
+            background: #f3f4f6;
+            border-color: #3b82f6;
+        }
+        
+        .component-icon {
+            font-size: 20px;
+            margin-right: 8px;
+        }
+        
+        .component-name {
+            font-weight: 500;
+            color: #1f2937;
+            font-size: 14px;
+        }
+        
+        /* Canvas Area */
+        .canvas-area {
+            flex: 1;
+            position: relative;
+            background: #f9fafb;
+            overflow: auto;
+        }
+        
+        .canvas-toolbar {
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+        
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #1f2937;
+        }
+        
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+        
+        .flow-name-input {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            width: 200px;
+        }
+        
+        .canvas {
+            padding: 40px;
+            min-height: 100%;
+            position: relative;
+        }
+        
+        .flow-node {
+            position: absolute;
+            background: white;
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
+            padding: 16px;
+            min-width: 200px;
+            cursor: move;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+        }
+        
+        .flow-node:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .flow-node.selected {
+            border-color: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+        
+        .node-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        
+        .node-title {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 14px;
+        }
+        
+        .node-actions {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .node-action-btn {
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+        }
+        
+        .node-action-btn:hover {
+            background: #f3f4f6;
+            color: #1f2937;
+        }
+        
+        .node-content {
+            font-size: 13px;
+            color: #6b7280;
+        }
+        
+        .node-connector {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #3b82f6;
+            border: 2px solid white;
+            position: absolute;
+            cursor: pointer;
+        }
+        
+        .node-connector.top {
+            top: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .node-connector.bottom {
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .connection-line {
+            position: absolute;
+            pointer-events: none;
+            stroke: #3b82f6;
+            stroke-width: 2;
+            fill: none;
+        }
+        
+        /* Properties Panel */
+        .properties-panel {
+            width: 320px;
+            background: white;
+            border-left: 1px solid #e5e7eb;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .properties-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 20px;
+        }
+        
+        .property-group {
+            margin-bottom: 24px;
+        }
+        
+        .property-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #6b7280;
+            margin-bottom: 8px;
+            display: block;
+        }
+        
+        .property-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .property-textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            min-height: 80px;
+            resize: vertical;
+        }
+        
+        .empty-canvas {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #9ca3af;
+        }
+        
+        .empty-canvas-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+        
+        .empty-canvas-text {
+            font-size: 16px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar - Componentes -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">📦 Componentes</div>
+            </div>
+            <div class="components-list">
+                <div class="component-category">
+                    <div class="category-title">Mensagens</div>
+                    <div class="component-item" draggable="true" data-type="message">
+                        <div style="display: flex; align-items: center;">
+                            <span class="component-icon">💬</span>
+                            <span class="component-name">Mensagem</span>
+                        </div>
+                    </div>
+                    <div class="component-item" draggable="true" data-type="question">
+                        <div style="display: flex; align-items: center;">
+                            <span class="component-icon">❓</span>
+                            <span class="component-name">Pergunta</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="component-category">
+                    <div class="category-title">Ações</div>
+                    <div class="component-item" draggable="true" data-type="keyword">
+                        <div style="display: flex; align-items: center;">
+                            <span class="component-icon">🔑</span>
+                            <span class="component-name">Palavra-chave</span>
+                        </div>
+                    </div>
+                    <div class="component-item" draggable="true" data-type="condition">
+                        <div style="display: flex; align-items: center;">
+                            <span class="component-icon">🔀</span>
+                            <span class="component-name">Condição</span>
+                        </div>
+                    </div>
+                    <div class="component-item" draggable="true" data-type="delay">
+                        <div style="display: flex; align-items: center;">
+                            <span class="component-icon">⏱️</span>
+                            <span class="component-name">Aguardar</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="component-category">
+                    <div class="category-title">Integrações</div>
+                    <div class="component-item" draggable="true" data-type="webhook">
+                        <div style="display: flex; align-items: center;">
+                            <span class="component-icon">🔗</span>
+                            <span class="component-name">Webhook</span>
+                        </div>
+                    </div>
+                    <div class="component-item" draggable="true" data-type="assign">
+                        <div style="display: flex; align-items: center;">
+                            <span class="component-icon">👤</span>
+                            <span class="component-name">Atribuir Atendente</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Canvas Area -->
+        <div class="canvas-area">
+            <div class="canvas-toolbar">
+                <div class="toolbar-left">
+                    <input type="text" class="flow-name-input" id="flow-name" placeholder="Nome do fluxo" value="Novo Fluxo">
+                    <button class="btn btn-secondary" onclick="saveFlow()">💾 Salvar</button>
+                    <button class="btn btn-secondary" onclick="loadFlow()">📂 Carregar</button>
+                    <button class="btn btn-secondary" onclick="previewFlow()">👁️ Preview</button>
+                </div>
+                <div>
+                    <button class="btn btn-primary" onclick="exportFlow()">📤 Exportar</button>
+                </div>
+            </div>
+            
+            <div class="canvas" id="canvas">
+                <div class="empty-canvas" id="empty-canvas">
+                    <div class="empty-canvas-icon">🎨</div>
+                    <div class="empty-canvas-text">Arraste componentes aqui para começar</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Properties Panel -->
+        <div class="properties-panel">
+            <div class="properties-title">⚙️ Propriedades</div>
+            <div id="properties-content">
+                <div style="color: #9ca3af; text-align: center; padding: 40px 20px;">
+                    Selecione um componente para editar
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let nodes = [];
+        let selectedNode = null;
+        let nodeIdCounter = 0;
+        let isDragging = false;
+        let dragOffset = { x: 0, y: 0 };
+        
+        // Cria bloco inicial ao carregar
+        window.addEventListener('DOMContentLoaded', () => {
+            if (nodes.length === 0) {
+                createNode('start', 100, 100);
+            }
+        });
+        
+        // Inicializa drag and drop
+        document.querySelectorAll('.component-item').forEach(item => {
+            item.addEventListener('dragstart', handleDragStart);
+        });
+        
+        const canvas = document.getElementById('canvas');
+        canvas.addEventListener('dragover', handleDragOver);
+        canvas.addEventListener('drop', handleDrop);
+        canvas.addEventListener('click', handleCanvasClick);
+        
+        function handleDragStart(e) {
+            e.dataTransfer.setData('component-type', e.target.closest('.component-item').dataset.type);
+        }
+        
+        function handleDragOver(e) {
+            e.preventDefault();
+        }
+        
+        function handleDrop(e) {
+            e.preventDefault();
+            const componentType = e.dataTransfer.getData('component-type');
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            createNode(componentType, x, y);
+            updateEmptyCanvas();
+        }
+        
+        function createNode(type, x, y) {
+            const nodeId = `node-${++nodeIdCounter}`;
+            const node = {
+                id: nodeId,
+                type: type,
+                x: x,
+                y: y,
+                data: getDefaultNodeData(type)
+            };
+            
+            nodes.push(node);
+            renderNode(node);
+        }
+        
+        function getDefaultNodeData(type) {
+            const defaults = {
+                message: { text: 'Digite sua mensagem aqui...' },
+                question: { question: 'Faça uma pergunta...', save_as: 'resposta' },
+                keyword: { keywords: [], response: 'Resposta para palavra-chave' },
+                condition: { condition: '', if_true: '', if_false: '' },
+                delay: { seconds: 5 },
+                webhook: { url: '', method: 'POST' },
+                assign: { user_id: '' }
+            };
+            return defaults[type] || {};
+        }
+        
+        function renderNode(node) {
+            const nodeEl = document.createElement('div');
+            nodeEl.className = 'flow-node';
+            nodeEl.id = node.id;
+            nodeEl.style.left = node.x + 'px';
+            nodeEl.style.top = node.y + 'px';
+            
+            // Cores dos blocos conforme Botconversa
+            const nodeColors = {
+                start: { bg: '#d1fae5', border: '#10b981' }, // Verde claro - Bloco Inicial
+                message: { bg: '#fce7f3', border: '#ec4899' }, // Rosa claro - Conteúdo
+                question: { bg: '#fce7f3', border: '#ec4899' }, // Rosa claro - Conteúdo
+                content: { bg: '#fce7f3', border: '#ec4899' }, // Rosa claro - Conteúdo
+                action: { bg: '#fef3c7', border: '#f59e0b' }, // Amarelo claro - Ação
+                condition: { bg: '#e0e7ff', border: '#6366f1' }, // Azul claro - Condição
+                keyword: { bg: '#e0e7ff', border: '#6366f1' },
+                delay: { bg: '#e0e7ff', border: '#6366f1' },
+                webhook: { bg: '#fef3c7', border: '#f59e0b' }, // Amarelo - Ação
+                assign: { bg: '#fef3c7', border: '#f59e0b' } // Amarelo - Ação
+            };
+            
+            const colors = nodeColors[node.type] || { bg: '#ffffff', border: '#3b82f6' };
+            nodeEl.style.background = colors.bg;
+            nodeEl.style.borderColor = colors.border;
+            
+            const typeNames = {
+                start: '🚀 Bloco Inicial',
+                message: '💬 Mensagem',
+                question: '❓ Pergunta',
+                keyword: '🔑 Palavra-chave',
+                condition: '🔀 Condição',
+                delay: '⏱️ Aguardar',
+                webhook: '🔗 Webhook',
+                assign: '👤 Atribuir',
+                content: '📝 Conteúdo',
+                action: '⚡ Ação'
+            };
+            
+            nodeEl.innerHTML = `
+                <div class="node-header">
+                    <div class="node-title">${typeNames[node.type] || node.type}</div>
+                    <div class="node-actions">
+                        <button class="node-action-btn" onclick="deleteNode('${node.id}')">🗑️</button>
+                    </div>
+                </div>
+                <div class="node-content">${getNodePreview(node)}</div>
+                <div class="node-connector top"></div>
+                <div class="node-connector bottom"></div>
+            `;
+            
+            // Drag functionality
+            nodeEl.addEventListener('mousedown', (e) => {
+                if (e.target.closest('.node-action-btn')) return;
+                isDragging = true;
+                selectedNode = node;
+                selectNode(node.id);
+                const rect = nodeEl.getBoundingClientRect();
+                const canvasRect = canvas.getBoundingClientRect();
+                dragOffset.x = e.clientX - rect.left - canvasRect.left;
+                dragOffset.y = e.clientY - rect.top - canvasRect.top;
+            });
+            
+            nodeEl.addEventListener('click', (e) => {
+                if (!e.target.closest('.node-action-btn')) {
+                    selectNode(node.id);
+                }
+            });
+            
+            canvas.appendChild(nodeEl);
+        }
+        
+        function getNodePreview(node) {
+            switch(node.type) {
+                case 'message':
+                    return node.data.text || 'Mensagem...';
+                case 'question':
+                    return node.data.question || 'Pergunta...';
+                case 'keyword':
+                    return node.data.keywords?.join(', ') || 'Palavras-chave...';
+                default:
+                    return node.type;
+            }
+        }
+        
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging && selectedNode) {
+                const canvasRect = canvas.getBoundingClientRect();
+                const x = e.clientX - canvasRect.left - dragOffset.x;
+                const y = e.clientY - canvasRect.top - dragOffset.y;
+                
+                selectedNode.x = Math.max(0, x);
+                selectedNode.y = Math.max(0, y);
+                
+                const nodeEl = document.getElementById(selectedNode.id);
+                if (nodeEl) {
+                    nodeEl.style.left = selectedNode.x + 'px';
+                    nodeEl.style.top = selectedNode.y + 'px';
+                }
+            }
+        });
+        
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+        
+        function selectNode(nodeId) {
+            // Remove previous selection
+            document.querySelectorAll('.flow-node').forEach(n => n.classList.remove('selected'));
+            
+            // Select new node
+            const nodeEl = document.getElementById(nodeId);
+            if (nodeEl) {
+                nodeEl.classList.add('selected');
+                selectedNode = nodes.find(n => n.id === nodeId);
+                renderProperties(selectedNode);
+            }
+        }
+        
+        function deleteNode(nodeId) {
+            nodes = nodes.filter(n => n.id !== nodeId);
+            const nodeEl = document.getElementById(nodeId);
+            if (nodeEl) {
+                nodeEl.remove();
+            }
+            selectedNode = null;
+            renderProperties(null);
+            updateEmptyCanvas();
+        }
+        
+        function renderProperties(node) {
+            const propsContent = document.getElementById('properties-content');
+            
+            if (!node) {
+                propsContent.innerHTML = '<div style="color: #9ca3af; text-align: center; padding: 40px 20px;">Selecione um componente para editar</div>';
+                return;
+            }
+            
+            let html = '';
+            
+            switch(node.type) {
+                case 'message':
+                    html = `
+                        <div class="property-group">
+                            <label class="property-label">Mensagem</label>
+                            <textarea class="property-textarea" id="prop-text" onchange="updateNodeData('${node.id}', 'text', this.value)">${node.data.text || ''}</textarea>
+                        </div>
+                    `;
+                    break;
+                case 'question':
+                    html = `
+                        <div class="property-group">
+                            <label class="property-label">Pergunta</label>
+                            <textarea class="property-textarea" id="prop-question" onchange="updateNodeData('${node.id}', 'question', this.value)">${node.data.question || ''}</textarea>
+                        </div>
+                        <div class="property-group">
+                            <label class="property-label">Salvar como (variável)</label>
+                            <input type="text" class="property-input" id="prop-save-as" value="${node.data.save_as || ''}" onchange="updateNodeData('${node.id}', 'save_as', this.value)">
+                        </div>
+                    `;
+                    break;
+                case 'keyword':
+                    html = `
+                        <div class="property-group">
+                            <label class="property-label">Palavras-chave (separadas por vírgula)</label>
+                            <input type="text" class="property-input" id="prop-keywords" value="${node.data.keywords?.join(', ') || ''}" onchange="updateNodeData('${node.id}', 'keywords', this.value.split(',').map(k => k.trim()))">
+                        </div>
+                        <div class="property-group">
+                            <label class="property-label">Resposta</label>
+                            <textarea class="property-textarea" id="prop-response" onchange="updateNodeData('${node.id}', 'response', this.value)">${node.data.response || ''}</textarea>
+                        </div>
+                    `;
+                    break;
+                default:
+                    html = `<div style="color: #9ca3af; text-align: center; padding: 20px;">Propriedades para ${node.type} em desenvolvimento</div>`;
+            }
+            
+            propsContent.innerHTML = html;
+        }
+        
+        function updateNodeData(nodeId, key, value) {
+            const node = nodes.find(n => n.id === nodeId);
+            if (node) {
+                node.data[key] = value;
+                // Update preview
+                const nodeEl = document.getElementById(nodeId);
+                if (nodeEl) {
+                    const contentEl = nodeEl.querySelector('.node-content');
+                    if (contentEl) {
+                        contentEl.textContent = getNodePreview(node);
+                    }
+                }
+            }
+        }
+        
+        function updateEmptyCanvas() {
+            const emptyCanvas = document.getElementById('empty-canvas');
+            if (nodes.length === 0) {
+                emptyCanvas.style.display = 'block';
+            } else {
+                emptyCanvas.style.display = 'none';
+            }
+        }
+        
+        function handleCanvasClick(e) {
+            if (e.target === canvas || e.target.id === 'empty-canvas') {
+                document.querySelectorAll('.flow-node').forEach(n => n.classList.remove('selected'));
+                selectedNode = null;
+                renderProperties(null);
+            }
+        }
+        
+        function saveFlow() {
+            const flowName = document.getElementById('flow-name').value;
+            const flowData = {
+                name: flowName,
+                nodes: nodes,
+                created_at: new Date().toISOString()
+            };
+            
+            // Salva no localStorage (depois salvará no servidor)
+            localStorage.setItem(`flow_${flowName}`, JSON.stringify(flowData));
+            
+            // Envia para servidor
+            fetch('/api/flows', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(flowData)
+            }).then(r => r.json()).then(data => {
+                alert('✅ Fluxo salvo com sucesso!');
+            }).catch(e => {
+                alert('⚠️ Salvo localmente. Erro ao salvar no servidor: ' + e.message);
+            });
+        }
+        
+        function loadFlow() {
+            const flowName = prompt('Nome do fluxo para carregar:');
+            if (!flowName) return;
+            
+            // Tenta carregar do servidor
+            fetch(`/api/flows/${encodeURIComponent(flowName)}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.flow) {
+                        nodes = data.flow.nodes || [];
+                        document.getElementById('flow-name').value = data.flow.name;
+                        renderAllNodes();
+                        alert('✅ Fluxo carregado!');
+                    } else {
+                        // Tenta localStorage
+                        const saved = localStorage.getItem(`flow_${flowName}`);
+                        if (saved) {
+                            const flowData = JSON.parse(saved);
+                            nodes = flowData.nodes || [];
+                            document.getElementById('flow-name').value = flowData.name;
+                            renderAllNodes();
+                            alert('✅ Fluxo carregado do cache local!');
+                        } else {
+                            alert('❌ Fluxo não encontrado');
+                        }
+                    }
+                })
+                .catch(e => {
+                    alert('Erro ao carregar: ' + e.message);
+                });
+        }
+        
+        function renderAllNodes() {
+            // Limpa canvas
+            document.querySelectorAll('.flow-node').forEach(n => n.remove());
+            
+            // Renderiza todos os nós
+            nodes.forEach(node => renderNode(node));
+            updateEmptyCanvas();
+        }
+        
+        function previewFlow() {
+            const flowData = {
+                name: document.getElementById('flow-name').value,
+                nodes: nodes
+            };
+            
+            // Abre preview em nova janela
+            const previewWindow = window.open('', '_blank');
+            previewWindow.document.write(`
+                <html>
+                <head><title>Preview - ${flowData.name}</title></head>
+                <body style="font-family: sans-serif; padding: 20px;">
+                    <h1>Preview: ${flowData.name}</h1>
+                    <pre>${JSON.stringify(flowData, null, 2)}</pre>
+                </body>
+                </html>
+            `);
+        }
+        
+        function exportFlow() {
+            const flowData = {
+                name: document.getElementById('flow-name').value,
+                nodes: nodes,
+                exported_at: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(flowData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${flowData.name.replace(/\s+/g, '_')}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,18 @@
+# 🚀 Comandos para Deploy - Copie e Cole
+
+# 1. Preparar Git
+git init
+git add .
+git commit -m "Ylada BOT - Ready for deploy"
+
+# 2. Conectar ao GitHub (substitua SEU-USUARIO)
+git remote add origin https://github.com/SEU-USUARIO/ylada-bot.git
+git branch -M main
+git push -u origin main
+
+# 3. Depois de configurar Supabase e Vercel:
+# - Acesse https://vercel.com
+# - Importe o repositório
+# - Adicione as variáveis de ambiente
+# - Deploy!
+

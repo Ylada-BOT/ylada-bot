@@ -1,0 +1,133 @@
+# Configurações do Bot Ylada
+
+# Z-API Configuration
+zapi:
+  instance_id: ""  # Sua Instance ID do Z-API
+  token: ""        # Seu Token do Z-API
+  base_url: "https://api.z-api.io"
+
+# WhatsApp Configuration
+whatsapp:
+  webhook_url: ""  # URL do seu webhook (ex: https://seu-dominio.com/webhook)
+  verify_token: "" # Token para verificação do webhook
+
+# Bot Settings
+bot:
+  name: "Ylada BOT"
+  welcome_message: "Olá! 👋 Bem-vindo ao Ylada. Como posso ajudar você hoje?"
+  default_response: "Desculpe, não entendi. Pode repetir?"
+  language: "pt-BR"
+
+# Business Info
+business:
+  name: "Ylada"
+  phone: ""
+  email: ""
+  website: ""
+
+# Conversation Flows (Básicos - compatibilidade)
+flows:
+  greeting:
+    - "oi"
+    - "olá"
+    - "hello"
+    - "bom dia"
+    - "boa tarde"
+    - "boa noite"
+  
+  help:
+    - "ajuda"
+    - "help"
+    - "comandos"
+    - "menu"
+  
+  services:
+    - "serviços"
+    - "o que vocês fazem"
+    - "produtos"
+    - "catálogo"
+
+# Conversation Flows Avançados
+conversation_flows:
+  vendas:
+    trigger_keywords: ["comprar", "preço", "quanto custa", "vender", "produto"]
+    welcome_message: "🛍️ Ótimo! Vou te ajudar com informações sobre nossos produtos.\n\nO que você gostaria de saber?"
+    exit_keywords: ["sair", "voltar", "menu", "cancelar"]
+    exit_message: "Ok, voltando ao menu principal!"
+    steps:
+      - type: "question"
+        question: "Qual produto você tem interesse?"
+        save_as: "produto_interesse"
+        expected_responses:
+          - keyword: "produto 1"
+            response: "Ótima escolha! O Produto 1 custa R$ 99,90. Gostaria de mais informações?"
+            next_step: 1
+          - keyword: "produto 2"
+            response: "Perfeito! O Produto 2 custa R$ 149,90. Quer saber mais?"
+            next_step: 1
+        error_message: "Desculpe, não temos esse produto. Pode escolher outro?"
+      - type: "question"
+        question: "Gostaria de fazer o pedido agora?"
+        save_as: "quer_comprar"
+        expected_responses:
+          - keyword: "sim"
+            response: "Perfeito! Vou te passar para nosso atendente. Aguarde um momento! 😊"
+            next_step: 2
+          - keyword: "não"
+            response: "Sem problemas! Quando quiser, é só falar. Mais alguma coisa?"
+            next_step: 2
+        error_message: "Pode responder sim ou não?"
+      - type: "message"
+        message: "Obrigado pelo interesse! 😊"
+    end_message: "Foi um prazer ajudar! Qualquer coisa, é só chamar!"
+
+  suporte:
+    trigger_keywords: ["problema", "erro", "ajuda", "suporte", "não funciona", "dúvida"]
+    welcome_message: "🆘 Estou aqui para ajudar! Qual é o problema?"
+    exit_keywords: ["resolvido", "ok", "obrigado", "sair"]
+    exit_message: "Que bom que consegui ajudar! Se precisar de mais alguma coisa, é só chamar!"
+    steps:
+      - type: "question"
+        question: "Pode descrever o problema em detalhes?"
+        save_as: "problema_descricao"
+        expected_responses:
+          - keyword: ""
+            response: "Entendi. Vou verificar isso para você. Aguarde um momento..."
+            next_step: 1
+      - type: "message"
+        message: "Já registrei seu problema. Nossa equipe vai entrar em contato em breve!"
+    end_message: "Problema registrado! Vamos resolver isso o mais rápido possível."
+
+  cadastro:
+    trigger_keywords: ["cadastrar", "cadastro", "registrar", "criar conta"]
+    welcome_message: "📝 Vamos fazer seu cadastro! Vou precisar de algumas informações."
+    exit_keywords: ["cancelar", "sair"]
+    exit_message: "Cadastro cancelado. Quando quiser, é só chamar!"
+    steps:
+      - type: "question"
+        question: "Qual é o seu nome completo?"
+        save_as: "nome_completo"
+        expected_responses:
+          - keyword: ""
+            response: "Obrigado! Agora preciso do seu email."
+            next_step: 1
+      - type: "question"
+        question: "Qual é o seu email?"
+        save_as: "email"
+        expected_responses:
+          - keyword: "@"
+            response: "Email registrado! Cadastro concluído com sucesso! 🎉"
+            next_step: 2
+        error_message: "Por favor, informe um email válido."
+      - type: "message"
+        message: "Seu cadastro foi realizado! Bem-vindo! 😊"
+    end_message: "Cadastro finalizado!"
+
+# Palavras-chave simples (respostas diretas)
+keywords:
+  "obrigado": "De nada! Fico feliz em ajudar! 😊"
+  "valeu": "Por nada! Qualquer coisa, é só chamar!"
+  "tchau": "Tchau! Até logo! 👋"
+  "até logo": "Até logo! Volte sempre! 😊"
+  "horário": "Nosso horário de atendimento é de segunda a sexta, das 9h às 18h."
+  "contato": "Você pode nos contatar pelo WhatsApp ou email. Qual prefere?"

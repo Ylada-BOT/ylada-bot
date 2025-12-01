@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conectar WhatsApp - Ylada BOT</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        
+        h1 {
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #6b7280;
+            margin-bottom: 30px;
+        }
+        
+        .qr-container {
+            background: #f9fafb;
+            padding: 30px;
+            border-radius: 12px;
+            margin: 30px 0;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .qr-code {
+            font-family: monospace;
+            white-space: pre;
+            font-size: 8px;
+            line-height: 1;
+        }
+        
+        .status {
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+        
+        .status.waiting {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status.connected {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .instructions {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: left;
+            margin: 20px 0;
+        }
+        
+        .instructions ol {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+        
+        .instructions li {
+            margin: 8px 0;
+            color: #1f2937;
+        }
+        
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        
+        .btn:hover {
+            background: #2563eb;
+        }
+        
+        .loading {
+            color: #6b7280;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script>
+        // Garante que QRCode está disponível
+        window.QRCode = window.QRCode || (typeof QRCode !== 'undefined' ? QRCode : null);
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Conectar WhatsApp</h1>
+        <p class="subtitle">Escaneie o QR Code para conectar seu WhatsApp</p>
+        
+        <div class="status waiting" id="status">
+            ⏳ Aguardando QR Code...
+        </div>
+        
+        <div class="qr-container" id="qr-container">
+            <div class="loading">Carregando QR Code...</div>
+        </div>
+        
+        <div class="instructions">
+            <strong>Como conectar:</strong>
+            <ol>
+                <li>Abra o WhatsApp no seu celular</li>
+                <li>Vá em <strong>Configurações</strong> > <strong>Aparelhos conectados</strong></li>
+                <li>Toque em <strong>Conectar um aparelho</strong></li>
+                <li>Escaneie o QR Code acima</li>
+            </ol>
+        </div>
+        
+        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+            <button class="btn" onclick="checkStatus()">🔄 Verificar Status</button>
+            <button class="btn" onclick="restartServer()" style="background: #10b981;">🔄 Reiniciar Servidor</button>
+        </div>
+        <br>
+        <a href="/" style="display: inline-block; margin-top: 20px; color: #3b82f6; text-decoration: none;">
+            ← Voltar ao Dashboard
+        </a>
+    </div>
+    
+    <script>
+        async function loadQR() {
+            try {
+                const response = await fetch('/api/qr');
+                const data = await response.json();
+                
+                if (data.ready) {
+                    document.getElementById('status').textContent = '✅ WhatsApp conectado!';
+                    document.getElementById('status').className = 'status connected';
+                    document.getElementById('qr-container').innerHTML = 
+                        '<div style="color: #10b981; font-size: 48px;">✅</div><p style="margin-top: 10px;">Conectado com sucesso!</p>';
+                    return;
+                }
+                
+                if (data.qr) {
+                    document.getElementById('status').textContent = '📱 Escaneie o QR Code abaixo';
+                    document.getElementById('status').className = 'status waiting';
+                    
+                    // Gera QR Code usando API online
+                    const qrContainer = document.getElementById('qr-container');
+                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(data.qr)}`;
+                    
+                    qrContainer.innerHTML = `
+                        <div style="text-align: center;">
+                            <img src="${qrUrl}" alt="QR Code" style="max-width: 100%; border: 2px solid #e5e7eb; border-radius: 8px;">
+                            <p style="margin-top: 15px; color: #6b7280; font-size: 14px;">
+                                📱 <strong>IMPORTANTE:</strong> Veja também o terminal onde o bot está rodando!<br>
+                                O QR Code em ASCII aparece lá automaticamente.
+                            </p>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('status').textContent = '⏳ Aguardando QR Code...';
+                    document.getElementById('qr-container').innerHTML = `
+                        <div class="loading">
+                            <p>Aguardando QR Code ser gerado...</p>
+                            <p style="font-size: 12px; margin-top: 10px; color: #9ca3af;">
+                                O servidor Node.js está iniciando. Isso pode levar alguns segundos.<br>
+                                O QR Code aparecerá automaticamente quando estiver pronto.
+                            </p>
+                            ${data.error ? `<p style="color: #ef4444; margin-top: 10px; font-size: 12px;">⚠️ ${data.error}</p>` : ''}
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                document.getElementById('status').textContent = '❌ Erro ao conectar. Verifique se o servidor está rodando.';
+                document.getElementById('qr-container').innerHTML = '<div class="loading">Erro: ' + e.message + '</div>';
+            }
+        }
+        
+        async function checkStatus() {
+            try {
+                const response = await fetch('/api/whatsapp-status');
+                const data = await response.json();
+                
+                if (data.ready) {
+                    alert('✅ WhatsApp está conectado!');
+                    window.location.href = '/';
+                } else {
+                    alert('⏳ Ainda não conectado. Escaneie o QR Code.');
+                    loadQR();
+                }
+            } catch (e) {
+                alert('Erro: ' + e.message);
+            }
+        }
+        
+        async function restartServer() {
+            if (!confirm('Deseja reiniciar o servidor WhatsApp? Isso pode levar alguns segundos.')) {
+                return;
+            }
+            
+            document.getElementById('status').textContent = '🔄 Reiniciando servidor...';
+            document.getElementById('qr-container').innerHTML = '<div class="loading">Aguardando...</div>';
+            
+            try {
+                // Para o servidor atual (se houver)
+                await fetch('/api/restart-server', { method: 'POST' }).catch(() => {});
+                
+                // Aguarda um pouco
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                // Recarrega QR code
+                loadQR();
+            } catch (e) {
+                alert('Erro ao reiniciar: ' + e.message);
+                loadQR();
+            }
+        }
+        
+        // Carrega QR Code ao abrir
+        loadQR();
+        
+        // Atualiza a cada 3 segundos (mais frequente para pegar o QR code mais rápido)
+        setInterval(loadQR, 3000);
+    </script>
+</body>
+</html>
+

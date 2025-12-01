@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bate-papo ao vivo - Ylada BOT</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* Sidebar - Reutilizar */
+        .sidebar {
+            width: 260px;
+            background: white;
+            border-right: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .sidebar-logo {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .sidebar-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .sidebar-menu {
+            flex: 1;
+            padding: 10px 0;
+            overflow-y: auto;
+        }
+        
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            color: #6b7280;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        
+        .menu-item:hover {
+            background: #f9fafb;
+            color: #1f2937;
+        }
+        
+        .menu-item.active {
+            background: #eff6ff;
+            color: #3b82f6;
+            border-left: 3px solid #3b82f6;
+        }
+        
+        .sidebar-footer {
+            padding: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .account-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .account-avatar {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .account-details {
+            flex: 1;
+        }
+        
+        .account-name {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 14px;
+        }
+        
+        .account-id {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        /* Main Content - 3 Colunas */
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        /* Coluna 1: Lista de Chats */
+        .chats-list {
+            width: 350px;
+            background: white;
+            border-right: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chats-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .chats-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 12px;
+        }
+        
+        .chats-filters {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .filter-btn {
+            padding: 6px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            background: white;
+            font-size: 12px;
+            color: #6b7280;
+            cursor: pointer;
+        }
+        
+        .chats-search {
+            padding: 12px 20px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .chats-scroll {
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .chat-item {
+            padding: 12px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .chat-item:hover {
+            background: #f9fafb;
+        }
+        
+        .chat-item.active {
+            background: #eff6ff;
+        }
+        
+        .chat-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        
+        .chat-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .chat-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        
+        .chat-name {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 14px;
+        }
+        
+        .chat-time {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .chat-preview {
+            font-size: 13px;
+            color: #6b7280;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .chat-badge {
+            width: 8px;
+            height: 8px;
+            background: #3b82f6;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        
+        /* Coluna 2: Chat Ativo */
+        .chat-window {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-right: 1px solid #e5e7eb;
+        }
+        
+        .chat-window-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .chat-window-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .chat-window-name {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 16px;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        
+        .message {
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .message-content {
+            padding: 12px 16px;
+            border-radius: 12px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        
+        .message.received .message-content {
+            background: white;
+            color: #1f2937;
+            align-self: flex-start;
+        }
+        
+        .message.sent .message-content {
+            background: #3b82f6;
+            color: white;
+            align-self: flex-end;
+        }
+        
+        .message-time {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-top: 4px;
+            padding: 0 4px;
+        }
+        
+        .chat-input-area {
+            padding: 16px 20px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .input-icons {
+            display: flex;
+            gap: 8px;
+            color: #6b7280;
+            cursor: pointer;
+        }
+        
+        .chat-input {
+            flex: 1;
+            padding: 10px 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        
+        /* Coluna 3: Detalhes do Contato */
+        .contact-details {
+            width: 320px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        
+        .contact-header {
+            padding: 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .contact-name-large {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+        
+        .contact-id {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .contact-avatar-large {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 32px;
+            font-weight: 600;
+            margin: 20px auto;
+        }
+        
+        .contact-section {
+            padding: 20px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 12px;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 14px;
+        }
+        
+        .info-label {
+            color: #6b7280;
+        }
+        
+        .info-value {
+            color: #1f2937;
+            font-weight: 500;
+        }
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-open {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+        
+        .btn-green {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-blue {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-red {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .tags-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .tag {
+            padding: 4px 12px;
+            background: #eff6ff;
+            color: #3b82f6;
+            border-radius: 12px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .tag-remove {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">Y</div>
+            <div class="sidebar-title">Ylada BOT</div>
+        </div>
+        
+        <div class="sidebar-menu">
+            <a href="/" class="menu-item">
+                <span>🏠</span>
+                <span>Painel de Controle</span>
+            </a>
+            <a href="/contacts" class="menu-item">
+                <span>👥</span>
+                <span>Audiência</span>
+            </a>
+            <a href="/campaigns" class="menu-item">
+                <span>📢</span>
+                <span>Campanhas</span>
+            </a>
+            <a href="/broadcast" class="menu-item">
+                <span>📡</span>
+                <span>Transmissão</span>
+            </a>
+            <a href="/live-chat" class="menu-item active">
+                <span>💬</span>
+                <span>Bate-papo ao vivo</span>
+            </a>
+            <a href="/automation" class="menu-item">
+                <span>⚙️</span>
+                <span>Automação</span>
+            </a>
+            <a href="/flow-builder" class="menu-item">
+                <span>🔀</span>
+                <span>Fluxos de conversa</span>
+            </a>
+            <a href="/settings" class="menu-item">
+                <span>⚙️</span>
+                <span>Configurações</span>
+            </a>
+        </div>
+        
+        <div style="border-top: 1px solid #e5e7eb; margin-top: 10px; padding-top: 10px;">
+            <div style="padding: 0 20px; margin-bottom: 8px;">
+                <div style="font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase;">Modelos</div>
+            </div>
+        </div>
+        
+        <div class="sidebar-footer">
+            <div class="account-info" style="cursor: pointer;">
+                <div class="account-avatar">Y</div>
+                <div class="account-details">
+                    <div class="account-name">Ylada Suporte</div>
+                    <div class="account-id">ID 46470</div>
+                </div>
+                <span style="color: #6b7280;">→</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content - 3 Colunas -->
+    <div class="main-content">
+        <!-- Coluna 1: Lista de Chats -->
+        <div class="chats-list">
+            <div class="chats-header">
+                <div class="chats-title">Live chat</div>
+                <div class="chats-filters">
+                    <button class="filter-btn">Todos 🔽</button>
+                    <button class="filter-btn">Ambos 🔽</button>
+                    <span style="color: #6b7280; cursor: pointer;">🔽</span>
+                </div>
+            </div>
+            <div class="chats-search">
+                <input type="text" class="search-input" placeholder="Busca">
+            </div>
+            <div class="chats-scroll" id="chats-list">
+                <div style="padding: 40px 20px; text-align: center; color: #9ca3af;">
+                    <p>Nenhuma conversa ativa</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Coluna 2: Chat Ativo -->
+        <div class="chat-window">
+            <div class="chat-window-header">
+                <div class="chat-window-avatar" id="active-chat-avatar">?</div>
+                <div class="chat-window-name" id="active-chat-name">Selecione uma conversa</div>
+            </div>
+            <div class="chat-messages" id="chat-messages">
+                <div style="text-align: center; padding: 40px; color: #9ca3af;">
+                    <p>Selecione uma conversa para começar</p>
+                </div>
+            </div>
+            <div class="chat-input-area">
+                <div class="input-icons">
+                    <span>📎</span>
+                    <span>😊</span>
+                    <span>GIF</span>
+                    <span>🎤</span>
+                </div>
+                <input type="text" class="chat-input" placeholder="Digite uma mensagem" id="message-input">
+            </div>
+        </div>
+        
+        <!-- Coluna 3: Detalhes do Contato -->
+        <div class="contact-details">
+            <div class="contact-header">
+                <div>
+                    <div class="contact-name-large" id="contact-name">Selecione um contato</div>
+                    <div class="contact-id" id="contact-id">-</div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <span style="color: #6b7280; cursor: pointer;">✏️</span>
+                    <span style="color: #6b7280; cursor: pointer;">📋</span>
+                    <span style="color: #6b7280; cursor: pointer;">⋮</span>
+                </div>
+            </div>
+            
+            <div class="contact-avatar-large" id="contact-avatar-large">?</div>
+            
+            <div class="contact-section">
+                <div class="section-title">Atendimento está</div>
+                <div class="status-badge status-open">Aberto</div>
+                <button class="btn btn-green">✅ Marcar como Concluído</button>
+            </div>
+            
+            <div class="contact-section">
+                <div class="section-title">Informações</div>
+                <div class="info-row">
+                    <span class="info-label">Telefone</span>
+                    <span class="info-value" id="contact-phone">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">E-mail</span>
+                    <span class="info-value" id="contact-email">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Data de inscrição</span>
+                    <span class="info-value" id="contact-date">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">CPF</span>
+                    <span class="info-value" id="contact-cpf">-</span>
+                </div>
+            </div>
+            
+            <div class="contact-section">
+                <div class="section-title">Automação</div>
+                <div style="background: #d1fae5; padding: 12px; border-radius: 6px; margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px; color: #065f46;">
+                        <span>🤖</span>
+                        <span style="font-weight: 500;">Automação está ligada</span>
+                    </div>
+                </div>
+                <button class="btn btn-blue">Pausar automação por 🔽</button>
+            </div>
+            
+            <div class="contact-section">
+                <div class="section-title">Atribuição</div>
+                <button class="btn btn-blue">Desvincular-me</button>
+                <button class="btn btn-blue">Atribuído a Andre Faula 🔽</button>
+                <a href="#" style="color: #ef4444; font-size: 12px; text-decoration: none;">Remover Atribuição</a>
+            </div>
+            
+            <div class="contact-section">
+                <div class="section-title">Etiquetas</div>
+                <button class="btn" style="background: #f3f4f6; color: #1f2937;">+ Adicionar</button>
+                <div class="tags-section" id="contact-tags">
+                    <!-- Tags aparecerão aqui -->
+                </div>
+            </div>
+            
+            <div class="contact-section">
+                <div class="section-title">Sequências</div>
+                <button class="btn" style="background: #f3f4f6; color: #1f2937;">+ Adicionar</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        async function loadChats() {
+            try {
+                const response = await fetch('/conversations');
+                const data = await response.json();
+                const whatsappChats = data.whatsapp_chats || [];
+                
+                const chatsList = document.getElementById('chats-list');
+                
+                if (whatsappChats.length === 0) {
+                    chatsList.innerHTML = '<div style="padding: 40px 20px; text-align: center; color: #9ca3af;"><p>Nenhuma conversa ativa</p></div>';
+                    return;
+                }
+                
+                chatsList.innerHTML = whatsappChats.map((chat, index) => {
+                    const time = new Date(chat.timestamp);
+                    const timeStr = time.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                    const preview = (chat.lastMessage || '').length > 30 ? (chat.lastMessage || '').substring(0, 30) + '...' : (chat.lastMessage || '');
+                    const initial = chat.name.charAt(0).toUpperCase();
+                    
+                    return `
+                        <div class="chat-item" onclick="selectChat(${index})" data-chat-index="${index}">
+                            <div class="chat-avatar">${initial}</div>
+                            <div class="chat-info">
+                                <div class="chat-header-row">
+                                    <div class="chat-name">${escapeHtml(chat.name)}</div>
+                                    <div class="chat-time">${timeStr}</div>
+                                </div>
+                                <div class="chat-preview">${escapeHtml(preview || 'Sem mensagens')}</div>
+                            </div>
+                            ${chat.unreadCount > 0 ? '<div class="chat-badge"></div>' : ''}
+                        </div>
+                    `;
+                }).join('');
+                
+                // Armazena chats globalmente para acesso
+                window.whatsappChats = whatsappChats;
+            } catch (e) {
+                console.error('Erro ao carregar chats:', e);
+            }
+        }
+        
+        async function selectChat(index) {
+            if (!window.whatsappChats || !window.whatsappChats[index]) {
+                console.error('Chat não encontrado');
+                return;
+            }
+            
+            const chat = window.whatsappChats[index];
+            
+            // Marca o item como ativo
+            document.querySelectorAll('.chat-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            const clickedItem = document.querySelector(`[data-chat-index="${index}"]`);
+            if (clickedItem) {
+                clickedItem.classList.add('active');
+            }
+            
+            // Atualiza chat ativo
+            document.getElementById('active-chat-name').textContent = chat.name;
+            document.getElementById('active-chat-avatar').textContent = chat.name.charAt(0).toUpperCase();
+            
+            // Atualiza detalhes do contato
+            document.getElementById('contact-name').textContent = chat.name;
+            document.getElementById('contact-id').textContent = 'ID ' + (chat.id || chat.phone);
+            document.getElementById('contact-phone').textContent = chat.phone ? '+' + chat.phone : '-';
+            document.getElementById('contact-avatar-large').textContent = chat.name.charAt(0).toUpperCase();
+            
+            // Carrega mensagens reais do WhatsApp
+            await loadChatMessages(chat.id);
+        }
+        
+        async function loadChatMessages(chatId) {
+            try {
+                const response = await fetch(`/api/chats/${chatId}/messages?limit=50`);
+                const data = await response.json();
+                const messages = data.messages || [];
+                
+                const messagesContainer = document.getElementById('chat-messages');
+                
+                if (messages.length === 0) {
+                    messagesContainer.innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: #9ca3af;">
+                            <p>Nenhuma mensagem ainda</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                messagesContainer.innerHTML = messages.map(msg => {
+                    const date = new Date(msg.timestamp);
+                    const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                    const dateStr = date.toLocaleDateString('pt-BR');
+                    
+                    const messageClass = msg.fromMe ? 'sent' : 'received';
+                    const alignClass = msg.fromMe ? 'flex-end' : 'flex-start';
+                    
+                    return `
+                        <div class="message ${messageClass}" style="align-items: ${alignClass};">
+                            <div class="message-content">${escapeHtml(msg.body || '')}</div>
+                            <div class="message-time" style="text-align: ${msg.fromMe ? 'right' : 'left'};">${timeStr}</div>
+                        </div>
+                    `;
+                }).join('');
+                
+                // Scroll para o final
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            } catch (e) {
+                console.error('Erro ao carregar mensagens:', e);
+                document.getElementById('chat-messages').innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #ef4444;">
+                        <p>Erro ao carregar mensagens</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Enviar mensagem
+        document.getElementById('message-input').addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter' && e.target.value.trim()) {
+                const message = e.target.value.trim();
+                const activeChat = document.querySelector('.chat-item.active');
+                if (!activeChat) {
+                    alert('Selecione uma conversa primeiro');
+                    return;
+                }
+                
+                // TODO: Implementar envio de mensagem
+                e.target.value = '';
+            }
+        });
+        
+        // Carrega chats ao iniciar
+        loadChats();
+        setInterval(loadChats, 10000);
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,16 @@
+requests==2.31.0
+python-dotenv==1.0.0
+pyyaml==6.0.1
+flask==3.0.0
+flask-cors==4.0.0
+sqlalchemy==2.0.23
+python-dateutil==2.8.2
+qrcode[pil]==7.4.2
+supabase==2.0.0
+websockets==12.0
+
+# Opcional - Para WhatsApp Web (gratuito)
+# Descomente se quiser usar:
+# playwright==1.40.0
+# selenium==4.15.0
+

@@ -25,8 +25,15 @@ from campaigns_manager import CampaignsManager
 app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), 'templates'))
 CORS(app)
 
-# Inicializa bot simplificado
-bot = LadaBotSimple(config_path=os.path.join(os.path.dirname(__file__), '..', 'config', 'config.yaml'))
+# Inicializa bot simplificado (com tratamento de erro para Vercel)
+bot = None
+try:
+    config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'config.yaml')
+    bot = LadaBotSimple(config_path=config_path)
+except Exception as e:
+    print(f"[!] Erro ao inicializar bot: {e}")
+    # Em caso de erro, cria um bot mínimo
+    bot = None
 
 # Handler WhatsApp Web.js (lazy loading - só inicializa quando necessário)
 # No Vercel/serverless, não inicializa automaticamente
@@ -44,9 +51,14 @@ def get_whatsapp_webjs():
                 whatsapp_webjs = None
     return whatsapp_webjs
 
-# Gerenciadores adicionais (estilo Botconversa)
-users_manager = UsersManager()
-campaigns_manager = CampaignsManager()
+# Gerenciadores adicionais (estilo Botconversa) - com tratamento de erro
+users_manager = None
+campaigns_manager = None
+try:
+    users_manager = UsersManager()
+    campaigns_manager = CampaignsManager()
+except Exception as e:
+    print(f"[!] Erro ao inicializar gerenciadores: {e}")
 
 
 @app.route('/', methods=['GET'])
@@ -72,6 +84,9 @@ def send_message():
         if not phone or not message:
             return jsonify({"error": "phone and message are required"}), 400
         
+        if not bot:
+            return jsonify({"error": "Bot não disponível"}), 503
+        
         success = bot.send_message(phone, message)
         return jsonify({"success": success}), 200
     except Exception as e:
@@ -85,6 +100,9 @@ def webhook():
         data = request.get_json()
         if not data:
             return jsonify({"error": "No data"}), 400
+        
+        if not bot:
+            return jsonify({"error": "Bot não disponível"}), 503
         
         response = bot.handle_webhook(data)
         return jsonify({"status": "processed", "response": response}), 200
@@ -221,6 +239,9 @@ def restart_server():
 @app.route('/api/users', methods=['GET', 'POST'])
 def manage_users():
     """Gerencia usuários/atendentes"""
+    if not users_manager:
+        return jsonify({"error": "Users manager não disponível"}), 503
+    
     if request.method == 'GET':
         role = request.args.get('role')
         users = users_manager.list_users(role=role)
@@ -239,6 +260,9 @@ def manage_users():
 @app.route('/api/campaigns', methods=['GET', 'POST'])
 def manage_campaigns():
     """Gerencia campanhas com QR Code"""
+    if not campaigns_manager:
+        return jsonify({"error": "Campaigns manager não disponível"}), 503
+    
     if request.method == 'GET':
         active_only = request.args.get('active_only', 'false').lower() == 'true'
         campaigns = campaigns_manager.list_campaigns(active_only=active_only)
@@ -395,6 +419,9 @@ def get_flow(flow_name):
 @app.route('/campaign/<campaign_id>', methods=['GET'])
 def campaign_redirect(campaign_id):
     """Redireciona campanha e aciona fluxo"""
+    if not campaigns_manager:
+        return jsonify({"error": "Campaigns manager não disponível"}), 503
+    
     campaign = campaigns_manager.get_campaign(campaign_id)
     if not campaign:
         return jsonify({"error": "Campanha não encontrada"}), 404
@@ -438,6 +465,13 @@ def get_contacts_data():
     search = request.args.get('search', '')
     
     # Busca contatos do bot
+    if not bot:
+        return jsonify({
+            "contacts": [],
+            "stats": {"total_contacts": 0, "whatsapp_contacts": 0},
+            "total": 0
+        }), 200
+    
     bot_contacts = bot.contacts.list_contacts(search=search if search else None)
     stats = bot.contacts.get_stats()
     
@@ -503,6 +537,14 @@ def get_contacts_data():
 @app.route('/conversations', methods=['GET'])
 def get_conversations():
     """Lista conversas"""
+    if not bot:
+        return jsonify({
+            "conversations": [],
+            "messages_log": [],
+            "whatsapp_chats": [],
+            "has_real_chats": False
+        }), 200
+    
     conversations = bot.conversation.conversations
     messages_log = bot.whatsapp.get_messages_log()
     

@@ -28,8 +28,21 @@ CORS(app)
 # Inicializa bot simplificado
 bot = LadaBotSimple(config_path=os.path.join(os.path.dirname(__file__), '..', 'config', 'config.yaml'))
 
-# Handler WhatsApp Web.js (opcional - para conversas reais)
-whatsapp_webjs = WhatsAppWebJSHandler(instance_name="ylada_bot", port=5001)
+# Handler WhatsApp Web.js (lazy loading - só inicializa quando necessário)
+# No Vercel/serverless, não inicializa automaticamente
+whatsapp_webjs = None
+def get_whatsapp_webjs():
+    """Retorna instância do WhatsApp Web.js (lazy loading)"""
+    global whatsapp_webjs
+    if whatsapp_webjs is None:
+        # Só inicializa se não estiver em ambiente serverless
+        if os.getenv('VERCEL') is None:
+            try:
+                whatsapp_webjs = WhatsAppWebJSHandler(instance_name="ylada_bot", port=5001)
+            except Exception as e:
+                print(f"[!] Erro ao inicializar WhatsApp Web.js: {e}")
+                whatsapp_webjs = None
+    return whatsapp_webjs
 
 # Gerenciadores adicionais (estilo Botconversa)
 users_manager = UsersManager()
@@ -89,8 +102,10 @@ def qr_code_page():
             requests.get("http://localhost:5001/health", timeout=1)
         except:
             # Servidor não está rodando, inicia
-            print("[*] Iniciando servidor WhatsApp Web.js ao acessar /qr...")
-            whatsapp_webjs.start_server()
+            wjs = get_whatsapp_webjs()
+            if wjs:
+                print("[*] Iniciando servidor WhatsApp Web.js ao acessar /qr...")
+                wjs.start_server()
     except Exception as e:
         print(f"[!] Erro ao verificar/iniciar servidor: {e}")
     
@@ -100,9 +115,17 @@ def qr_code_page():
 @app.route('/api/qr', methods=['GET'])
 def get_qr():
     """Retorna QR Code do WhatsApp Web.js"""
+    wjs = get_whatsapp_webjs()
+    if not wjs:
+        return jsonify({
+            "ready": False,
+            "qr": None,
+            "message": "WhatsApp Web.js não disponível em ambiente serverless"
+        }), 503
+    
     try:
         # Verifica se já está conectado
-        if whatsapp_webjs.is_ready():
+        if wjs.is_ready():
             return jsonify({
                 "ready": True,
                 "qr": None,
@@ -115,7 +138,7 @@ def get_qr():
             health_check = requests.get("http://localhost:5001/health", timeout=2)
             if health_check.status_code == 200:
                 # Servidor está rodando, busca QR code
-                qr = whatsapp_webjs.get_qr_code()
+                qr = wjs.get_qr_code()
                 if qr:
                     return jsonify({
                         "ready": False,
@@ -134,10 +157,10 @@ def get_qr():
         
         # Inicia o servidor se não estiver rodando
         print("[*] Iniciando servidor WhatsApp Web.js...")
-        if whatsapp_webjs.start_server():
+        if wjs.start_server():
             # Aguarda um pouco para o servidor iniciar e gerar QR
             time.sleep(5)
-            qr = whatsapp_webjs.get_qr_code()
+            qr = wjs.get_qr_code()
             if qr:
                 return jsonify({
                     "ready": False,
@@ -169,21 +192,25 @@ def get_qr():
 @app.route('/api/whatsapp-status', methods=['GET'])
 def whatsapp_status():
     """Status da conexão WhatsApp"""
-    is_ready = whatsapp_webjs.is_ready()
+    wjs = get_whatsapp_webjs()
+    is_ready = wjs.is_ready() if wjs else False
     return jsonify({
         "ready": is_ready,
         "mode": "webjs" if is_ready else "simple",
-        "message": "WhatsApp conectado!" if is_ready else "Aguardando conexão..."
+        "message": "WhatsApp conectado!" if is_ready else "Aguardando conexão..." if wjs else "WhatsApp Web.js não disponível em serverless"
     }), 200
 
 
 @app.route('/api/restart-server', methods=['POST'])
 def restart_server():
     """Reinicia o servidor Node.js"""
+    wjs = get_whatsapp_webjs()
+    if not wjs:
+        return jsonify({"success": False, "error": "WhatsApp Web.js não disponível"}), 503
     try:
-        whatsapp_webjs.stop_server()
+        wjs.stop_server()
         time.sleep(2)
-        whatsapp_webjs.start_server()
+        wjs.start_server()
         return jsonify({"success": True, "message": "Servidor reiniciado"}), 200
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -417,8 +444,9 @@ def get_contacts_data():
     # Busca contatos reais do WhatsApp
     whatsapp_contacts = []
     try:
-        if whatsapp_webjs.is_ready():
-            whatsapp_chats = whatsapp_webjs.get_chats()
+        wjs = get_whatsapp_webjs()
+        if wjs and wjs.is_ready():
+            whatsapp_chats = wjs.get_chats()
             # Converte chats em contatos
             for chat in whatsapp_chats:
                 if not chat.get('isGroup', False):  # Apenas contatos individuais
@@ -481,21 +509,23 @@ def get_conversations():
     # Tenta buscar conversas reais do WhatsApp Web.js
     whatsapp_chats = []
     try:
-        # Verifica se o servidor está rodando
-        if not whatsapp_webjs.is_ready():
-            # Tenta iniciar o servidor se não estiver rodando
-            try:
-                import requests
-                requests.get(f"http://localhost:5001/health", timeout=1)
-            except:
-                # Servidor não está rodando, tenta iniciar
-                print("[*] Tentando iniciar servidor WhatsApp Web.js...")
-                whatsapp_webjs.start_server()
-                time.sleep(3)
-        
-        # Se estiver pronto, busca chats
-        if whatsapp_webjs.is_ready():
-            whatsapp_chats = whatsapp_webjs.get_chats()
+        wjs = get_whatsapp_webjs()
+        if wjs:
+            # Verifica se o servidor está rodando
+            if not wjs.is_ready():
+                # Tenta iniciar o servidor se não estiver rodando
+                try:
+                    import requests
+                    requests.get(f"http://localhost:5001/health", timeout=1)
+                except:
+                    # Servidor não está rodando, tenta iniciar
+                    print("[*] Tentando iniciar servidor WhatsApp Web.js...")
+                    wjs.start_server()
+                    time.sleep(3)
+            
+            # Se estiver pronto, busca chats
+            if wjs.is_ready():
+                whatsapp_chats = wjs.get_chats()
     except Exception as e:
         print(f"[!] Erro ao buscar chats reais: {e}")
     
@@ -512,7 +542,10 @@ def get_chat_messages(chat_id):
     """Busca mensagens de um chat específico"""
     try:
         limit = request.args.get('limit', 50, type=int)
-        messages = whatsapp_webjs.get_chat_messages(chat_id, limit)
+        wjs = get_whatsapp_webjs()
+        if not wjs:
+            return jsonify({"messages": [], "error": "WhatsApp Web.js não disponível"}), 503
+        messages = wjs.get_chat_messages(chat_id, limit)
         return jsonify({
             "success": True,
             "messages": messages,

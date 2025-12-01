@@ -31,7 +31,7 @@ npm --version
 ### 2. Instalar Dependências
 
 ```bash
-cd "/Users/air/EXTRATOR EUA"
+cd "/Users/air/Ylada BOT"
 npm install whatsapp-web.js qrcode-terminal express
 ```
 

@@ -2,7 +2,7 @@
 
 ## ⚠️ Problema
 
-O Cursor ainda mostra "EXTRATOR EUA" porque está com a pasta antiga aberta.
+O Cursor deve mostrar "Ylada BOT" como nome do projeto.
 
 ## ✅ Solução
 

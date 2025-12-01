@@ -8,7 +8,7 @@ Se o QR Code não está aparecendo, siga estes passos:
 
 1. **Abra um terminal** na pasta do projeto:
    ```bash
-   cd "/Users/air/EXTRATOR EUA"
+   cd "/Users/air/Ylada BOT"
    ```
 
 2. **Inicie o servidor Node.js manualmente**:
@@ -61,7 +61,7 @@ Se o servidor não inicia, verifique:
 
 3. **Em outro terminal, inicie o Flask**:
    ```bash
-   cd "/Users/air/EXTRATOR EUA"
+   cd "/Users/air/Ylada BOT"
    source .venv/bin/activate
    python web/app.py
    ```

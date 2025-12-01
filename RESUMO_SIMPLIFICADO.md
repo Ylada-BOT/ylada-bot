@@ -14,7 +14,7 @@
 
 ### Iniciar:
 ```bash
-cd "/Users/air/EXTRATOR EUA"
+cd "/Users/air/Ylada BOT"
 source .venv/bin/activate
 python web/app_simple.py
 ```

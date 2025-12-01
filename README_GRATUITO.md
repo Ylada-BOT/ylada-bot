@@ -49,7 +49,7 @@ Só use se quiser recursos avançados. O modo SIMPLES já é suficiente!
 ### Opção 1: Modo SIMPLES (Mais fácil)
 
 ```bash
-cd "/Users/air/EXTRATOR EUA"
+cd "/Users/air/Ylada BOT"
 source .venv/bin/activate
 python web/app.py
 ```

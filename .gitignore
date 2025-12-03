@@ -32,6 +32,13 @@ instance/
 .env
 .env.local
 .env.*.local
+env.local.template
+
+# Arquivos com senhas e credenciais
+VARIAVEIS_VERCEL_COMPLETO.txt
+VARIAVEIS_SEU_PROJETO.txt
+*_COMPLETO.txt
+*_SEU_PROJETO.txt
 
 # IDEs
 .vscode/

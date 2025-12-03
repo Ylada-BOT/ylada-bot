@@ -25,40 +25,15 @@ from campaigns_manager import CampaignsManager
 app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), 'templates'))
 CORS(app)
 
-# Inicializa bot simplificado (com tratamento de erro para Vercel)
-bot = None
-try:
-    config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'config.yaml')
-    bot = LadaBotSimple(config_path=config_path)
-except Exception as e:
-    print(f"[!] Erro ao inicializar bot: {e}")
-    # Em caso de erro, cria um bot mínimo
-    bot = None
+# Inicializa bot simplificado
+bot = LadaBotSimple(config_path=os.path.join(os.path.dirname(__file__), '..', 'config', 'config.yaml'))
 
-# Handler WhatsApp Web.js (lazy loading - só inicializa quando necessário)
-# No Vercel/serverless, não inicializa automaticamente
-whatsapp_webjs = None
-def get_whatsapp_webjs():
-    """Retorna instância do WhatsApp Web.js (lazy loading)"""
-    global whatsapp_webjs
-    if whatsapp_webjs is None:
-        # Só inicializa se não estiver em ambiente serverless
-        if os.getenv('VERCEL') is None:
-            try:
-                whatsapp_webjs = WhatsAppWebJSHandler(instance_name="ylada_bot", port=5001)
-            except Exception as e:
-                print(f"[!] Erro ao inicializar WhatsApp Web.js: {e}")
-                whatsapp_webjs = None
-    return whatsapp_webjs
+# Handler WhatsApp Web.js (opcional - para conversas reais)
+whatsapp_webjs = WhatsAppWebJSHandler(instance_name="ylada_bot", port=5001)
 
-# Gerenciadores adicionais (estilo Botconversa) - com tratamento de erro
-users_manager = None
-campaigns_manager = None
-try:
-    users_manager = UsersManager()
-    campaigns_manager = CampaignsManager()
-except Exception as e:
-    print(f"[!] Erro ao inicializar gerenciadores: {e}")
+# Gerenciadores adicionais (estilo Botconversa)
+users_manager = UsersManager()
+campaigns_manager = CampaignsManager()
 
 
 @app.route('/', methods=['GET'])
@@ -84,9 +59,6 @@ def send_message():
         if not phone or not message:
             return jsonify({"error": "phone and message are required"}), 400
         
-        if not bot:
-            return jsonify({"error": "Bot não disponível"}), 503
-        
         success = bot.send_message(phone, message)
         return jsonify({"success": success}), 200
     except Exception as e:
@@ -100,9 +72,6 @@ def webhook():
         data = request.get_json()
         if not data:
             return jsonify({"error": "No data"}), 400
-        
-        if not bot:
-            return jsonify({"error": "Bot não disponível"}), 503
         
         response = bot.handle_webhook(data)
         return jsonify({"status": "processed", "response": response}), 200
@@ -120,10 +89,8 @@ def qr_code_page():
             requests.get("http://localhost:5001/health", timeout=1)
         except:
             # Servidor não está rodando, inicia
-            wjs = get_whatsapp_webjs()
-            if wjs:
-                print("[*] Iniciando servidor WhatsApp Web.js ao acessar /qr...")
-                wjs.start_server()
+            print("[*] Iniciando servidor WhatsApp Web.js ao acessar /qr...")
+            whatsapp_webjs.start_server()
     except Exception as e:
         print(f"[!] Erro ao verificar/iniciar servidor: {e}")
     
@@ -133,17 +100,9 @@ def qr_code_page():
 @app.route('/api/qr', methods=['GET'])
 def get_qr():
     """Retorna QR Code do WhatsApp Web.js"""
-    wjs = get_whatsapp_webjs()
-    if not wjs:
-        return jsonify({
-            "ready": False,
-            "qr": None,
-            "message": "WhatsApp Web.js não disponível em ambiente serverless"
-        }), 503
-    
     try:
         # Verifica se já está conectado
-        if wjs.is_ready():
+        if whatsapp_webjs.is_ready():
             return jsonify({
                 "ready": True,
                 "qr": None,
@@ -156,7 +115,7 @@ def get_qr():
             health_check = requests.get("http://localhost:5001/health", timeout=2)
             if health_check.status_code == 200:
                 # Servidor está rodando, busca QR code
-                qr = wjs.get_qr_code()
+                qr = whatsapp_webjs.get_qr_code()
                 if qr:
                     return jsonify({
                         "ready": False,
@@ -175,10 +134,10 @@ def get_qr():
         
         # Inicia o servidor se não estiver rodando
         print("[*] Iniciando servidor WhatsApp Web.js...")
-        if wjs.start_server():
+        if whatsapp_webjs.start_server():
             # Aguarda um pouco para o servidor iniciar e gerar QR
             time.sleep(5)
-            qr = wjs.get_qr_code()
+            qr = whatsapp_webjs.get_qr_code()
             if qr:
                 return jsonify({
                     "ready": False,
@@ -210,25 +169,21 @@ def get_qr():
 @app.route('/api/whatsapp-status', methods=['GET'])
 def whatsapp_status():
     """Status da conexão WhatsApp"""
-    wjs = get_whatsapp_webjs()
-    is_ready = wjs.is_ready() if wjs else False
+    is_ready = whatsapp_webjs.is_ready()
     return jsonify({
         "ready": is_ready,
         "mode": "webjs" if is_ready else "simple",
-        "message": "WhatsApp conectado!" if is_ready else "Aguardando conexão..." if wjs else "WhatsApp Web.js não disponível em serverless"
+        "message": "WhatsApp conectado!" if is_ready else "Aguardando conexão..."
     }), 200
 
 
 @app.route('/api/restart-server', methods=['POST'])
 def restart_server():
     """Reinicia o servidor Node.js"""
-    wjs = get_whatsapp_webjs()
-    if not wjs:
-        return jsonify({"success": False, "error": "WhatsApp Web.js não disponível"}), 503
     try:
-        wjs.stop_server()
+        whatsapp_webjs.stop_server()
         time.sleep(2)
-        wjs.start_server()
+        whatsapp_webjs.start_server()
         return jsonify({"success": True, "message": "Servidor reiniciado"}), 200
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -239,9 +194,6 @@ def restart_server():
 @app.route('/api/users', methods=['GET', 'POST'])
 def manage_users():
     """Gerencia usuários/atendentes"""
-    if not users_manager:
-        return jsonify({"error": "Users manager não disponível"}), 503
-    
     if request.method == 'GET':
         role = request.args.get('role')
         users = users_manager.list_users(role=role)
@@ -260,9 +212,6 @@ def manage_users():
 @app.route('/api/campaigns', methods=['GET', 'POST'])
 def manage_campaigns():
     """Gerencia campanhas com QR Code"""
-    if not campaigns_manager:
-        return jsonify({"error": "Campaigns manager não disponível"}), 503
-    
     if request.method == 'GET':
         active_only = request.args.get('active_only', 'false').lower() == 'true'
         campaigns = campaigns_manager.list_campaigns(active_only=active_only)
@@ -419,9 +368,6 @@ def get_flow(flow_name):
 @app.route('/campaign/<campaign_id>', methods=['GET'])
 def campaign_redirect(campaign_id):
     """Redireciona campanha e aciona fluxo"""
-    if not campaigns_manager:
-        return jsonify({"error": "Campaigns manager não disponível"}), 503
-    
     campaign = campaigns_manager.get_campaign(campaign_id)
     if not campaign:
         return jsonify({"error": "Campanha não encontrada"}), 404
@@ -465,22 +411,14 @@ def get_contacts_data():
     search = request.args.get('search', '')
     
     # Busca contatos do bot
-    if not bot:
-        return jsonify({
-            "contacts": [],
-            "stats": {"total_contacts": 0, "whatsapp_contacts": 0},
-            "total": 0
-        }), 200
-    
     bot_contacts = bot.contacts.list_contacts(search=search if search else None)
     stats = bot.contacts.get_stats()
     
     # Busca contatos reais do WhatsApp
     whatsapp_contacts = []
     try:
-        wjs = get_whatsapp_webjs()
-        if wjs and wjs.is_ready():
-            whatsapp_chats = wjs.get_chats()
+        if whatsapp_webjs.is_ready():
+            whatsapp_chats = whatsapp_webjs.get_chats()
             # Converte chats em contatos
             for chat in whatsapp_chats:
                 if not chat.get('isGroup', False):  # Apenas contatos individuais
@@ -537,37 +475,27 @@ def get_contacts_data():
 @app.route('/conversations', methods=['GET'])
 def get_conversations():
     """Lista conversas"""
-    if not bot:
-        return jsonify({
-            "conversations": [],
-            "messages_log": [],
-            "whatsapp_chats": [],
-            "has_real_chats": False
-        }), 200
-    
     conversations = bot.conversation.conversations
     messages_log = bot.whatsapp.get_messages_log()
     
     # Tenta buscar conversas reais do WhatsApp Web.js
     whatsapp_chats = []
     try:
-        wjs = get_whatsapp_webjs()
-        if wjs:
-            # Verifica se o servidor está rodando
-            if not wjs.is_ready():
-                # Tenta iniciar o servidor se não estiver rodando
-                try:
-                    import requests
-                    requests.get(f"http://localhost:5001/health", timeout=1)
-                except:
-                    # Servidor não está rodando, tenta iniciar
-                    print("[*] Tentando iniciar servidor WhatsApp Web.js...")
-                    wjs.start_server()
-                    time.sleep(3)
-            
-            # Se estiver pronto, busca chats
-            if wjs.is_ready():
-                whatsapp_chats = wjs.get_chats()
+        # Verifica se o servidor está rodando
+        if not whatsapp_webjs.is_ready():
+            # Tenta iniciar o servidor se não estiver rodando
+            try:
+                import requests
+                requests.get(f"http://localhost:5001/health", timeout=1)
+            except:
+                # Servidor não está rodando, tenta iniciar
+                print("[*] Tentando iniciar servidor WhatsApp Web.js...")
+                whatsapp_webjs.start_server()
+                time.sleep(3)
+        
+        # Se estiver pronto, busca chats
+        if whatsapp_webjs.is_ready():
+            whatsapp_chats = whatsapp_webjs.get_chats()
     except Exception as e:
         print(f"[!] Erro ao buscar chats reais: {e}")
     
@@ -579,41 +507,12 @@ def get_conversations():
     }), 200
 
 
-@app.route('/api/chats/<chat_id>/messages', methods=['GET', 'POST'])
+@app.route('/api/chats/<chat_id>/messages', methods=['GET'])
 def get_chat_messages(chat_id):
-    """Busca ou envia mensagens de um chat específico"""
-    if request.method == 'POST':
-        # Enviar mensagem
-        try:
-            data = request.get_json()
-            message = data.get('message', '')
-            if not message:
-                return jsonify({"success": False, "error": "Mensagem vazia"}), 400
-            
-            wjs = get_whatsapp_webjs()
-            if not wjs:
-                return jsonify({"success": False, "error": "WhatsApp Web.js não disponível"}), 503
-            
-            # Envia mensagem via WhatsApp Web.js
-            result = wjs.send_message(chat_id, message)
-            return jsonify({
-                "success": True,
-                "message": "Mensagem enviada",
-                "result": result
-            }), 200
-        except Exception as e:
-            return jsonify({
-                "success": False,
-                "error": str(e)
-            }), 500
-    
-    # GET - Buscar mensagens
+    """Busca mensagens de um chat específico"""
     try:
         limit = request.args.get('limit', 50, type=int)
-        wjs = get_whatsapp_webjs()
-        if not wjs:
-            return jsonify({"messages": [], "error": "WhatsApp Web.js não disponível"}), 503
-        messages = wjs.get_chat_messages(chat_id, limit)
+        messages = whatsapp_webjs.get_chat_messages(chat_id, limit)
         return jsonify({
             "success": True,
             "messages": messages,

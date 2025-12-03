@@ -15,7 +15,7 @@ Esta versão tem **apenas o que você precisa usar agora**:
 
 ### 1. Iniciar o Bot
 ```bash
-cd "/Users/air/Ylada BOT"
+cd "/Users/air/EXTRATOR EUA"
 source .venv/bin/activate
 python web/app_simple.py
 ```

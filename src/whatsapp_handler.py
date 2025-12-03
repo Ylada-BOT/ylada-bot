@@ -4,14 +4,9 @@ Integração com WhatsApp via Z-API
 import requests
 from typing import Dict, Optional
 import os
-from pathlib import Path
+from dotenv import load_dotenv
 
-# Carrega .env apenas se existir (para desenvolvimento local)
-# No Vercel, as variáveis são injetadas automaticamente
-env_path = Path(__file__).parent.parent / '.env'
-if env_path.exists():
-    from dotenv import load_dotenv
-    load_dotenv(env_path)
+load_dotenv()
 
 
 class WhatsAppHandler:

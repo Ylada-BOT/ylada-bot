@@ -14,7 +14,7 @@ python3 --version
 
 #### 2. Dependências do projeto (já estão no requirements.txt)
 ```bash
-cd "/Users/air/Ylada BOT"
+cd "/Users/air/EXTRATOR EUA"
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt

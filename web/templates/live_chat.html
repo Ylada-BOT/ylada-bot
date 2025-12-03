@@ -161,12 +161,6 @@
             font-size: 12px;
             color: #6b7280;
             cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .filter-btn:hover {
-            background: #f9fafb;
-            border-color: #d1d5db;
         }
         
         .chats-search {
@@ -203,7 +197,6 @@
         
         .chat-item.active {
             background: #eff6ff;
-            border-left: 3px solid #3b82f6;
         }
         
         .chat-avatar {
@@ -342,19 +335,9 @@
         
         .input-icons {
             display: flex;
-            gap: 12px;
+            gap: 8px;
             color: #6b7280;
             cursor: pointer;
-            font-size: 18px;
-        }
-        
-        .input-icons span {
-            transition: transform 0.2s;
-        }
-        
-        .input-icons span:hover {
-            transform: scale(1.1);
-            color: #3b82f6;
         }
         
         .chat-input {
@@ -363,12 +346,6 @@
             border: 1px solid #e5e7eb;
             border-radius: 20px;
             font-size: 14px;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        
-        .chat-input:focus {
-            border-color: #3b82f6;
         }
         
         /* Coluna 3: Detalhes do Contato */
@@ -603,13 +580,12 @@
             </div>
             <div class="chat-input-area">
                 <div class="input-icons">
-                    <span title="Anexar arquivo">📎</span>
-                    <span title="Emoji">😊</span>
-                    <span title="GIF">GIF</span>
-                    <span title="Gravar áudio">🎤</span>
+                    <span>📎</span>
+                    <span>😊</span>
+                    <span>GIF</span>
+                    <span>🎤</span>
                 </div>
                 <input type="text" class="chat-input" placeholder="Digite uma mensagem" id="message-input">
-                <button style="background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: 500;" onclick="sendMessage()">Enviar</button>
             </div>
         </div>
         
@@ -737,7 +713,6 @@
             }
             
             const chat = window.whatsappChats[index];
-            currentChatId = chat.id || chat.phone; // Armazena ID do chat atual
             
             // Marca o item como ativo
             document.querySelectorAll('.chat-item').forEach(item => {
@@ -754,32 +729,12 @@
             
             // Atualiza detalhes do contato
             document.getElementById('contact-name').textContent = chat.name;
-            document.getElementById('contact-id').textContent = chat.id || chat.phone || '-';
-            document.getElementById('contact-phone').textContent = chat.phone ? formatPhone(chat.phone) : '-';
+            document.getElementById('contact-id').textContent = 'ID ' + (chat.id || chat.phone);
+            document.getElementById('contact-phone').textContent = chat.phone ? '+' + chat.phone : '-';
             document.getElementById('contact-avatar-large').textContent = chat.name.charAt(0).toUpperCase();
             
-            // Atualiza data de inscrição se disponível
-            if (chat.timestamp) {
-                const date = new Date(chat.timestamp * 1000);
-                document.getElementById('contact-date').textContent = date.toLocaleDateString('pt-BR');
-            }
-            
             // Carrega mensagens reais do WhatsApp
-            await loadChatMessages(currentChatId);
-        }
-        
-        function formatPhone(phone) {
-            // Formata telefone: 5511999999999 -> +55 11 99999-9999
-            if (phone.length >= 12) {
-                const country = phone.substring(0, 2);
-                const area = phone.substring(2, 4);
-                const number = phone.substring(4);
-                if (number.length === 9) {
-                    return `+${country} ${area} ${number.substring(0, 5)}-${number.substring(5)}`;
-                }
-                return `+${country} ${area} ${number}`;
-            }
-            return phone;
+            await loadChatMessages(chat.id);
         }
         
         async function loadChatMessages(chatId) {
@@ -840,103 +795,23 @@
         }
         
         // Enviar mensagem
-        let currentChatId = null;
-        
         document.getElementById('message-input').addEventListener('keypress', async (e) => {
             if (e.key === 'Enter' && e.target.value.trim()) {
                 const message = e.target.value.trim();
                 const activeChat = document.querySelector('.chat-item.active');
-                if (!activeChat || !currentChatId) {
+                if (!activeChat) {
                     alert('Selecione uma conversa primeiro');
                     return;
                 }
                 
-                // Envia mensagem
-                try {
-                    const response = await fetch(`/api/chats/${currentChatId}/messages`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ message: message })
-                    });
-                    
-                    const data = await response.json();
-                    if (data.success) {
-                        // Adiciona mensagem enviada na interface
-                        addMessageToChat(message, true);
-                        e.target.value = '';
-                        
-                        // Recarrega mensagens após 1 segundo
-                        setTimeout(() => loadChatMessages(currentChatId), 1000);
-                    } else {
-                        alert('Erro ao enviar: ' + (data.error || 'Erro desconhecido'));
-                    }
-                } catch (error) {
-                    console.error('Erro ao enviar mensagem:', error);
-                    alert('Erro ao enviar mensagem');
-                }
+                // TODO: Implementar envio de mensagem
+                e.target.value = '';
             }
         });
-        
-        function addMessageToChat(message, fromMe) {
-            const messagesContainer = document.getElementById('chat-messages');
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-            
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${fromMe ? 'sent' : 'received'}`;
-            messageDiv.style.alignItems = fromMe ? 'flex-end' : 'flex-start';
-            messageDiv.innerHTML = `
-                <div class="message-content">${escapeHtml(message)}</div>
-                <div class="message-time" style="text-align: ${fromMe ? 'right' : 'left'};">${timeStr}</div>
-            `;
-            
-            messagesContainer.appendChild(messageDiv);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-        
-        // Função para enviar mensagem (botão)
-        async function sendMessage() {
-            const input = document.getElementById('message-input');
-            const message = input.value.trim();
-            if (!message || !currentChatId) {
-                return;
-            }
-            
-            try {
-                const response = await fetch(`/api/chats/${currentChatId}/messages`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ message: message })
-                });
-                
-                const data = await response.json();
-                if (data.success) {
-                    addMessageToChat(message, true);
-                    input.value = '';
-                    setTimeout(() => loadChatMessages(currentChatId), 1000);
-                } else {
-                    alert('Erro ao enviar: ' + (data.error || 'Erro desconhecido'));
-                }
-            } catch (error) {
-                console.error('Erro ao enviar mensagem:', error);
-                alert('Erro ao enviar mensagem');
-            }
-        }
         
         // Carrega chats ao iniciar
         loadChats();
         setInterval(loadChats, 10000);
-        
-        // Atualiza mensagens do chat ativo a cada 5 segundos
-        setInterval(() => {
-            if (currentChatId) {
-                loadChatMessages(currentChatId);
-            }
-        }, 5000);
     </script>
 </body>
 </html>

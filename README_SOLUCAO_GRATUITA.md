@@ -26,7 +26,7 @@ brew install node
 
 ### 2. Instalar Dependências
 ```bash
-cd "/Users/air/Ylada BOT"
+cd "/Users/air/EXTRATOR EUA"
 npm install
 ```
 

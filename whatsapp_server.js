@@ -57,6 +57,23 @@ function initClient() {
     client.initialize();
 }
 
+// Rota raiz
+app.get('/', (req, res) => {
+    res.json({ 
+        service: 'WhatsApp Web.js Server',
+        status: 'running',
+        ready: isReady,
+        endpoints: {
+            health: '/health',
+            qr: '/qr',
+            status: '/status',
+            send: '/send (POST)',
+            chats: '/chats',
+            messages: '/chats/:chatId/messages'
+        }
+    });
+});
+
 // Rotas da API
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', ready: isReady });

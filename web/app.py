@@ -82,17 +82,19 @@ def webhook():
 @app.route('/qr', methods=['GET'])
 def qr_code_page():
     """Página para conectar WhatsApp"""
-    # Tenta iniciar o servidor automaticamente ao acessar a página
-    try:
-        import requests
+    # Em produção, o servidor está no Render, não precisa iniciar localmente
+    if os.getenv('ENVIRONMENT') != 'production':
+        # Apenas em desenvolvimento tenta iniciar servidor local
         try:
-            requests.get("http://localhost:5001/health", timeout=1)
-        except:
-            # Servidor não está rodando, inicia
-            print("[*] Iniciando servidor WhatsApp Web.js ao acessar /qr...")
-            whatsapp_webjs.start_server()
-    except Exception as e:
-        print(f"[!] Erro ao verificar/iniciar servidor: {e}")
+            import requests
+            try:
+                requests.get("http://localhost:5001/health", timeout=1)
+            except:
+                # Servidor não está rodando, inicia
+                print("[*] Iniciando servidor WhatsApp Web.js ao acessar /qr...")
+                whatsapp_webjs.start_server()
+        except Exception as e:
+            print(f"[!] Erro ao verificar/iniciar servidor: {e}")
     
     return render_template('qr_code.html')
 
@@ -101,68 +103,75 @@ def qr_code_page():
 def get_qr():
     """Retorna QR Code do WhatsApp Web.js"""
     try:
-        # Verifica se já está conectado
-        if whatsapp_webjs.is_ready():
-            return jsonify({
-                "ready": True,
-                "qr": None,
-                "message": "WhatsApp já conectado!"
-            }), 200
+        import requests
         
-        # Verifica se o servidor Node.js está rodando
+        # URL do servidor WhatsApp (Render em produção, localhost em desenvolvimento)
+        whatsapp_server_url = os.getenv('WHATSAPP_SERVER_URL', 'http://localhost:5001')
+        
+        # Se estiver em produção e não tiver URL configurada, usa Render padrão
+        if os.getenv('ENVIRONMENT') == 'production' and whatsapp_server_url == 'http://localhost:5001':
+            whatsapp_server_url = os.getenv('RENDER_WHATSAPP_URL', 'https://ylada-bot.onrender.com')
+        
+        # Busca QR Code diretamente do servidor Render
         try:
-            import requests
-            health_check = requests.get("http://localhost:5001/health", timeout=2)
-            if health_check.status_code == 200:
-                # Servidor está rodando, busca QR code
-                qr = whatsapp_webjs.get_qr_code()
-                if qr:
+            response = requests.get(f"{whatsapp_server_url}/qr", timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                return jsonify({
+                    "ready": data.get("ready", False),
+                    "qr": data.get("qr"),
+                    "message": "WhatsApp conectado!" if data.get("ready") else "Escaneie o QR Code para conectar"
+                }), 200
+        except requests.exceptions.RequestException as e:
+            # Se não conseguir conectar, tenta método local (desenvolvimento)
+            if whatsapp_server_url == 'http://localhost:5001':
+                # Verifica se já está conectado localmente
+                if whatsapp_webjs.is_ready():
                     return jsonify({
-                        "ready": False,
-                        "qr": qr,
-                        "message": "Escaneie o QR Code para conectar"
-                    }), 200
-                else:
-                    return jsonify({
-                        "ready": False,
+                        "ready": True,
                         "qr": None,
-                        "message": "Aguardando QR Code ser gerado... (pode levar alguns segundos)"
+                        "message": "WhatsApp já conectado!"
                     }), 200
-        except:
-            # Servidor não está rodando, precisa iniciar
-            pass
-        
-        # Inicia o servidor se não estiver rodando
-        print("[*] Iniciando servidor WhatsApp Web.js...")
-        if whatsapp_webjs.start_server():
-            # Aguarda um pouco para o servidor iniciar e gerar QR
-            time.sleep(5)
-            qr = whatsapp_webjs.get_qr_code()
-            if qr:
-                return jsonify({
-                    "ready": False,
-                    "qr": qr,
-                    "message": "Servidor iniciado! Escaneie o QR Code abaixo"
-                }), 200
-            else:
-                return jsonify({
-                    "ready": False,
-                    "qr": None,
-                    "message": "Servidor iniciado. Aguarde o QR Code ser gerado... (atualize a página em alguns segundos)"
-                }), 200
-        else:
+                
+                # Tenta iniciar servidor local
+                try:
+                    health_check = requests.get("http://localhost:5001/health", timeout=2)
+                    if health_check.status_code == 200:
+                        qr = whatsapp_webjs.get_qr_code()
+                        if qr:
+                            return jsonify({
+                                "ready": False,
+                                "qr": qr,
+                                "message": "Escaneie o QR Code para conectar"
+                            }), 200
+                except:
+                    pass
+                
+                # Inicia servidor local se não estiver rodando
+                if whatsapp_webjs.start_server():
+                    time.sleep(5)
+                    qr = whatsapp_webjs.get_qr_code()
+                    if qr:
+                        return jsonify({
+                            "ready": False,
+                            "qr": qr,
+                            "message": "Servidor iniciado! Escaneie o QR Code abaixo"
+                        }), 200
+            
             return jsonify({
                 "ready": False,
                 "qr": None,
-                "error": "Não foi possível iniciar o servidor. Verifique se Node.js está instalado e as dependências estão instaladas (npm install)"
-            }), 500
+                "error": f"Não foi possível conectar ao servidor WhatsApp. URL: {whatsapp_server_url}",
+                "message": "Acesse os logs do Render para ver o QR Code: https://dashboard.render.com"
+            }), 503
             
     except Exception as e:
         print(f"[!] Erro ao obter QR Code: {e}")
         return jsonify({
             "ready": False,
             "qr": None,
-            "error": str(e)
+            "error": str(e),
+            "message": "Acesse os logs do Render para ver o QR Code: https://dashboard.render.com"
         }), 500
 
 

@@ -158,6 +158,22 @@
         async function loadQR() {
             try {
                 const response = await fetch('/api/qr');
+                if (!response.ok) {
+                    // Se der erro, mostra mensagem amigável
+                    if (response.status === 503) {
+                        const data = await response.json();
+                        document.getElementById('status').textContent = '⚠️ Servidor WhatsApp não acessível';
+                        document.getElementById('qr-container').innerHTML = `
+                            <div style="text-align: center; padding: 20px;">
+                                <p style="color: #ef4444; margin-bottom: 15px;">${data.message || 'Acesse os logs do Render para ver o QR Code'}</p>
+                                <a href="https://dashboard.render.com" target="_blank" style="display: inline-block; padding: 10px 20px; background: #3b82f6; color: white; border-radius: 8px; text-decoration: none; margin-top: 10px;">
+                                    Ver Logs do Render →
+                                </a>
+                            </div>
+                        `;
+                        return;
+                    }
+                }
                 const data = await response.json();
                 
                 if (data.ready) {

@@ -2,7 +2,7 @@
 
 ## ⚠️ Problema
 
-O Cursor ainda mostra "EXTRATOR EUA" porque está com a pasta antiga aberta.
+O Cursor ainda mostra "Ylada BOT" porque está com a pasta antiga aberta.
 
 ## ✅ Solução
 

@@ -219,12 +219,33 @@ app.listen(port, () => {{
             return None
     
     def is_ready(self) -> bool:
-        """Verifica se está conectado"""
+        """Verifica se está conectado - verificação mais robusta"""
         try:
+            # Primeiro verifica o status
             response = requests.get(f"{self.base_url}/status", timeout=2)
             data = response.json()
-            return data.get("ready", False)
-        except:
+            is_ready_status = data.get("ready", False)
+            
+            # Se o status diz que está pronto, tenta verificar realmente tentando buscar chats
+            if is_ready_status:
+                try:
+                    # Tenta buscar chats para confirmar que realmente está conectado
+                    chats_response = requests.get(f"{self.base_url}/chats", timeout=3)
+                    if chats_response.status_code == 200:
+                        # Se conseguiu buscar chats, realmente está conectado
+                        return True
+                    else:
+                        # Se não conseguiu, provavelmente não está conectado de verdade
+                        print(f"[!] Status diz ready, mas /chats retornou {chats_response.status_code}")
+                        return False
+                except Exception as e:
+                    # Se deu erro ao buscar chats, não está realmente conectado
+                    print(f"[!] Status diz ready, mas erro ao verificar chats: {e}")
+                    return False
+            
+            return False
+        except Exception as e:
+            print(f"[!] Erro ao verificar status: {e}")
             return False
     
     def send_message(self, phone: str, message: str) -> bool:

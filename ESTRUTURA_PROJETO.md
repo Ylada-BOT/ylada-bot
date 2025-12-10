@@ -20,7 +20,7 @@
 ## 📂 Estrutura de Arquivos
 
 ```
-/Users/air/EXTRATOR EUA/
+/Users/air/Ylada BOT/
 ├── web/
 │   ├── app.py              ← VERSÃO ATUAL (simplificada) ⭐
 │   ├── app_completo.py     ← VERSÃO COMPLETA (referência) 📚

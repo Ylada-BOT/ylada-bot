@@ -424,9 +424,11 @@
         <div class="dashboard-content">
             <div class="top-bar">
                 <h1 class="page-title">Painel de Controle</h1>
-                <div class="status-badge" id="status">
-                    <span>●</span>
-                    <span>Online</span>
+                <div id="whatsapp-status-container">
+                    <div class="status-badge" id="status">
+                        <span>●</span>
+                        <span>Verificando...</span>
+                    </div>
                 </div>
             </div>
             
@@ -451,11 +453,17 @@
                 <div class="actions-section">
                     <h2 class="section-title">Ações Rápidas</h2>
                     <div class="actions-grid">
-                        <a href="/test" class="action-btn">
-                            <div class="action-icon">🧪</div>
-                            <div class="action-title">Testar Bot</div>
-                            <div class="action-desc">Enviar mensagens de teste</div>
+                        <a href="/qr" class="action-btn">
+                            <div class="action-icon">📱</div>
+                            <div class="action-title">Conectar WhatsApp</div>
+                            <div class="action-desc">Escanear QR Code</div>
                         </a>
+                        
+                        <div class="action-btn" onclick="syncContacts()">
+                            <div class="action-icon">🔄</div>
+                            <div class="action-title">Sincronizar Contatos</div>
+                            <div class="action-desc">Buscar contatos do WhatsApp</div>
+                        </div>
                         
                         <a href="/contacts" class="action-btn">
                             <div class="action-icon">👥</div>
@@ -463,16 +471,22 @@
                             <div class="action-desc">Lista de contatos e histórico</div>
                         </a>
                         
+                        <a href="/broadcast" class="action-btn">
+                            <div class="action-icon">📡</div>
+                            <div class="action-title">Disparar Mensagens</div>
+                            <div class="action-desc">Enviar para múltiplos contatos</div>
+                        </a>
+                        
+                        <a href="/flow-builder" class="action-btn">
+                            <div class="action-icon">🔀</div>
+                            <div class="action-title">Criar Fluxos</div>
+                            <div class="action-desc">Automatizar conversas</div>
+                        </a>
+                        
                         <div class="action-btn" onclick="sendTestMessage()">
                             <div class="action-icon">📤</div>
                             <div class="action-title">Enviar Mensagem</div>
                             <div class="action-desc">Enviar mensagem rápida</div>
-                        </div>
-                        
-                        <div class="action-btn" onclick="testWebhook()">
-                            <div class="action-icon">🔗</div>
-                            <div class="action-title">Testar Webhook</div>
-                            <div class="action-desc">Simular recebimento</div>
                         </div>
                     </div>
                 </div>
@@ -666,6 +680,36 @@
             }
         }
         
+        async function syncContacts() {
+            if (!confirm('Deseja sincronizar contatos do WhatsApp? Isso pode levar alguns segundos.')) {
+                return;
+            }
+            
+            const statusDiv = document.getElementById('status');
+            const originalText = statusDiv.innerHTML;
+            statusDiv.innerHTML = '<span>🔄</span><span>Sincronizando contatos...</span>';
+            
+            try {
+                const response = await fetch('/api/sync-contacts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(`✅ ${data.message}\n\nTotal: ${data.total_contacts} contatos\nNovos: ${data.synced}\nAtualizados: ${data.updated}`);
+                    loadStats();
+                } else {
+                    alert('❌ Erro: ' + (data.error || 'Não foi possível sincronizar'));
+                }
+            } catch (e) {
+                alert('Erro: ' + e.message);
+            } finally {
+                statusDiv.innerHTML = originalText;
+            }
+        }
+        
         async function testWebhook() {
             const phone = prompt('Telefone (ex: 5511999999999):', '5511999999999');
             if (!phone) return;
@@ -688,8 +732,31 @@
             }
         }
         
+        // Verifica status do WhatsApp
+        async function checkWhatsAppStatus() {
+            try {
+                const response = await fetch('/api/whatsapp-status');
+                const data = await response.json();
+                
+                const statusBadge = document.getElementById('status');
+                if (data.ready) {
+                    statusBadge.innerHTML = '<span style="color: #10b981;">●</span><span>WhatsApp Conectado</span>';
+                    statusBadge.style.background = '#d1fae5';
+                    statusBadge.style.color = '#065f46';
+                } else {
+                    statusBadge.innerHTML = '<span style="color: #ef4444;">●</span><span>WhatsApp Desconectado</span>';
+                    statusBadge.style.background = '#fee2e2';
+                    statusBadge.style.color = '#991b1b';
+                }
+            } catch (e) {
+                console.error('Erro ao verificar status:', e);
+            }
+        }
+        
         // Carrega stats e chats ao iniciar
+        checkWhatsAppStatus();
         loadStats();
+        setInterval(checkWhatsAppStatus, 5000); // Verifica status a cada 5 segundos
         setInterval(loadStats, 10000);
     </script>
 </body>

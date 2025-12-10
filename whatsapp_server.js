@@ -105,7 +105,17 @@ app.post('/send', async (req, res) => {
 });
 
 app.get('/status', (req, res) => {
-    res.json({ ready: isReady, hasQr: !!qrCodeData });
+    // Verifica se realmente está conectado tentando usar o cliente
+    let actuallyReady = false;
+    if (isReady && client) {
+        try {
+            // Tenta verificar se o cliente está realmente conectado
+            actuallyReady = client.info && client.info.wid;
+        } catch (e) {
+            actuallyReady = false;
+        }
+    }
+    res.json({ ready: actuallyReady || isReady, hasQr: !!qrCodeData, actuallyConnected: actuallyReady });
 });
 
 // Lista todas as conversas/chats do WhatsApp

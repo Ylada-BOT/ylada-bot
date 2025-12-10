@@ -5,9 +5,8 @@
 ### ✅ SIM, compensa ter domínio separado porque:
 
 1. **Separação de produtos**
-   - Lada = Extrator de dados
-   - Bot Ylada = Plataforma de chatbots
-   - Cada um com sua identidade
+   - Ylada BOT = Plataforma de chatbots WhatsApp
+   - Cada produto com sua identidade
 
 2. **Marketing focado**
    - Landing page específica para cada produto

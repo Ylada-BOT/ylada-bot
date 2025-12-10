@@ -140,10 +140,23 @@ def get_qr():
             response = requests.get(f"{whatsapp_server_url}/qr", timeout=5)
             if response.status_code == 200:
                 data = response.json()
+                ready_status = data.get("ready", False)
+                
+                # Verificação adicional: se diz que está ready, tenta confirmar buscando chats
+                if ready_status:
+                    try:
+                        chats_check = requests.get(f"{whatsapp_server_url}/chats", timeout=3)
+                        if chats_check.status_code != 200:
+                            # Se não conseguiu buscar chats, não está realmente conectado
+                            ready_status = False
+                    except:
+                        # Se deu erro, não está conectado
+                        ready_status = False
+                
                 return jsonify({
-                    "ready": data.get("ready", False),
-                    "qr": data.get("qr"),
-                    "message": "WhatsApp conectado!" if data.get("ready") else "Escaneie o QR Code para conectar"
+                    "ready": ready_status,
+                    "qr": data.get("qr") if not ready_status else None,
+                    "message": "WhatsApp conectado!" if ready_status else "Escaneie o QR Code para conectar"
                 }), 200
         except requests.exceptions.RequestException as e:
             # Se não conseguir conectar, tenta método local (desenvolvimento)
@@ -200,19 +213,39 @@ def get_qr():
 
 @app.route('/api/whatsapp-status', methods=['GET'])
 def whatsapp_status():
-    """Status da conexão WhatsApp"""
+    """Status da conexão WhatsApp - verificação robusta"""
     if not whatsapp_webjs:
         return jsonify({
             "ready": False,
             "mode": "simple",
-            "message": "WhatsApp handler não inicializado"
+            "message": "WhatsApp handler não inicializado",
+            "connected": False
         }), 200
     
+    # Verifica status básico
+    try:
+        import requests
+        status_response = requests.get(f"{whatsapp_webjs.base_url}/status", timeout=2)
+        status_data = status_response.json()
+        basic_ready = status_data.get("ready", False)
+        actually_connected = status_data.get("actuallyConnected", False)
+    except:
+        basic_ready = False
+        actually_connected = False
+    
+    # Verificação mais robusta
     is_ready = whatsapp_webjs.is_ready()
+    
+    # Se a verificação robusta diz que não está pronto, usa esse resultado
+    final_ready = is_ready and (actually_connected if actually_connected is not None else basic_ready)
+    
     return jsonify({
-        "ready": is_ready,
-        "mode": "webjs" if is_ready else "simple",
-        "message": "WhatsApp conectado!" if is_ready else "Aguardando conexão..."
+        "ready": final_ready,
+        "mode": "webjs" if final_ready else "simple",
+        "message": "WhatsApp conectado!" if final_ready else "Aguardando conexão...",
+        "connected": final_ready,
+        "basic_status": basic_ready,
+        "actually_connected": actually_connected
     }), 200
 
 
@@ -452,6 +485,103 @@ def contacts_page():
     
     # Se for JSON (API), retorna dados
     return get_contacts_data()
+
+
+@app.route('/api/sync-contacts', methods=['POST'])
+def sync_contacts():
+    """Sincroniza contatos do WhatsApp e salva no banco"""
+    try:
+        if not whatsapp_webjs or not whatsapp_webjs.is_ready():
+            return jsonify({
+                "success": False,
+                "error": "WhatsApp não está conectado. Conecte primeiro em /qr"
+            }), 400
+        
+        # Busca contatos do WhatsApp
+        whatsapp_chats = whatsapp_webjs.get_chats()
+        
+        # Filtra apenas contatos individuais (não grupos)
+        contacts_to_sync = []
+        for chat in whatsapp_chats:
+            if not chat.get('isGroup', False):
+                phone = chat.get('phone', '')
+                if phone:
+                    # Remove caracteres não numéricos e formata
+                    phone_clean = ''.join(filter(str.isdigit, phone))
+                    if len(phone_clean) >= 10:  # Telefone válido
+                        contacts_to_sync.append({
+                            'phone': phone_clean,
+                            'name': chat.get('name', 'Sem nome'),
+                            'source': 'whatsapp'
+                        })
+        
+        # Salva no banco de dados (usando account_id padrão para uso pessoal)
+        # Por enquanto, usa account_id fixo "owner" ou cria uma conta padrão
+        try:
+            from database import Database
+            db = Database(use_sqlite=True)  # Usa SQLite local por enquanto
+            
+            # Busca ou cria conta padrão
+            default_account = db.get_account_by_phone("owner")
+            if not default_account:
+                default_account = db.create_account({
+                    'name': 'Conta Principal',
+                    'phone': 'owner',
+                    'plan': 'owner',
+                    'status': 'active'
+                })
+            
+            account_id = default_account['id']
+        except Exception as e:
+            print(f"[!] Erro ao acessar banco de dados: {e}")
+            # Se não conseguir usar banco, retorna apenas contagem
+            return jsonify({
+                "success": True,
+                "total_contacts": len(contacts_to_sync),
+                "synced": 0,
+                "updated": 0,
+                "message": f"Encontrados {len(contacts_to_sync)} contatos, mas não foi possível salvar no banco",
+                "warning": "Banco de dados não disponível. Contatos não foram salvos."
+            }), 200
+        
+        # Salva/atualiza contatos
+        synced_count = 0
+        updated_count = 0
+        for contact_data in contacts_to_sync:
+            # Verifica se já existe
+            existing = db.get_contact_by_phone(account_id, contact_data['phone'])
+            
+            if existing:
+                # Atualiza nome se mudou
+                if existing.get('name') != contact_data['name']:
+                    db.update_contact(existing['id'], {'name': contact_data['name']})
+                    updated_count += 1
+            else:
+                # Cria novo contato
+                db.create_contact({
+                    'account_id': account_id,
+                    'phone': contact_data['phone'],
+                    'name': contact_data['name'],
+                    'tags': []
+                })
+                synced_count += 1
+        
+        return jsonify({
+            "success": True,
+            "total_contacts": len(contacts_to_sync),
+            "synced": synced_count,
+            "updated": updated_count,
+            "message": f"Sincronizados {synced_count} novos contatos e atualizados {updated_count} existentes"
+        }), 200
+        
+    except Exception as e:
+        print(f"[!] Erro ao sincronizar contatos: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 
 def get_contacts_data():

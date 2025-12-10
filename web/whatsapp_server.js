@@ -76,7 +76,56 @@ app.post('/send', async (req, res) => {
 });
 
 app.get('/status', (req, res) => {
-    res.json({ ready: isReady, hasQr: !!qrCodeData });
+    // Verifica se realmente está conectado tentando usar o cliente
+    let actuallyReady = false;
+    if (isReady && client) {
+        try {
+            // Tenta verificar se o cliente está realmente conectado
+            actuallyReady = client.info && client.info.wid;
+        } catch (e) {
+            actuallyReady = false;
+        }
+    }
+    res.json({ ready: actuallyReady || isReady, hasQr: !!qrCodeData, actuallyConnected: actuallyReady });
+});
+
+// Lista todas as conversas/chats do WhatsApp
+app.get('/chats', async (req, res) => {
+    if (!isReady || !client) {
+        return res.status(400).json({ error: 'Cliente não conectado. Escaneie o QR Code primeiro.' });
+    }
+    
+    try {
+        const chats = await client.getChats();
+        
+        // Formata os chats para retornar apenas o necessário
+        const formattedChats = chats.map(chat => {
+            const contact = chat.contact || {};
+            const lastMessage = chat.lastMessage || {};
+            
+            return {
+                id: chat.id._serialized,
+                name: contact.pushname || contact.name || chat.name || 'Sem nome',
+                phone: chat.id.user || '',
+                isGroup: chat.isGroup,
+                unreadCount: chat.unreadCount || 0,
+                lastMessage: lastMessage.body || '',
+                timestamp: lastMessage.timestamp ? lastMessage.timestamp * 1000 : Date.now(),
+                pinned: chat.pinned || false
+            };
+        });
+        
+        // Ordena por última mensagem (mais recente primeiro)
+        formattedChats.sort((a, b) => b.timestamp - a.timestamp);
+        
+        res.json({ 
+            success: true, 
+            chats: formattedChats,
+            total: formattedChats.length
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 app.listen(port, () => {

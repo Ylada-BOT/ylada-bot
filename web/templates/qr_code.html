@@ -177,10 +177,47 @@
                 const data = await response.json();
                 
                 if (data.ready) {
-                    document.getElementById('status').textContent = '✅ WhatsApp conectado!';
-                    document.getElementById('status').className = 'status connected';
-                    document.getElementById('qr-container').innerHTML = 
-                        '<div style="color: #10b981; font-size: 48px;">✅</div><p style="margin-top: 10px;">Conectado com sucesso!</p>';
+                    // Verificação adicional: confirma se realmente está conectado
+                    fetch('/api/whatsapp-status')
+                        .then(res => res.json())
+                        .then(statusData => {
+                            if (statusData.ready && statusData.connected) {
+                                // Realmente está conectado
+                                document.getElementById('status').textContent = '✅ WhatsApp conectado!';
+                                document.getElementById('status').className = 'status connected';
+                                document.getElementById('qr-container').innerHTML = 
+                                    '<div style="text-align: center; padding: 40px;"><div style="color: #10b981; font-size: 64px; margin-bottom: 20px;">✅</div><h2 style="color: #10b981; margin-bottom: 20px;">Conectado com sucesso!</h2><p style="margin-bottom: 30px;">Seu WhatsApp está conectado e pronto para uso.</p><a href="/" style="display: inline-block; padding: 12px 24px; background: #3b82f6; color: white; border-radius: 8px; text-decoration: none; font-weight: 600;">Ir para Dashboard →</a></div>';
+                                
+                                // Redireciona automaticamente após 3 segundos
+                                setTimeout(() => {
+                                    window.location.href = '/';
+                                }, 3000);
+                            } else {
+                                // Não está realmente conectado, mostra QR Code
+                                document.getElementById('status').textContent = '⏳ Aguardando conexão...';
+                                document.getElementById('status').className = 'status waiting';
+                                if (data.qr) {
+                                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(data.qr)}`;
+                                    document.getElementById('qr-container').innerHTML = `
+                                        <div style="text-align: center;">
+                                            <img src="${qrUrl}" alt="QR Code" style="max-width: 100%; border: 2px solid #e5e7eb; border-radius: 8px;">
+                                        </div>
+                                    `;
+                                }
+                            }
+                        })
+                        .catch(() => {
+                            // Se der erro na verificação, assume que não está conectado
+                            document.getElementById('status').textContent = '⏳ Aguardando conexão...';
+                            if (data.qr) {
+                                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(data.qr)}`;
+                                document.getElementById('qr-container').innerHTML = `
+                                    <div style="text-align: center;">
+                                        <img src="${qrUrl}" alt="QR Code" style="max-width: 100%; border: 2px solid #e5e7eb; border-radius: 8px;">
+                                    </div>
+                                `;
+                            }
+                        });
                     return;
                 }
                 

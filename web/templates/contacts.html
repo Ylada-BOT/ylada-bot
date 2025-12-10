@@ -489,7 +489,7 @@
                     <thead class="table-header">
                         <tr>
                             <th style="width: 50px;">
-                                <input type="checkbox">
+                                <input type="checkbox" onchange="if(this.checked) { selectAllContacts(); } else { deselectAllContacts(); }">
                             </th>
                             <th>Usuários</th>
                             <th>WhatsApp</th>
@@ -499,7 +499,7 @@
                     </thead>
                     <tbody id="contacts-tbody">
                         <tr>
-                            <td colspan="5" style="text-align: center; padding: 40px; color: #9ca3af;">
+                            <td colspan="6" style="text-align: center; padding: 40px; color: #9ca3af;">
                                 Carregando contatos...
                             </td>
                         </tr>
@@ -513,11 +513,29 @@
         let allContacts = [];
         let allTags = [];
         
+        let selectedContacts = new Set();
+        
         async function loadContacts() {
             try {
                 const response = await fetch('/contacts');
                 const data = await response.json();
                 allContacts = data.contacts || [];
+                
+                // Se não houver contatos, mostra mensagem
+                if (allContacts.length === 0) {
+                    document.getElementById('contacts-tbody').innerHTML = `
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 40px;">
+                                <p style="color: #6b7280; margin-bottom: 20px;">Nenhum contato encontrado.</p>
+                                <p style="color: #9ca3af; font-size: 14px; margin-bottom: 20px;">Sincronize seus contatos do WhatsApp primeiro.</p>
+                                <a href="/" style="display: inline-block; padding: 10px 20px; background: #3b82f6; color: white; border-radius: 8px; text-decoration: none;">
+                                    Voltar ao Dashboard
+                                </a>
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
                 
                 // Extrai tags únicas
                 const tagsSet = new Set();
@@ -534,11 +552,86 @@
                 console.error('Erro ao carregar contatos:', e);
                 document.getElementById('contacts-tbody').innerHTML = `
                     <tr>
-                        <td colspan="5" style="text-align: center; padding: 40px; color: #ef4444;">
+                        <td colspan="6" style="text-align: center; padding: 40px; color: #ef4444;">
                             Erro ao carregar contatos. Verifique se o WhatsApp está conectado.
                         </td>
                     </tr>
                 `;
+            }
+        }
+        
+        function toggleContactSelection(phone) {
+            if (selectedContacts.has(phone)) {
+                selectedContacts.delete(phone);
+            } else {
+                selectedContacts.add(phone);
+            }
+            updateSelectionUI();
+        }
+        
+        function selectAllContacts() {
+            allContacts.forEach(contact => {
+                if (contact.phone) {
+                    selectedContacts.add(contact.phone);
+                }
+            });
+            updateSelectionUI();
+            renderContacts(allContacts);
+        }
+        
+        function deselectAllContacts() {
+            selectedContacts.clear();
+            updateSelectionUI();
+            renderContacts(allContacts);
+        }
+        
+        function updateSelectionUI() {
+            const count = selectedContacts.size;
+            const selectionInfo = document.getElementById('selection-info');
+            if (selectionInfo) {
+                if (count > 0) {
+                    selectionInfo.innerHTML = `
+                        <span style="color: #3b82f6; font-weight: 600;">${count} contato(s) selecionado(s)</span>
+                        <button onclick="deselectAllContacts()" style="margin-left: 10px; padding: 4px 12px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Limpar</button>
+                        <button onclick="goToBroadcast()" style="margin-left: 10px; padding: 4px 12px; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Enviar Mensagem</button>
+                    `;
+                } else {
+                    selectionInfo.innerHTML = '';
+                }
+            }
+        }
+        
+        function goToBroadcast() {
+            if (selectedContacts.size === 0) {
+                alert('Selecione pelo menos um contato');
+                return;
+            }
+            // Salva seleção no sessionStorage
+            sessionStorage.setItem('selectedContacts', JSON.stringify(Array.from(selectedContacts)));
+            window.location.href = '/broadcast';
+        }
+        
+        async function syncContactsFromWhatsApp() {
+            if (!confirm('Deseja sincronizar contatos do WhatsApp? Isso pode levar alguns segundos.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/sync-contacts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(`✅ ${data.message}\n\nTotal: ${data.total_contacts} contatos\nNovos: ${data.synced}\nAtualizados: ${data.updated}`);
+                    loadContacts(); // Recarrega a lista
+                } else {
+                    alert('❌ Erro: ' + (data.error || 'Não foi possível sincronizar'));
+                }
+            } catch (e) {
+                alert('Erro: ' + e.message);
             }
         }
         
@@ -592,10 +685,11 @@
                     }
                 }
                 
+                const isSelected = selectedContacts.has(phone);
                 return `
-                    <tr class="table-row">
+                    <tr class="table-row" style="${isSelected ? 'background: #eff6ff;' : ''}">
                         <td>
-                            <input type="checkbox">
+                            <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleContactSelection('${phone}')">
                         </td>
                         <td>
                             <div class="user-cell">

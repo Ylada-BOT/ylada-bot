@@ -78,7 +78,7 @@ BOT_MODE = os.getenv("BOT_MODE", "zapi")  # Mude de "simple" para "zapi"
 
 1. Inicie o bot:
 ```bash
-cd "/Users/air/EXTRATOR EUA"
+cd "/Users/air/Ylada BOT"
 source .venv/bin/activate
 python web/app.py
 ```

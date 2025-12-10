@@ -388,6 +388,45 @@ class Database:
             cur.execute("SELECT * FROM contacts WHERE account_id = %s ORDER BY created_at DESC", (account_id,))
             return [dict(row) for row in cur.fetchall()]
     
+    def get_contact_by_phone(self, account_id: str, phone: str) -> Optional[Dict]:
+        """Retorna contato por telefone"""
+        if self.use_sqlite:
+            cur = self.conn.cursor()
+            cur.execute("SELECT * FROM contacts WHERE account_id = ? AND phone = ?", (account_id, phone))
+            row = cur.fetchone()
+            if row:
+                contact = dict(row)
+                try:
+                    contact['tags'] = json.loads(contact.get('tags', '[]'))
+                except:
+                    contact['tags'] = []
+                return contact
+            return None
+        else:
+            cur = self.conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("SELECT * FROM contacts WHERE account_id = %s AND phone = %s", (account_id, phone))
+            row = cur.fetchone()
+            return dict(row) if row else None
+    
+    def update_contact(self, contact_id: str, updates: Dict):
+        """Atualiza contato"""
+        if self.use_sqlite:
+            cur = self.conn.cursor()
+            if 'name' in updates:
+                cur.execute("UPDATE contacts SET name = ? WHERE id = ?", (updates['name'], contact_id))
+            if 'tags' in updates:
+                tags_str = json.dumps(updates['tags']) if isinstance(updates['tags'], list) else updates['tags']
+                cur.execute("UPDATE contacts SET tags = ? WHERE id = ?", (tags_str, contact_id))
+            self.conn.commit()
+        else:
+            cur = self.conn.cursor()
+            if 'name' in updates:
+                cur.execute("UPDATE contacts SET name = %s WHERE id = %s", (updates['name'], contact_id))
+            if 'tags' in updates:
+                tags_str = json.dumps(updates['tags']) if isinstance(updates['tags'], list) else updates['tags']
+                cur.execute("UPDATE contacts SET tags = %s WHERE id = %s", (tags_str, contact_id))
+            self.conn.commit()
+    
     # ========== CONVERSATIONS ==========
     
     def create_conversation(self, conversation_data: Dict) -> Dict:

@@ -84,3 +84,6 @@ logs/
 # Vercel
 .vercel
 
+.env.local.final
+.env.local.old
+.env.local.backup-*

@@ -25,15 +25,32 @@ from campaigns_manager import CampaignsManager
 app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), 'templates'))
 CORS(app)
 
-# Inicializa bot simplificado
-bot = LadaBotSimple(config_path=os.path.join(os.path.dirname(__file__), '..', 'config', 'config.yaml'))
+# Inicializa bot simplificado (com tratamento de erro)
+try:
+    config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'config.yaml')
+    # Verifica se o arquivo existe, senão usa None (bot cria config padrão)
+    if not os.path.exists(config_path):
+        config_path = None
+    bot = LadaBotSimple(config_path=config_path)
+except Exception as e:
+    print(f"[!] Erro ao inicializar bot: {e}")
+    bot = None
 
 # Handler WhatsApp Web.js (opcional - para conversas reais)
-whatsapp_webjs = WhatsAppWebJSHandler(instance_name="ylada_bot", port=5001)
+try:
+    whatsapp_webjs = WhatsAppWebJSHandler(instance_name="ylada_bot", port=5001)
+except Exception as e:
+    print(f"[!] Erro ao inicializar WhatsApp handler: {e}")
+    whatsapp_webjs = None
 
 # Gerenciadores adicionais (estilo Botconversa)
-users_manager = UsersManager()
-campaigns_manager = CampaignsManager()
+try:
+    users_manager = UsersManager()
+    campaigns_manager = CampaignsManager()
+except Exception as e:
+    print(f"[!] Erro ao inicializar gerenciadores: {e}")
+    users_manager = None
+    campaigns_manager = None
 
 
 @app.route('/', methods=['GET'])
@@ -52,6 +69,9 @@ def health():
 def send_message():
     """Envia mensagem"""
     try:
+        if not bot:
+            return jsonify({"error": "Bot não inicializado"}), 500
+        
         data = request.get_json()
         phone = data.get("phone")
         message = data.get("message")
@@ -69,6 +89,9 @@ def send_message():
 def webhook():
     """Recebe mensagens via webhook"""
     try:
+        if not bot:
+            return jsonify({"error": "Bot não inicializado"}), 500
+        
         data = request.get_json()
         if not data:
             return jsonify({"error": "No data"}), 400
@@ -83,7 +106,7 @@ def webhook():
 def qr_code_page():
     """Página para conectar WhatsApp"""
     # Em produção, o servidor está no Render, não precisa iniciar localmente
-    if os.getenv('ENVIRONMENT') != 'production':
+    if os.getenv('ENVIRONMENT') != 'production' and whatsapp_webjs:
         # Apenas em desenvolvimento tenta iniciar servidor local
         try:
             import requests
@@ -124,7 +147,7 @@ def get_qr():
                 }), 200
         except requests.exceptions.RequestException as e:
             # Se não conseguir conectar, tenta método local (desenvolvimento)
-            if whatsapp_server_url == 'http://localhost:5001':
+            if whatsapp_server_url == 'http://localhost:5001' and whatsapp_webjs:
                 # Verifica se já está conectado localmente
                 if whatsapp_webjs.is_ready():
                     return jsonify({
@@ -178,6 +201,13 @@ def get_qr():
 @app.route('/api/whatsapp-status', methods=['GET'])
 def whatsapp_status():
     """Status da conexão WhatsApp"""
+    if not whatsapp_webjs:
+        return jsonify({
+            "ready": False,
+            "mode": "simple",
+            "message": "WhatsApp handler não inicializado"
+        }), 200
+    
     is_ready = whatsapp_webjs.is_ready()
     return jsonify({
         "ready": is_ready,
@@ -190,6 +220,9 @@ def whatsapp_status():
 def restart_server():
     """Reinicia o servidor Node.js"""
     try:
+        if not whatsapp_webjs:
+            return jsonify({"success": False, "error": "WhatsApp handler não inicializado"}), 500
+        
         whatsapp_webjs.stop_server()
         time.sleep(2)
         whatsapp_webjs.start_server()
@@ -221,6 +254,9 @@ def manage_users():
 @app.route('/api/campaigns', methods=['GET', 'POST'])
 def manage_campaigns():
     """Gerencia campanhas com QR Code"""
+    if not campaigns_manager:
+        return jsonify({"campaigns": [], "total": 0, "error": "Campaigns manager não inicializado"}), 200
+    
     if request.method == 'GET':
         active_only = request.args.get('active_only', 'false').lower() == 'true'
         campaigns = campaigns_manager.list_campaigns(active_only=active_only)
@@ -377,6 +413,9 @@ def get_flow(flow_name):
 @app.route('/campaign/<campaign_id>', methods=['GET'])
 def campaign_redirect(campaign_id):
     """Redireciona campanha e aciona fluxo"""
+    if not campaigns_manager:
+        return jsonify({"error": "Campaigns manager não inicializado"}), 500
+    
     campaign = campaigns_manager.get_campaign(campaign_id)
     if not campaign:
         return jsonify({"error": "Campanha não encontrada"}), 404
@@ -426,7 +465,7 @@ def get_contacts_data():
     # Busca contatos reais do WhatsApp
     whatsapp_contacts = []
     try:
-        if whatsapp_webjs.is_ready():
+        if whatsapp_webjs and whatsapp_webjs.is_ready():
             whatsapp_chats = whatsapp_webjs.get_chats()
             # Converte chats em contatos
             for chat in whatsapp_chats:
@@ -484,27 +523,36 @@ def get_contacts_data():
 @app.route('/conversations', methods=['GET'])
 def get_conversations():
     """Lista conversas"""
+    if not bot:
+        return jsonify({
+            "conversations": {},
+            "messages_log": [],
+            "whatsapp_chats": [],
+            "has_real_chats": False
+        }), 200
+    
     conversations = bot.conversation.conversations
     messages_log = bot.whatsapp.get_messages_log()
     
     # Tenta buscar conversas reais do WhatsApp Web.js
     whatsapp_chats = []
     try:
-        # Verifica se o servidor está rodando
-        if not whatsapp_webjs.is_ready():
-            # Tenta iniciar o servidor se não estiver rodando
-            try:
-                import requests
-                requests.get(f"http://localhost:5001/health", timeout=1)
-            except:
-                # Servidor não está rodando, tenta iniciar
-                print("[*] Tentando iniciar servidor WhatsApp Web.js...")
-                whatsapp_webjs.start_server()
-                time.sleep(3)
-        
-        # Se estiver pronto, busca chats
-        if whatsapp_webjs.is_ready():
-            whatsapp_chats = whatsapp_webjs.get_chats()
+        if whatsapp_webjs:
+            # Verifica se o servidor está rodando
+            if not whatsapp_webjs.is_ready():
+                # Tenta iniciar o servidor se não estiver rodando
+                try:
+                    import requests
+                    requests.get(f"http://localhost:5001/health", timeout=1)
+                except:
+                    # Servidor não está rodando, tenta iniciar
+                    print("[*] Tentando iniciar servidor WhatsApp Web.js...")
+                    whatsapp_webjs.start_server()
+                    time.sleep(3)
+            
+            # Se estiver pronto, busca chats
+            if whatsapp_webjs.is_ready():
+                whatsapp_chats = whatsapp_webjs.get_chats()
     except Exception as e:
         print(f"[!] Erro ao buscar chats reais: {e}")
     
@@ -520,6 +568,13 @@ def get_conversations():
 def get_chat_messages(chat_id):
     """Busca mensagens de um chat específico"""
     try:
+        if not whatsapp_webjs:
+            return jsonify({
+                "success": False,
+                "error": "WhatsApp handler não inicializado",
+                "messages": []
+            }), 500
+        
         limit = request.args.get('limit', 50, type=int)
         messages = whatsapp_webjs.get_chat_messages(chat_id, limit)
         return jsonify({

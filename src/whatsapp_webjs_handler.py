@@ -1,6 +1,6 @@
 """
-Integração com WhatsApp usando WhatsApp Web.js (Node.js)
-Solução GRATUITA e mais estável para múltiplas instâncias
+Handler WhatsApp Web.js
+Integração simples com WhatsApp via Node.js
 """
 import subprocess
 import json
@@ -219,38 +219,24 @@ app.listen(port, () => {{
             return None
     
     def is_ready(self) -> bool:
-        """Verifica se está conectado - verificação mais robusta"""
+        """Verifica se está conectado"""
         try:
-            # Primeiro verifica o status
-            response = requests.get(f"{self.base_url}/status", timeout=2)
-            data = response.json()
-            is_ready_status = data.get("ready", False)
-            
-            # Se o status diz que está pronto, tenta verificar realmente tentando buscar chats
-            if is_ready_status:
-                try:
-                    # Tenta buscar chats para confirmar que realmente está conectado
-                    chats_response = requests.get(f"{self.base_url}/chats", timeout=3)
-                    if chats_response.status_code == 200:
-                        # Se conseguiu buscar chats, realmente está conectado
-                        return True
-                    else:
-                        # Se não conseguiu, provavelmente não está conectado de verdade
-                        print(f"[!] Status diz ready, mas /chats retornou {chats_response.status_code}")
-                        return False
-                except Exception as e:
-                    # Se deu erro ao buscar chats, não está realmente conectado
-                    print(f"[!] Status diz ready, mas erro ao verificar chats: {e}")
-                    return False
-            
+            response = requests.get(f"{self.base_url}/status", timeout=3)
+            if response.status_code == 200:
+                data = response.json()
+                # Verifica se realmente está conectado (não apenas se o servidor está rodando)
+                return data.get("actuallyConnected", False) or (data.get("ready", False) and not data.get("hasQr", False))
+            return False
+        except requests.exceptions.ConnectionError:
+            # Servidor não está rodando
             return False
         except Exception as e:
-            print(f"[!] Erro ao verificar status: {e}")
+            # Outros erros - assume que não está conectado
             return False
     
     def send_message(self, phone: str, message: str) -> bool:
         """
-        Envia mensagem
+        Envia mensagem (com retry logic baseado em padrões da indústria)
         
         Args:
             phone: Número (formato: 5511999999999)
@@ -263,22 +249,53 @@ app.listen(port, () => {{
             print("[!] WhatsApp não está conectado")
             return False
         
-        try:
-            response = requests.post(
-                f"{self.base_url}/send",
-                json={"phone": phone, "message": message},
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                print(f"[✓] Mensagem enviada para {phone}")
-                return True
-            else:
-                print(f"[!] Erro: {response.json()}")
-                return False
-        except Exception as e:
-            print(f"[!] Erro ao enviar: {e}")
+        if not message or not message.strip():
+            print("[!] Mensagem vazia")
             return False
+        
+        # Retry logic (3 tentativas)
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = requests.post(
+                    f"{self.base_url}/send",
+                    json={"phone": phone, "message": message},
+                    timeout=15  # Timeout aumentado
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get('success'):
+                        print(f"[✓] Mensagem enviada para {phone}: {message[:50]}...")
+                        return True
+                    else:
+                        print(f"[!] Erro do servidor: {result.get('error', 'Erro desconhecido')}")
+                        if attempt < max_retries - 1:
+                            time.sleep(1)  # Aguarda 1 segundo antes de tentar novamente
+                            continue
+                        return False
+                else:
+                    error_data = response.json() if response.content else {}
+                    print(f"[!] Erro HTTP {response.status_code}: {error_data.get('error', 'Erro desconhecido')}")
+                    if attempt < max_retries - 1:
+                        time.sleep(1)
+                        continue
+                    return False
+                    
+            except requests.exceptions.Timeout:
+                print(f"[!] Timeout ao enviar mensagem (tentativa {attempt + 1}/{max_retries})")
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                    continue
+                return False
+            except Exception as e:
+                print(f"[!] Erro ao enviar (tentativa {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+                    continue
+                return False
+        
+        return False
     
     def get_chats(self) -> List[Dict]:
         """

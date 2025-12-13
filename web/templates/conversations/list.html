@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversas - BOT by YLADA</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f0f4f8;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 25px 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+            border: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #3b82f6;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        
+        .btn:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+        }
+        
+        .conversations-container {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+            height: calc(100vh - 200px);
+        }
+        
+        .conversations-list {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+            border: 1px solid #e5e7eb;
+            overflow-y: auto;
+        }
+        
+        .conversation-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-radius: 8px;
+            margin-bottom: 5px;
+        }
+        
+        .conversation-item:hover {
+            background: #f9fafb;
+        }
+        
+        .conversation-item.active {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .conversation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 5px;
+        }
+        
+        .conversation-name {
+            font-weight: bold;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .conversation-time {
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .conversation-preview {
+            font-size: 14px;
+            color: #666;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-top: 5px;
+        }
+        
+        .unread-badge {
+            background: #667eea;
+            color: white;
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        
+        .messages-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+            border: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .messages-header {
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 15px;
+        }
+        
+        .messages-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 0;
+        }
+        
+        .message-item {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .message-item.sent {
+            align-items: flex-end;
+        }
+        
+        .message-item.received {
+            align-items: flex-start;
+        }
+        
+        .message-bubble {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+        }
+        
+        .message-item.sent .message-bubble {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .message-item.received .message-bubble {
+            background: #f3f4f6;
+            color: #333;
+        }
+        
+        .message-time {
+            font-size: 11px;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .empty-state h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .search-box {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            width: 100%;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <img src="/static/assets/logo.png" alt="BOT by YLADA" style="height: 50px;">
+                <h1 style="margin: 0;">💬 Conversas</h1>
+            </div>
+            <div>
+                <a href="/" class="btn btn-secondary">← Voltar</a>
+                <button onclick="loadConversations()" class="btn">Atualizar</button>
+            </div>
+        </div>
+        
+        <div class="conversations-container">
+            <div class="conversations-list">
+                <input type="text" class="search-box" id="searchInput" placeholder="Buscar conversas..." onkeyup="filterConversations()">
+                <div id="conversationsList">
+                    <div class="loading">Carregando conversas...</div>
+                </div>
+            </div>
+            
+            <div class="messages-container">
+                <div class="messages-header" id="messagesHeader">
+                    <h3 style="color: #666;">Selecione uma conversa</h3>
+                </div>
+                <div class="messages-list" id="messagesList">
+                    <div class="empty-state">
+                        <h3>💬 Selecione uma conversa</h3>
+                        <p>Escolha uma conversa da lista ao lado para ver as mensagens</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let conversations = [];
+        let selectedChatId = null;
+        
+        function loadConversations() {
+            fetch('/api/conversations')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.chats) {
+                        conversations = data.chats;
+                        renderConversations(conversations);
+                    } else {
+                        document.getElementById('conversationsList').innerHTML = `
+                            <div class="empty-state">
+                                <h3>📭 Nenhuma conversa encontrada</h3>
+                                <p>As conversas aparecerão aqui quando você receber mensagens</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar conversas:', error);
+                    document.getElementById('conversationsList').innerHTML = `
+                        <div class="empty-state">
+                            <h3>❌ Erro ao carregar conversas</h3>
+                            <p>${error.message}</p>
+                            <p style="margin-top: 10px; font-size: 12px;">Verifique se o WhatsApp está conectado</p>
+                        </div>
+                    `;
+                });
+        }
+        
+        function renderConversations(convs) {
+            const list = document.getElementById('conversationsList');
+            
+            if (convs.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <h3>📭 Nenhuma conversa encontrada</h3>
+                    </div>
+                `;
+                return;
+            }
+            
+            list.innerHTML = convs.map(conv => {
+                const date = new Date(conv.timestamp);
+                const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                const isActive = selectedChatId === conv.id;
+                
+                return `
+                    <div class="conversation-item ${isActive ? 'active' : ''}" onclick="selectConversation('${conv.id}', '${conv.name.replace(/'/g, "\\'")}', '${conv.phone}')">
+                        <div class="conversation-header">
+                            <div>
+                                <span class="conversation-name">${conv.name}</span>
+                                ${conv.unreadCount > 0 ? `<span class="unread-badge">${conv.unreadCount}</span>` : ''}
+                            </div>
+                            <span class="conversation-time">${timeStr}</span>
+                        </div>
+                        <div class="conversation-preview">${conv.lastMessage || 'Sem mensagens'}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function filterConversations() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = conversations.filter(conv => 
+                conv.name.toLowerCase().includes(search) ||
+                conv.phone.includes(search) ||
+                (conv.lastMessage && conv.lastMessage.toLowerCase().includes(search))
+            );
+            renderConversations(filtered);
+        }
+        
+        function selectConversation(chatId, name, phone) {
+            selectedChatId = chatId;
+            loadConversations(); // Re-renderiza para destacar a selecionada
+            
+            document.getElementById('messagesHeader').innerHTML = `
+                <h3>${name}</h3>
+                <p style="color: #999; font-size: 14px; margin-top: 5px;">${phone}</p>
+            `;
+            
+            loadMessages(chatId);
+        }
+        
+        function loadMessages(chatId) {
+            const messagesList = document.getElementById('messagesList');
+            messagesList.innerHTML = '<div class="loading">Carregando mensagens...</div>';
+            
+            fetch(`/api/conversations/${chatId}/messages?limit=50`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.messages) {
+                        renderMessages(data.messages);
+                    } else {
+                        messagesList.innerHTML = `
+                            <div class="empty-state">
+                                <h3>❌ Erro ao carregar mensagens</h3>
+                                <p>${data.error || 'Erro desconhecido'}</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar mensagens:', error);
+                    messagesList.innerHTML = `
+                        <div class="empty-state">
+                            <h3>❌ Erro ao carregar mensagens</h3>
+                            <p>${error.message}</p>
+                        </div>
+                    `;
+                });
+        }
+        
+        function renderMessages(messages) {
+            const messagesList = document.getElementById('messagesList');
+            
+            if (messages.length === 0) {
+                messagesList.innerHTML = `
+                    <div class="empty-state">
+                        <h3>📭 Nenhuma mensagem</h3>
+                    </div>
+                `;
+                return;
+            }
+            
+            messagesList.innerHTML = messages.map(msg => {
+                const date = new Date(msg.timestamp);
+                const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                const isSent = msg.fromMe;
+                
+                return `
+                    <div class="message-item ${isSent ? 'sent' : 'received'}">
+                        <div class="message-bubble">${msg.body || '(Mensagem sem texto)'}</div>
+                        <div class="message-time">${timeStr}</div>
+                    </div>
+                `;
+            }).join('');
+            
+            // Scroll para o final
+            messagesList.scrollTop = messagesList.scrollHeight;
+        }
+        
+        // Carrega conversas ao iniciar
+        loadConversations();
+        
+        // Atualiza a cada 30 segundos
+        setInterval(loadConversations, 30000);
+    </script>
+</body>
+</html>

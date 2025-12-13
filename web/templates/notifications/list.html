@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notificações - BOT by YLADA</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+            border: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #3b82f6;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 10px;
+        }
+        
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+        
+        .btn-success {
+            background: #10b981;
+        }
+        
+        .btn-success:hover {
+            background: #059669;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        
+        .filters {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+            border: 1px solid #e5e7eb;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .filters select, .filters input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .notifications-list {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+            border: 1px solid #e5e7eb;
+        }
+        
+        .notification-item {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            transition: background 0.2s;
+        }
+        
+        .notification-item:hover {
+            background: #f9fafb;
+        }
+        
+        .notification-item:last-child {
+            border-bottom: none;
+        }
+        
+        .notification-content {
+            flex: 1;
+        }
+        
+        .notification-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .notification-type {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .notification-type.flow_triggered {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .notification-type.lead_captured {
+            background: #dcfce7;
+            color: #166534;
+        }
+        
+        .notification-type.message_received {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .notification-type.custom {
+            background: #f3e8ff;
+            color: #6b21a8;
+        }
+        
+        .notification-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .notification-status.pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .notification-status.sent {
+            background: #dcfce7;
+            color: #166534;
+        }
+        
+        .notification-status.failed {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .notification-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .notification-message {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .notification-meta {
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .notification-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .empty-state h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <img src="/static/assets/logo.png" alt="BOT by YLADA" style="height: 50px;">
+                <h1 style="margin: 0;">🔔 Notificações</h1>
+            </div>
+            <div>
+                <a href="/" class="btn btn-secondary">← Voltar</a>
+                <button onclick="sendAllPending()" class="btn btn-success">Enviar Pendentes</button>
+                <button onclick="loadNotifications()" class="btn">Atualizar</button>
+            </div>
+        </div>
+        
+        <div class="filters">
+            <label>
+                Tipo:
+                <select id="filterType" onchange="loadNotifications()">
+                    <option value="">Todos</option>
+                    <option value="flow_triggered">Fluxo Executado</option>
+                    <option value="lead_captured">Lead Capturado</option>
+                    <option value="message_received">Mensagem Recebida</option>
+                    <option value="custom">Personalizada</option>
+                </select>
+            </label>
+            <label>
+                Status:
+                <select id="filterStatus" onchange="loadNotifications()">
+                    <option value="">Todos</option>
+                    <option value="pending">Pendente</option>
+                    <option value="sent">Enviada</option>
+                    <option value="failed">Falhou</option>
+                </select>
+            </label>
+        </div>
+        
+        <div class="notifications-list" id="notificationsList">
+            <div class="loading">Carregando notificações...</div>
+        </div>
+    </div>
+    
+    <script>
+        function loadNotifications() {
+            const filterType = document.getElementById('filterType').value;
+            const filterStatus = document.getElementById('filterStatus').value;
+            
+            let url = '/api/notifications?limit=100';
+            if (filterType) url += `&type=${filterType}`;
+            if (filterStatus) url += `&status=${filterStatus}`;
+            
+            fetch(url)
+                .then(r => r.json())
+                .then(data => {
+                    const list = document.getElementById('notificationsList');
+                    
+                    if (!data.success || !data.notifications || data.notifications.length === 0) {
+                        list.innerHTML = `
+                            <div class="empty-state">
+                                <h3>📭 Nenhuma notificação encontrada</h3>
+                                <p>As notificações aparecerão aqui quando fluxos forem executados ou leads forem capturados.</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    list.innerHTML = data.notifications.map(n => {
+                        const typeClass = n.type.replace('_', '-');
+                        const statusClass = n.status;
+                        const date = new Date(n.created_at).toLocaleString('pt-BR');
+                        
+                        return `
+                            <div class="notification-item">
+                                <div class="notification-content">
+                                    <div class="notification-header">
+                                        <span class="notification-type ${n.type}">${getTypeLabel(n.type)}</span>
+                                        <span class="notification-status ${statusClass}">${getStatusLabel(n.status)}</span>
+                                    </div>
+                                    ${n.title ? `<div class="notification-title">${n.title}</div>` : ''}
+                                    <div class="notification-message">${n.message}</div>
+                                    <div class="notification-meta">
+                                        Para: ${n.sent_to}${n.sent_to_name ? ` (${n.sent_to_name})` : ''} • ${date}
+                                        ${n.error_message ? `<br><span style="color: #ef4444;">Erro: ${n.error_message}</span>` : ''}
+                                    </div>
+                                </div>
+                                <div class="notification-actions">
+                                    ${n.status === 'pending' ? `<button onclick="sendNotification(${n.id})" class="btn btn-success" style="padding: 8px 16px; font-size: 12px;">Enviar</button>` : ''}
+                                    <button onclick="deleteNotification(${n.id})" class="btn btn-danger" style="padding: 8px 16px; font-size: 12px;">Deletar</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar notificações:', error);
+                    document.getElementById('notificationsList').innerHTML = `
+                        <div class="empty-state">
+                            <h3>❌ Erro ao carregar notificações</h3>
+                            <p>${error.message}</p>
+                        </div>
+                    `;
+                });
+        }
+        
+        function getTypeLabel(type) {
+            const labels = {
+                'flow_triggered': '🔄 Fluxo',
+                'lead_captured': '🎯 Lead',
+                'message_received': '💬 Mensagem',
+                'conversion': '💰 Conversão',
+                'system_alert': '⚠️ Sistema',
+                'payment': '💳 Pagamento',
+                'custom': '📝 Personalizada'
+            };
+            return labels[type] || type;
+        }
+        
+        function getStatusLabel(status) {
+            const labels = {
+                'pending': '⏳ Pendente',
+                'sent': '✓ Enviada',
+                'failed': '✗ Falhou',
+                'cancelled': '🚫 Cancelada'
+            };
+            return labels[status] || status;
+        }
+        
+        function sendNotification(id) {
+            fetch(`/api/notifications/${id}/send`, { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Notificação enviada!');
+                        loadNotifications();
+                    } else {
+                        alert('Erro: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Erro ao enviar notificação: ' + error.message);
+                });
+        }
+        
+        function sendAllPending() {
+            if (!confirm('Enviar todas as notificações pendentes?')) return;
+            
+            fetch('/api/notifications/pending/send-all', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(`${data.sent_count} notificação(ões) enviada(s)!`);
+                        loadNotifications();
+                    } else {
+                        alert('Erro: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Erro ao enviar notificações: ' + error.message);
+                });
+        }
+        
+        function deleteNotification(id) {
+            if (!confirm('Deletar esta notificação?')) return;
+            
+            fetch(`/api/notifications/${id}`, { method: 'DELETE' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        loadNotifications();
+                    } else {
+                        alert('Erro: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Erro ao deletar: ' + error.message);
+                });
+        }
+        
+        // Carrega notificações ao carregar a página
+        loadNotifications();
+        
+        // Atualiza a cada 30 segundos
+        setInterval(loadNotifications, 30000);
+    </script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const express = require('express');
+const axios = require('axios');
 const app = express();
 const port = 5001;
 
@@ -12,14 +13,35 @@ let isReady = false;
 
 // Inicializa cliente
 function initClient() {
+    // Configuração do Puppeteer
+    const puppeteerOptions = {
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--disable-gpu',
+            '--disable-software-rasterizer',
+            '--disable-extensions'
+        ],
+        timeout: 90000  // Aumenta timeout para 90 segundos
+    };
+
+    // Tenta usar Chrome do sistema se disponível (macOS)
+    const fs = require('fs');
+    const chromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+    if (fs.existsSync(chromePath)) {
+        puppeteerOptions.executablePath = chromePath;
+        console.log('✅ Usando Chrome do sistema');
+    }
+
     client = new Client({
         authStrategy: new LocalAuth({
             clientId: 'ylada_bot'
         }),
-        puppeteer: {
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        }
+        puppeteer: puppeteerOptions
     });
 
     client.on('qr', (qr) => {
@@ -32,6 +54,7 @@ function initClient() {
         console.log('Escaneie o QR Code acima com seu WhatsApp');
         console.log('Vá em: Configurações > Aparelhos conectados > Conectar um aparelho');
         console.log('═══════════════════════════════════════\n');
+        console.log('✅ QR Code gerado e disponível na API /qr');
     });
 
     client.on('ready', () => {
@@ -52,6 +75,59 @@ function initClient() {
     client.on('disconnected', (reason) => {
         console.log('⚠️ Desconectado:', reason);
         isReady = false;
+        qrCodeData = null;
+    });
+
+    client.on('loading_screen', (percent, message) => {
+        console.log(`⏳ Carregando: ${percent}% - ${message}`);
+    });
+
+    // Log quando começa a inicializar
+    console.log('🔄 Inicializando cliente WhatsApp...');
+
+    client.on('auth_failure', (msg) => {
+        console.error('❌ Falha na autenticação:', msg);
+        isReady = false;
+        qrCodeData = null;
+    });
+
+    // Listener para erros
+    client.on('error', (error) => {
+        console.error('❌ Erro no cliente WhatsApp:', error);
+    });
+
+    // Listener para mensagens recebidas
+    client.on('message', async (msg) => {
+        try {
+            // Ignora mensagens próprias
+            if (msg.fromMe) return;
+            
+            // Log da mensagem recebida
+            const contact = await msg.getContact();
+            const phone = msg.from.replace('@c.us', '').replace('@s.whatsapp.net', '');
+            console.log(`\n[📨] Mensagem recebida de ${contact.pushname || phone}: ${msg.body}`);
+            
+            // Envia para webhook do Flask (se configurado)
+            const webhookUrl = process.env.FLASK_WEBHOOK_URL || 'http://localhost:5002/webhook';
+            
+            try {
+                await axios.post(webhookUrl, {
+                    from: phone,
+                    phone: phone,
+                    body: msg.body,
+                    message: msg.body,
+                    timestamp: msg.timestamp * 1000
+                }, {
+                    timeout: 5000
+                });
+                console.log(`[✓] Mensagem enviada para webhook`);
+            } catch (webhookError) {
+                // Webhook não disponível ou erro - não é crítico
+                console.log(`[!] Webhook não disponível (isso é normal se a IA não estiver configurada)`);
+            }
+        } catch (error) {
+            console.error(`[!] Erro ao processar mensagem: ${error.message}`);
+        }
     });
 
     client.initialize();
@@ -109,40 +185,74 @@ app.get('/status', (req, res) => {
     let actuallyReady = false;
     if (isReady && client) {
         try {
-            // Tenta verificar se o cliente está realmente conectado
+            // Verifica se o cliente está realmente conectado
             actuallyReady = client.info && client.info.wid;
         } catch (e) {
             actuallyReady = false;
         }
     }
-    res.json({ ready: actuallyReady || isReady, hasQr: !!qrCodeData, actuallyConnected: actuallyReady });
+    res.json({ 
+        ready: actuallyReady || isReady, 
+        hasQr: !!qrCodeData,
+        actuallyConnected: actuallyReady,
+        clientInitialized: !!client
+    });
 });
 
-// Lista todas as conversas/chats do WhatsApp
+// Lista todas as conversas/chats do WhatsApp (melhorado)
 app.get('/chats', async (req, res) => {
     if (!isReady) {
         return res.status(400).json({ error: 'Cliente não conectado. Escaneie o QR Code primeiro.' });
     }
     
     try {
+        // Busca TODOS os chats (sem limite)
         const chats = await client.getChats();
         
-        // Formata os chats para retornar apenas o necessário
-        const formattedChats = chats.map(chat => {
-            const contact = chat.contact || {};
-            const lastMessage = chat.lastMessage || {};
-            
-            return {
-                id: chat.id._serialized,
-                name: contact.pushname || contact.name || chat.name || 'Sem nome',
-                phone: chat.id.user || '',
-                isGroup: chat.isGroup,
-                unreadCount: chat.unreadCount || 0,
-                lastMessage: lastMessage.body || '',
-                timestamp: lastMessage.timestamp ? lastMessage.timestamp * 1000 : Date.now(),
-                pinned: chat.pinned || false
-            };
-        });
+        // Formata os chats com mais informações
+        const formattedChats = await Promise.all(chats.map(async (chat) => {
+            try {
+                const contact = chat.contact || {};
+                const lastMessage = chat.lastMessage || {};
+                
+                // Tenta obter mais informações do contato
+                let contactName = contact.pushname || contact.name || chat.name || 'Sem nome';
+                if (!contactName || contactName === 'Sem nome') {
+                    try {
+                        const contactInfo = await chat.getContact();
+                        contactName = contactInfo.pushname || contactInfo.name || contactName;
+                    } catch (e) {
+                        // Ignora erro
+                    }
+                }
+                
+                return {
+                    id: chat.id._serialized,
+                    name: contactName,
+                    phone: chat.id.user || '',
+                    isGroup: chat.isGroup,
+                    unreadCount: chat.unreadCount || 0,
+                    lastMessage: lastMessage.body || (lastMessage.hasMedia ? '[Mídia]' : ''),
+                    timestamp: lastMessage.timestamp ? lastMessage.timestamp * 1000 : (chat.timestamp ? chat.timestamp * 1000 : Date.now()),
+                    pinned: chat.pinned || false,
+                    isArchived: chat.archived || false
+                };
+            } catch (error) {
+                // Se der erro em um chat específico, retorna dados básicos
+                return {
+                    id: chat.id._serialized,
+                    name: chat.name || 'Sem nome',
+                    phone: chat.id.user || '',
+                    isGroup: chat.isGroup,
+                    unreadCount: 0,
+                    lastMessage: '',
+                    timestamp: Date.now(),
+                    pinned: false,
+                    isArchived: false,
+                    error: error.message
+                };
+            }
+        }));
         
         // Ordena por última mensagem (mais recente primeiro)
         formattedChats.sort((a, b) => b.timestamp - a.timestamp);
@@ -157,7 +267,7 @@ app.get('/chats', async (req, res) => {
     }
 });
 
-// Busca mensagens de um chat específico
+// Busca mensagens de um chat específico (melhorado com paginação)
 app.get('/chats/:chatId/messages', async (req, res) => {
     if (!isReady) {
         return res.status(400).json({ error: 'Cliente não conectado. Escaneie o QR Code primeiro.' });
@@ -165,13 +275,24 @@ app.get('/chats/:chatId/messages', async (req, res) => {
     
     try {
         const { chatId } = req.params;
-        const limit = parseInt(req.query.limit) || 50;
+        const limit = parseInt(req.query.limit) || 100; // Aumentado padrão para 100
+        const beforeId = req.query.before; // Para paginação
         
         // Busca o chat pelo ID
         const chat = await client.getChatById(chatId);
         
-        // Busca mensagens do chat
-        const messages = await chat.fetchMessages({ limit: limit });
+        // Busca mensagens do chat com opção de paginação
+        let fetchOptions = { limit: Math.min(limit, 1000) }; // Limite máximo de 1000
+        if (beforeId) {
+            try {
+                const beforeMsg = await client.getMessageById(beforeId);
+                fetchOptions = { ...fetchOptions, before: beforeMsg };
+            } catch (e) {
+                // Se não encontrar mensagem, ignora paginação
+            }
+        }
+        
+        const messages = await chat.fetchMessages(fetchOptions);
         
         // Formata as mensagens
         const formattedMessages = messages.map(msg => {
@@ -183,7 +304,8 @@ app.get('/chats/:chatId/messages', async (req, res) => {
                 timestamp: msg.timestamp * 1000,
                 type: msg.type,
                 hasMedia: msg.hasMedia,
-                mediaUrl: msg.hasMedia ? (msg.mediaUrl || '') : null
+                mediaUrl: msg.hasMedia ? (msg.mediaUrl || '') : null,
+                contactName: msg.contact ? (msg.contact.pushname || msg.contact.name) : null
             };
         });
         
@@ -193,7 +315,9 @@ app.get('/chats/:chatId/messages', async (req, res) => {
         res.json({
             success: true,
             messages: formattedMessages,
-            total: formattedMessages.length
+            total: formattedMessages.length,
+            hasMore: messages.length >= limit,
+            nextCursor: formattedMessages.length > 0 ? formattedMessages[0].id : null
         });
     } catch (error) {
         res.status(500).json({ error: error.message });

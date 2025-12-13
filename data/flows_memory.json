@@ -1,0 +1,29 @@
+{
+  "flows": [
+    {
+      "id": 1,
+      "name": "Teste",
+      "description": "testando",
+      "flow_data": {
+        "name": "Teste",
+        "description": "testando",
+        "trigger": {
+          "type": "keyword",
+          "keywords": [
+            "oi",
+            "ol\u00e1",
+            "bom dia"
+          ]
+        },
+        "steps": [
+          {
+            "type": "send_message",
+            "message": "Ol\u00e1! \ud83d\udc4b Bem-vindo! Como posso ajudar?"
+          }
+        ]
+      },
+      "status": "active",
+      "created_at": "2025-12-13T11:58:32.347702"
+    }
+  ]
+}

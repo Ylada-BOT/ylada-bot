@@ -4,86 +4,37 @@ __pycache__/
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 .venv/
 venv/
 ENV/
-env/
 
-# Flask
-instance/
-.webassets-cache
+# Node
+node_modules/
+npm-debug.log
+
+# WhatsApp
+.wwebjs_auth/
+.wwebjs_cache/
+data/sessions/
 
 # Environment
 .env
 .env.local
 .env.*.local
-env.local.template
-
-# Arquivos com senhas e credenciais
-VARIAVEIS_VERCEL_COMPLETO.txt
-VARIAVEIS_SEU_PROJETO.txt
-VARIAVEIS_RENDER_VERCEL.txt
-VARIAVEIS_VERCEL_COMPARAR.md
-COPIAR_TUDO_PARA_VERCEL.md
-*_COMPLETO.txt
-*_SEU_PROJETO.txt
-*_RENDER_VERCEL.txt
-*_VERCEL_COMPARAR.md
-*COPIAR_TUDO*.md
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Data
-data/sessions/
-data/messages_log.json
-*.db
-*.sqlite
-
-# Node
-node_modules/
-npm-debug.log
-yarn-error.log
-
-# WhatsApp
-data/sessions/
-*.session
-.wwebjs_auth/
-.wwebjs_cache/
+# IDEs
+.vscode/
+.idea/
+*.swp
 
 # Logs
 *.log
 logs/
 
-# Config (manter exemplo)
-!config/config.example.yaml
-
-# Vercel
-.vercel
-
-.env.local.final
-.env.local.old
-.env.local.backup-*
+# Backup
+backup_limpeza/
+docs_archive/

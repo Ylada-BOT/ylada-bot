@@ -1,16 +1,22 @@
-requests==2.31.0
-python-dotenv==1.0.0
-pyyaml==6.0.1
+# Dependências essenciais - Integração WhatsApp + IA
 flask==3.0.0
 flask-cors==4.0.0
+requests==2.31.0
+python-dotenv==1.0.0
+
+# Banco de dados
 sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+alembic==1.12.1
+
+# Autenticação
+bcrypt==4.1.1
+pyjwt==2.8.0
+flask-jwt-extended==4.6.0
+
+# IA - Escolha um ou ambos
+openai>=1.0.0
+anthropic>=0.18.0
+
+# Utilitários
 python-dateutil==2.8.2
-qrcode[pil]==7.4.2
-supabase==2.0.0
-websockets==12.0
-
-# Opcional - Para WhatsApp Web (gratuito)
-# Descomente se quiser usar:
-# playwright==1.40.0
-# selenium==4.15.0
-

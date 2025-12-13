@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leads - BOT by YLADA</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f0f4f8;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+            border: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+        }
+        
+        .btn-success {
+            background: #10b981;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+        }
+        
+        .filters {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+            border: 1px solid #e5e7eb;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .filters select, .filters input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .filters input {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .leads-list {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+            border: 1px solid #e5e7eb;
+        }
+        
+        .lead-item {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 20px;
+            align-items: start;
+            transition: background 0.2s;
+        }
+        
+        .lead-item:hover {
+            background: #f9fafb;
+        }
+        
+        .lead-item:last-child {
+            border-bottom: none;
+        }
+        
+        .lead-content {
+            flex: 1;
+        }
+        
+        .lead-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .lead-name {
+            font-weight: bold;
+            font-size: 18px;
+            color: #333;
+        }
+        
+        .lead-phone {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .lead-email {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .lead-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .lead-status.new {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .lead-status.contacted {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .lead-status.qualified {
+            background: #dcfce7;
+            color: #166534;
+        }
+        
+        .lead-status.converted {
+            background: #10b981;
+            color: white;
+        }
+        
+        .lead-status.lost {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .lead-score {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            background: #f3e8ff;
+            color: #6b21a8;
+        }
+        
+        .lead-meta {
+            font-size: 12px;
+            color: #999;
+            margin-top: 10px;
+        }
+        
+        .lead-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .lead-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            text-align: right;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .empty-state h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+            border: 1px solid #e5e7eb;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <img src="/static/assets/logo.png" alt="BOT by YLADA" style="height: 50px;">
+                <h1 style="margin: 0;">🎯 Leads</h1>
+            </div>
+            <div>
+                <a href="/" class="btn btn-secondary">← Voltar</a>
+                <button onclick="loadLeads()" class="btn">Atualizar</button>
+            </div>
+        </div>
+        
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-value" id="totalLeads">0</div>
+                <div class="stat-label">Total</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="newLeads">0</div>
+                <div class="stat-label">Novos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="convertedLeads">0</div>
+                <div class="stat-label">Convertidos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="avgScore">0</div>
+                <div class="stat-label">Score Médio</div>
+            </div>
+        </div>
+        
+        <div class="filters">
+            <label>
+                Status:
+                <select id="filterStatus" onchange="loadLeads()">
+                    <option value="">Todos</option>
+                    <option value="new">Novo</option>
+                    <option value="contacted">Contatado</option>
+                    <option value="qualified">Qualificado</option>
+                    <option value="converted">Convertido</option>
+                    <option value="lost">Perdido</option>
+                </select>
+            </label>
+            <label>
+                Origem:
+                <select id="filterSource" onchange="loadLeads()">
+                    <option value="">Todas</option>
+                    <option value="flow">Fluxo</option>
+                    <option value="message">Mensagem</option>
+                    <option value="manual">Manual</option>
+                </select>
+            </label>
+            <input type="text" id="searchInput" placeholder="Buscar por nome, telefone ou email..." onkeyup="loadLeads()">
+        </div>
+        
+        <div class="leads-list" id="leadsList">
+            <div class="loading">Carregando leads...</div>
+        </div>
+    </div>
+    
+    <script>
+        function loadLeads() {
+            const filterStatus = document.getElementById('filterStatus').value;
+            const filterSource = document.getElementById('filterSource').value;
+            const search = document.getElementById('searchInput').value;
+            
+            let url = '/api/leads?limit=100';
+            if (filterStatus) url += `&status=${filterStatus}`;
+            if (filterSource) url += `&source=${filterSource}`;
+            if (search) url += `&search=${encodeURIComponent(search)}`;
+            
+            fetch(url)
+                .then(r => r.json())
+                .then(data => {
+                    const list = document.getElementById('leadsList');
+                    
+                    if (!data.success || !data.leads || data.leads.length === 0) {
+                        list.innerHTML = `
+                            <div class="empty-state">
+                                <h3>📭 Nenhum lead encontrado</h3>
+                                <p>Os leads aparecerão aqui quando forem capturados automaticamente ou criados manualmente.</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    list.innerHTML = data.leads.map(l => {
+                        const date = new Date(l.created_at).toLocaleString('pt-BR');
+                        const scoreColor = l.score >= 70 ? '#10b981' : l.score >= 50 ? '#f59e0b' : '#ef4444';
+                        
+                        return `
+                            <div class="lead-item">
+                                <div class="lead-content">
+                                    <div class="lead-header">
+                                        <span class="lead-name">${l.name || 'Sem nome'}</span>
+                                        <span class="lead-status ${l.status}">${getStatusLabel(l.status)}</span>
+                                        <span class="lead-score" style="background: ${scoreColor === '#10b981' ? '#dcfce7' : scoreColor === '#f59e0b' ? '#fef3c7' : '#fee2e2'}; color: ${scoreColor};">⭐ ${l.score}</span>
+                                    </div>
+                                    <div class="lead-phone">📱 ${l.phone}</div>
+                                    ${l.email ? `<div class="lead-email">✉️ ${l.email}</div>` : ''}
+                                    <div class="lead-meta">
+                                        ${l.source ? `Origem: ${l.source} • ` : ''}Capturado em ${date}
+                                    </div>
+                                </div>
+                                <div class="lead-stats">
+                                    <select onchange="updateStatus(${l.id}, this.value)" class="btn" style="padding: 8px; font-size: 12px;">
+                                        <option value="new" ${l.status === 'new' ? 'selected' : ''}>Novo</option>
+                                        <option value="contacted" ${l.status === 'contacted' ? 'selected' : ''}>Contatado</option>
+                                        <option value="qualified" ${l.status === 'qualified' ? 'selected' : ''}>Qualificado</option>
+                                        <option value="converted" ${l.status === 'converted' ? 'selected' : ''}>Convertido</option>
+                                        <option value="lost" ${l.status === 'lost' ? 'selected' : ''}>Perdido</option>
+                                    </select>
+                                </div>
+                                <div class="lead-actions">
+                                    <button onclick="deleteLead(${l.id})" class="btn btn-danger" style="padding: 8px 16px; font-size: 12px;">Deletar</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar leads:', error);
+                    document.getElementById('leadsList').innerHTML = `
+                        <div class="empty-state">
+                            <h3>❌ Erro ao carregar leads</h3>
+                            <p>${error.message}</p>
+                        </div>
+                    `;
+                });
+        }
+        
+        function loadStats() {
+            fetch('/api/leads/stats')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('totalLeads').textContent = data.stats.total || 0;
+                        document.getElementById('newLeads').textContent = data.stats.by_status?.new || 0;
+                        document.getElementById('convertedLeads').textContent = data.stats.converted || 0;
+                        document.getElementById('avgScore').textContent = Math.round(data.stats.average_score || 0);
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar estatísticas:', error);
+                });
+        }
+        
+        function getStatusLabel(status) {
+            const labels = {
+                'new': '🆕 Novo',
+                'contacted': '📞 Contatado',
+                'qualified': '✅ Qualificado',
+                'converted': '💰 Convertido',
+                'lost': '❌ Perdido'
+            };
+            return labels[status] || status;
+        }
+        
+        function updateStatus(id, status) {
+            fetch(`/api/leads/${id}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        loadLeads();
+                        loadStats();
+                    } else {
+                        alert('Erro: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Erro ao atualizar status: ' + error.message);
+                });
+        }
+        
+        function deleteLead(id) {
+            if (!confirm('Deletar este lead?')) return;
+            
+            fetch(`/api/leads/${id}`, { method: 'DELETE' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        loadLeads();
+                        loadStats();
+                    } else {
+                        alert('Erro: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Erro ao deletar: ' + error.message);
+                });
+        }
+        
+        // Carrega leads e estatísticas ao carregar a página
+        loadLeads();
+        loadStats();
+        
+        // Atualiza a cada 30 segundos
+        setInterval(() => {
+            loadLeads();
+            loadStats();
+        }, 30000);
+    </script>
+</body>
+</html>

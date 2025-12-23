@@ -9,6 +9,8 @@ from .flow import Flow
 from .conversation import Conversation, Message
 from .lead import Lead
 from .notification import Notification
+from .ia_usage import IAUsage
+from .usage_limits import UsageLimits
 
 __all__ = [
     'User',
@@ -20,5 +22,7 @@ __all__ = [
     'Conversation',
     'Message',
     'Lead',
-    'Notification'
+    'Notification',
+    'IAUsage',
+    'UsageLimits'
 ]

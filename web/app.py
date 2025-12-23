@@ -26,6 +26,49 @@ CORS(app)
 # Configuração de sessão
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
+# Configuração de autenticação
+# Defina AUTH_REQUIRED=true para ativar autenticação (produção)
+# Por padrão, desabilitado para facilitar desenvolvimento
+AUTH_REQUIRED = os.getenv('AUTH_REQUIRED', 'false').lower() == 'true'
+
+# Decorator para proteger rotas (requer login)
+def require_login(f):
+    """Decorator para exigir autenticação nas rotas de páginas"""
+    from functools import wraps
+    
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Se autenticação está desabilitada, permite acesso
+        if not AUTH_REQUIRED:
+            return f(*args, **kwargs)
+        
+        # Verifica se usuário está logado
+        if 'user_id' not in session:
+            return redirect(url_for('login_page'))
+        
+        return f(*args, **kwargs)
+    
+    return decorated_function
+
+# Decorator para proteger APIs (requer login)
+def require_api_auth(f):
+    """Decorator para exigir autenticação nas rotas de API"""
+    from functools import wraps
+    
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Se autenticação está desabilitada, permite acesso
+        if not AUTH_REQUIRED:
+            return f(*args, **kwargs)
+        
+        # Verifica se usuário está logado
+        if 'user_id' not in session:
+            return jsonify({'error': 'Não autenticado. Faça login primeiro.'}), 401
+        
+        return f(*args, **kwargs)
+    
+    return decorated_function
+
 # Importa rotas de autenticação (pode falhar se DB não estiver configurado)
 try:
     from web.api.auth import bp as auth_bp
@@ -57,6 +100,22 @@ try:
     print("[✓] Rotas de leads registradas")
 except Exception as e:
     print(f"[!] Rotas de leads não disponíveis: {e}")
+
+# Importa rotas de tenants
+try:
+    from web.api.tenants import bp as tenants_bp
+    app.register_blueprint(tenants_bp)
+    print("[✓] Rotas de tenants registradas")
+except Exception as e:
+    print(f"[!] Rotas de tenants não disponíveis: {e}")
+
+# Importa rotas de instâncias
+try:
+    from web.api.instances import bp as instances_bp
+    app.register_blueprint(instances_bp)
+    print("[✓] Rotas de instâncias registradas")
+except Exception as e:
+    print(f"[!] Rotas de instâncias não disponíveis: {e}")
 
 # ============================================
 # INICIALIZAÇÃO
@@ -193,49 +252,115 @@ def logout():
 # ============================================
 
 @app.route('/')
+@require_login
 def index():
     """Dashboard principal"""
-    # LOGIN OPCIONAL: Descomente as linhas abaixo para ativar autenticação
-    # if 'user_id' not in session:
-    #     return redirect(url_for('login_page'))
-    
     config = load_config()
     
     # Verifica status do WhatsApp - SEMPRE começa como desconectado
     # O status será verificado via JavaScript em tempo real
     # Isso evita mostrar "Conectado" quando não está
+    # Usa novo template com sidebar
+    try:
+        return render_template('dashboard_new.html')
+    except:
+        # Fallback para template antigo se novo não existir
+        return render_template('dashboard.html')
+
+@app.route('/simple')
+def index_simple():
+    """Dashboard simples (sem tenants) - Modo desenvolvimento"""
+    config = load_config()
     return render_template('dashboard.html')
 
 @app.route('/flows')
+@require_login
 def flows_list():
     """Lista de fluxos"""
     return render_template('flows/list.html')
 
 @app.route('/flows/new')
+@require_login
 def flows_new():
     """Criar novo fluxo"""
     return render_template('flows/new.html')
 
 @app.route('/notifications')
+@require_login
 def notifications_list():
     """Lista de notificações"""
     return render_template('notifications/list.html')
 
 @app.route('/leads')
+@require_login
 def leads_list():
     """Lista de leads"""
     return render_template('leads/list.html')
 
 @app.route('/conversations')
+@require_login
 def conversations_list():
     """Lista de conversas"""
     return render_template('conversations/list.html')
+
+# ============================================
+# ROTAS - TENANTS
+# ============================================
+
+@app.route('/tenants')
+@require_login
+def tenants_list():
+    """Lista de tenants"""
+    return render_template('tenants/list.html')
+
+@app.route('/tenants/new')
+@require_login
+def tenants_new():
+    """Criar novo tenant"""
+    return render_template('tenants/create.html')
+
+@app.route('/tenants/<int:tenant_id>')
+@require_login
+def tenants_detail(tenant_id):
+    """Detalhes do tenant"""
+    return render_template('tenants/dashboard.html', tenant_id=tenant_id)
+
+# ============================================
+# ROTAS - INSTÂNCIAS
+# ============================================
+
+@app.route('/instances')
+@require_login
+def instances_list():
+    """Lista de instâncias"""
+    tenant_id = request.args.get('tenant_id', type=int)
+    return render_template('instances/list.html', tenant_id=tenant_id)
+
+@app.route('/instances/new')
+@require_login
+def instances_new():
+    """Criar nova instância"""
+    tenant_id = request.args.get('tenant_id', type=int)
+    return render_template('instances/create.html', tenant_id=tenant_id)
+
+@app.route('/instances/<int:instance_id>')
+@require_login
+def instances_detail(instance_id):
+    """Detalhes da instância"""
+    return render_template('instances/dashboard.html', instance_id=instance_id)
+
+@app.route('/instances/<int:instance_id>/connect')
+@require_login
+def instances_connect(instance_id):
+    """Conectar WhatsApp da instância"""
+    return render_template('instances/connect.html', instance_id=instance_id)
 
 # ============================================
 # ROTAS - WHATSAPP
 # ============================================
 
 @app.route('/qr')
+@require_login
 def qr_code():
     """Página para escanear QR Code"""
     return render_template('qr.html')
@@ -290,6 +415,7 @@ def get_qr():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/conversations')
+@require_api_auth
 def get_conversations():
     """Obtém lista de conversas do WhatsApp"""
     if not whatsapp:
@@ -311,6 +437,7 @@ def get_conversations():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/conversations/<chat_id>/messages')
+@require_api_auth
 def get_conversation_messages(chat_id):
     """Obtém mensagens de uma conversa específica"""
     if not whatsapp:
@@ -414,6 +541,7 @@ def get_ai_config():
     })
 
 @app.route('/api/ai/config', methods=['POST'])
+@require_api_auth
 def set_ai_config():
     """Configura a IA"""
     data = request.get_json()

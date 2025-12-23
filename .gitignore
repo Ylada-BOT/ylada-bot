@@ -38,3 +38,4 @@ logs/
 # Backup
 backup_limpeza/
 docs_archive/
+env.local.COMPLETO.txt

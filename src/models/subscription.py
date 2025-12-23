@@ -32,6 +32,11 @@ class Plan(Base):
     max_flows = Column(Integer, default=3, nullable=False)
     max_messages_month = Column(Integer, default=1000, nullable=False)
     
+    # Limites de IA (Modelo Híbrido)
+    messages_included = Column(Integer, default=1000, nullable=False)  # Mensagens com IA incluídas no plano
+    excess_price_per_message = Column(Float, default=0.15, nullable=False)  # Preço por mensagem excedente (R$)
+    hard_limit_multiplier = Column(Float, default=1.5, nullable=False)  # Multiplicador para hard limit (ex: 1.5 = 150%)
+    
     # Features (JSON array)
     features = Column(JSON, default=list, nullable=False)
     

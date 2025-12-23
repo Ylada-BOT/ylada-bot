@@ -68,3 +68,4 @@ Acesse: http://localhost:5002
 **Status:** ✅ Projeto limpo e focado apenas em WhatsApp + IA
 
 
+

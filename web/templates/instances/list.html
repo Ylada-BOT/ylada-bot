@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bots - BOT YLADA</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #333;
+            font-size: 28px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #2563eb;
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+        }
+        
+        .instances-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .instance-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+        }
+        
+        .instance-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+        }
+        
+        .instance-card h3 {
+            color: #333;
+            margin-bottom: 12px;
+            font-size: 20px;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        
+        .status.connected {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status.disconnected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .status.connecting {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .info {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .actions {
+            margin-top: 16px;
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 12px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <a href="/tenants" class="btn btn-secondary" style="margin-bottom: 12px; display: inline-block;">← Voltar</a>
+                <h1>🤖 Meus Bots</h1>
+            </div>
+            <a href="/instances/new?tenant_id={{ tenant_id|default('') }}" class="btn" id="new-btn">+ Novo Bot</a>
+        </div>
+        
+        <div id="instances-container">
+            <div class="loading">Carregando...</div>
+        </div>
+    </div>
+    
+    <script>
+        const tenantId = new URLSearchParams(window.location.search).get('tenant_id') || {{ tenant_id|default('null') }};
+        
+        if (!tenantId) {
+            document.getElementById('instances-container').innerHTML = `
+                <div class="empty-state">
+                    <h2>Tenant ID não fornecido</h2>
+                    <a href="/tenants" class="btn">Voltar para Clientes</a>
+                </div>
+            `;
+        } else {
+            // Atualiza link de criar
+            document.getElementById('new-btn').href = `/instances/new?tenant_id=${tenantId}`;
+            
+            loadInstances();
+        }
+        
+        async function loadInstances() {
+            try {
+                const response = await fetch(`/api/instances?tenant_id=${tenantId}`);
+                const data = await response.json();
+                
+                const container = document.getElementById('instances-container');
+                
+                if (!data.success || data.instances.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <h2>Nenhum bot criado ainda</h2>
+                            <p>Crie seu primeiro bot para começar</p>
+                            <a href="/instances/new?tenant_id=${tenantId}" class="btn">Criar Primeiro Bot</a>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <div class="instances-grid">
+                        ${data.instances.map(instance => `
+                            <div class="instance-card">
+                                <h3>${instance.name}</h3>
+                                <span class="status ${instance.status}">${getStatusLabel(instance.status)}</span>
+                                <div class="info">📱 Porta: ${instance.port}</div>
+                                ${instance.phone_number ? `<div class="info">📞 ${instance.phone_number}</div>` : ''}
+                                <div class="info">📤 ${instance.messages_sent || 0} enviadas</div>
+                                <div class="info">📥 ${instance.messages_received || 0} recebidas</div>
+                                <div class="actions">
+                                    <a href="/instances/${instance.id}" class="btn btn-small">Ver Detalhes</a>
+                                    ${instance.status === 'disconnected' ? `<a href="/instances/${instance.id}/connect" class="btn btn-small">Conectar</a>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Erro ao carregar instâncias:', error);
+                document.getElementById('instances-container').innerHTML = `
+                    <div class="empty-state">
+                        <h2>Erro ao carregar bots</h2>
+                        <p>${error.message}</p>
+                        <button onclick="loadInstances()" class="btn">Tentar Novamente</button>
+                    </div>
+                `;
+            }
+        }
+        
+        function getStatusLabel(status) {
+            const labels = {
+                'connected': 'Conectado',
+                'disconnected': 'Desconectado',
+                'connecting': 'Conectando',
+                'error': 'Erro'
+            };
+            return labels[status] || status;
+        }
+    </script>
+</body>
+</html>
+

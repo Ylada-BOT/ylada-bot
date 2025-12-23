@@ -26,6 +26,11 @@ class Tenant(Base):
     subdomain = Column(String(100), unique=True, index=True, nullable=True)
     status = Column(Enum(TenantStatus), default=TenantStatus.TRIAL, nullable=False)
     plan_id = Column(Integer, ForeignKey('plans.id'), nullable=True)
+    
+    # Bloqueio por exceder limite de IA
+    is_blocked = Column(Boolean, default=False, nullable=False)  # Bloqueado por exceder hard limit
+    blocked_reason = Column(String(500), nullable=True)  # Motivo do bloqueio
+    
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

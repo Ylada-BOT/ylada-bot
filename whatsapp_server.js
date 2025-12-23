@@ -39,9 +39,14 @@ function initClient() {
 
     client = new Client({
         authStrategy: new LocalAuth({
-            clientId: 'ylada_bot'
+            clientId: 'ylada_bot',
+            dataPath: '.wwebjs_auth' // Mantém sessão persistente
         }),
-        puppeteer: puppeteerOptions
+        puppeteer: puppeteerOptions,
+        webVersionCache: {
+            type: 'local',
+            path: '.wwebjs_cache' // Cache da versão web
+        }
     });
 
     client.on('qr', (qr) => {
@@ -296,6 +301,44 @@ app.get('/chats/:chatId/messages', async (req, res) => {
         
         // Formata as mensagens
         const formattedMessages = messages.map(msg => {
+            let contactName = null;
+            
+            // Se é mensagem de contato, extrai informações
+            if (msg.type === 'contact' || msg.type === 'vcard') {
+                if (msg.contact) {
+                    // Tenta obter nome do contato
+                    contactName = msg.contact.pushname || msg.contact.name || null;
+                    
+                    // Se não tem nome, tenta extrair do vCard no body
+                    if (!contactName && msg.body) {
+                        try {
+                            const fnMatch = msg.body.match(/FN:([^\n\r;]+)/);
+                            const nMatch = msg.body.match(/N:([^\n\r;]+)/);
+                            if (fnMatch) {
+                                contactName = fnMatch[1].trim();
+                            } else if (nMatch) {
+                                contactName = nMatch[1].split(';')[0].trim();
+                            }
+                        } catch (e) {
+                            // Ignora erro
+                        }
+                    }
+                } else if (msg.body) {
+                    // Se não tem objeto contact, tenta extrair do body
+                    try {
+                        const fnMatch = msg.body.match(/FN:([^\n\r;]+)/);
+                        const nMatch = msg.body.match(/N:([^\n\r;]+)/);
+                        if (fnMatch) {
+                            contactName = fnMatch[1].trim();
+                        } else if (nMatch) {
+                            contactName = nMatch[1].split(';')[0].trim();
+                        }
+                    } catch (e) {
+                        // Ignora erro
+                    }
+                }
+            }
+            
             return {
                 id: msg.id._serialized,
                 body: msg.body || '',
@@ -305,7 +348,7 @@ app.get('/chats/:chatId/messages', async (req, res) => {
                 type: msg.type,
                 hasMedia: msg.hasMedia,
                 mediaUrl: msg.hasMedia ? (msg.mediaUrl || '') : null,
-                contactName: msg.contact ? (msg.contact.pushname || msg.contact.name) : null
+                contactName: contactName
             };
         });
         

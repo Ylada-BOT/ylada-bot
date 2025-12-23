@@ -1,29 +1,9 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conversas - BOT by YLADA</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #f0f4f8;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        
-        .header {
+{% extends "base.html" %}
+
+{% block title %}Conversas - BOT by YLADA{% endblock %}
+
+{% block extra_styles %}
+        .page-header {
             background: white;
             border-radius: 12px;
             padding: 25px 30px;
@@ -35,10 +15,9 @@
             align-items: center;
         }
         
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 15px;
+        .page-header h1 {
+            margin: 0;
+            color: #333;
         }
         
         .btn {
@@ -70,7 +49,7 @@
             display: grid;
             grid-template-columns: 350px 1fr;
             gap: 20px;
-            height: calc(100vh - 200px);
+            height: calc(100vh - 180px);
         }
         
         .conversations-list {
@@ -80,6 +59,16 @@
             box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
             border: 1px solid #e5e7eb;
             overflow-y: auto;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        #conversationsList {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
         }
         
         .conversation-item {
@@ -118,14 +107,6 @@
             color: #999;
         }
         
-        .conversation-preview {
-            font-size: 14px;
-            color: #666;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            margin-top: 5px;
-        }
         
         .unread-badge {
             background: #667eea;
@@ -140,23 +121,30 @@
         .messages-container {
             background: white;
             border-radius: 12px;
-            padding: 20px;
             box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
             border: 1px solid #e5e7eb;
             display: flex;
             flex-direction: column;
+            height: 100%;
+            overflow: hidden;
         }
         
         .messages-header {
-            padding-bottom: 15px;
+            padding: 20px;
             border-bottom: 1px solid #eee;
-            margin-bottom: 15px;
+            background: white;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            flex-shrink: 0;
         }
         
         .messages-list {
             flex: 1;
             overflow-y: auto;
-            padding: 10px 0;
+            overflow-x: hidden;
+            padding: 20px;
+            min-height: 0;
         }
         
         .message-item {
@@ -178,6 +166,12 @@
             padding: 12px 16px;
             border-radius: 18px;
             word-wrap: break-word;
+            white-space: pre-wrap;
+            line-height: 1.4;
+        }
+        
+        .message-bubble strong {
+            font-weight: 600;
         }
         
         .message-item.sent .message-bubble {
@@ -221,20 +215,15 @@
             width: 100%;
             font-size: 14px;
         }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="header-left">
-                <img src="/static/assets/logo.png" alt="BOT by YLADA" style="height: 50px;">
-                <h1 style="margin: 0;">💬 Conversas</h1>
-            </div>
-            <div>
-                <a href="/" class="btn btn-secondary">← Voltar</a>
-                <button onclick="loadConversations()" class="btn">Atualizar</button>
-            </div>
+{% endblock %}
+
+{% block content %}
+    <div class="page-header">
+        <h1>💬 Conversas</h1>
+        <div>
+            <button onclick="loadConversations()" class="btn">Atualizar</button>
         </div>
+    </div>
         
         <div class="conversations-container">
             <div class="conversations-list">
@@ -246,7 +235,7 @@
             
             <div class="messages-container">
                 <div class="messages-header" id="messagesHeader">
-                    <h3 style="color: #666;">Selecione uma conversa</h3>
+                    <h3 style="color: #666; margin: 0;">Selecione uma conversa</h3>
                 </div>
                 <div class="messages-list" id="messagesList">
                     <div class="empty-state">
@@ -316,10 +305,33 @@
                             </div>
                             <span class="conversation-time">${timeStr}</span>
                         </div>
-                        <div class="conversation-preview">${conv.lastMessage || 'Sem mensagens'}</div>
                     </div>
                 `;
             }).join('');
+        }
+        
+        function formatPreview(text) {
+            if (!text) return '';
+            
+            // Detecta e formata vCard no preview
+            if (text.includes('BEGIN:VCARD') || text.includes('VERSION:3.0')) {
+                try {
+                    // Tenta extrair nome
+                    const fnMatch = text.match(/FN:([^\n\r;]+)/);
+                    const nMatch = text.match(/N:([^\n\r;]+)/);
+                    const name = fnMatch ? fnMatch[1].trim() : (nMatch ? nMatch[1].split(';')[0].trim() : 'Contato');
+                    return `👤 ${name}`;
+                } catch (e) {
+                    return '👤 Contato compartilhado';
+                }
+            }
+            
+            // Limita tamanho
+            if (text.length > 50) {
+                return text.substring(0, 50) + '...';
+            }
+            
+            return text;
         }
         
         function filterConversations() {
@@ -337,8 +349,8 @@
             loadConversations(); // Re-renderiza para destacar a selecionada
             
             document.getElementById('messagesHeader').innerHTML = `
-                <h3>${name}</h3>
-                <p style="color: #999; font-size: 14px; margin-top: 5px;">${phone}</p>
+                <h3 style="margin: 0; color: #333;">${escapeHtml(name)}</h3>
+                <p style="color: #999; font-size: 14px; margin-top: 5px; margin-bottom: 0;">${escapeHtml(phone)}</p>
             `;
             
             loadMessages(chatId);
@@ -373,6 +385,104 @@
                 });
         }
         
+        function formatMessageBody(msg) {
+            // Verifica tipo de mensagem primeiro
+            if (msg.type === 'image' || (msg.hasMedia && msg.type === 'image')) {
+                return '📷 Imagem';
+            }
+            if (msg.type === 'video') {
+                return '🎥 Vídeo';
+            }
+            if (msg.type === 'audio' || msg.type === 'ptt') {
+                return '🎤 Áudio';
+            }
+            if (msg.type === 'document') {
+                return '📄 Documento';
+            }
+            if (msg.type === 'location') {
+                return '📍 Localização';
+            }
+            if (msg.type === 'contact' || msg.type === 'vcard') {
+                // Se tem contactName do servidor, usa ele
+                if (msg.contactName) {
+                    return `👤 <strong>${escapeHtml(msg.contactName)}</strong>`;
+                }
+                // Se não tem, tenta extrair do body (vCard)
+                if (msg.body && (msg.body.includes('BEGIN:VCARD') || msg.body.includes('VERSION:3.0'))) {
+                    try {
+                        const fnMatch = msg.body.match(/FN:([^\n\r;]+)/);
+                        const nMatch = msg.body.match(/N:([^\n\r;]+)/);
+                        const name = fnMatch ? fnMatch[1].trim() : (nMatch ? nMatch[1].split(';')[0].trim() : 'Contato');
+                        return `👤 <strong>${escapeHtml(name)}</strong>`;
+                    } catch (e) {
+                        return '👤 Contato compartilhado';
+                    }
+                }
+                return '👤 Contato compartilhado';
+            }
+            
+            // Se não tem body, retorna mensagem padrão
+            if (!msg.body || !msg.body.trim()) {
+                if (msg.hasMedia) {
+                    return '📎 Mídia';
+                }
+                return '(Mensagem sem texto)';
+            }
+            
+            let body = msg.body;
+            
+            // Detecta e formata vCard (mesmo que não seja tipo contact)
+            if (body.includes('BEGIN:VCARD') || body.includes('VERSION:3.0')) {
+                try {
+                    // Extrai nome
+                    const fnMatch = body.match(/FN:([^\n\r;]+)/);
+                    const nMatch = body.match(/N:([^\n\r;]+)/);
+                    const name = fnMatch ? fnMatch[1].trim() : (nMatch ? nMatch[1].split(';')[0].trim() : 'Contato');
+                    
+                    // Extrai telefone
+                    const telMatch = body.match(/TEL[^:]*:([^\n\r;]+)/);
+                    const phone = telMatch ? telMatch[1].trim().replace(/[^\d+]/g, '') : '';
+                    
+                    // Extrai nome do negócio se houver
+                    const bizMatch = body.match(/X-WA-BIZ-NAME:([^\n\r;]+)/);
+                    const bizName = bizMatch ? bizMatch[1].trim() : '';
+                    
+                    let result = `👤 <strong>${escapeHtml(name)}</strong>`;
+                    if (bizName) {
+                        result += `<br><small>${escapeHtml(bizName)}</small>`;
+                    }
+                    if (phone) {
+                        result += `<br>📱 ${escapeHtml(phone)}`;
+                    }
+                    return result;
+                } catch (e) {
+                    console.error('Erro ao parsear vCard:', e);
+                    return '👤 Contato compartilhado';
+                }
+            }
+            
+            // Remove caracteres de controle e formata
+            body = body.replace(/\x00/g, '').replace(/\r\n/g, '\n').trim();
+            
+            // Se está vazio após limpeza
+            if (!body) {
+                return '(Mensagem sem texto)';
+            }
+            
+            // Limita tamanho muito grande (pode ser spam ou erro)
+            if (body.length > 5000) {
+                return escapeHtml(body.substring(0, 5000)) + '...<br><small>(Mensagem truncada)</small>';
+            }
+            
+            return escapeHtml(body);
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
         function renderMessages(messages) {
             const messagesList = document.getElementById('messagesList');
             
@@ -386,20 +496,29 @@
             }
             
             messagesList.innerHTML = messages.map(msg => {
-                const date = new Date(msg.timestamp);
+                // Trata timestamp (pode vir em segundos ou milissegundos)
+                let timestamp = msg.timestamp;
+                if (timestamp < 10000000000) {
+                    // Se for menor que isso, provavelmente está em segundos
+                    timestamp = timestamp * 1000;
+                }
+                const date = new Date(timestamp);
                 const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
                 const isSent = msg.fromMe;
+                const body = formatMessageBody(msg);
                 
                 return `
                     <div class="message-item ${isSent ? 'sent' : 'received'}">
-                        <div class="message-bubble">${msg.body || '(Mensagem sem texto)'}</div>
+                        <div class="message-bubble">${body}</div>
                         <div class="message-time">${timeStr}</div>
                     </div>
                 `;
             }).join('');
             
             // Scroll para o final
-            messagesList.scrollTop = messagesList.scrollHeight;
+            setTimeout(() => {
+                messagesList.scrollTop = messagesList.scrollHeight;
+            }, 100);
         }
         
         // Carrega conversas ao iniciar
@@ -408,5 +527,4 @@
         // Atualiza a cada 30 segundos
         setInterval(loadConversations, 30000);
     </script>
-</body>
-</html>
+{% endblock %}

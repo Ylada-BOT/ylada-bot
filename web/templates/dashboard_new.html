@@ -1,0 +1,489 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - BOT by YLADA{% endblock %}
+
+{% block extra_styles %}
+        .page-header {
+            background: white;
+            border-radius: 12px;
+            padding: 25px 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+            border: 1px solid #e5e7eb;
+        }
+        
+        .page-header h1 {
+            color: #333;
+            margin: 0;
+            font-size: 28px;
+        }
+        
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+            border-color: #3b82f6;
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        
+        .status.connected {
+            background: #10b981;
+            color: white;
+        }
+        
+        .status.disconnected {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .status.not-configured {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #3b82f6;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+        }
+        
+        .btn:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #3b82f6;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f4f6;
+            border-top: 2px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .config-section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 30px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+            border: 1px solid #e5e7eb;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+{% endblock %}
+
+{% block content %}
+    <div class="page-header">
+        <h1>📊 Dashboard</h1>
+        <p style="color: #666; margin-top: 5px;">Visão geral do sistema</p>
+    </div>
+    
+    <div class="cards">
+        <!-- Card WhatsApp -->
+        <div class="card">
+            <h2>📱 WhatsApp</h2>
+            <p style="margin-bottom: 15px; color: #666;">
+                Status da conexão
+            </p>
+            <span class="status disconnected" id="whatsappStatus">
+                ✗ Desconectado
+            </span>
+            <div id="whatsappActions">
+                <a href="/qr" class="btn" id="connectBtn">Conectar WhatsApp</a>
+                <button onclick="checkStatus()" class="btn btn-secondary" id="updateBtn" style="display: none;">Atualizar Status</button>
+            </div>
+            <div id="whatsappError" class="hidden" style="margin-top: 10px; color: #ef4444; font-size: 12px;"></div>
+        </div>
+        
+        <!-- Card IA -->
+        <div class="card">
+            <h2>🤖 Inteligência Artificial</h2>
+            <p style="margin-bottom: 15px; color: #666;">
+                Configuração da IA
+            </p>
+            <span class="status not-configured" id="aiStatus">
+                ⚠ Não configurada
+            </span>
+            <div style="margin-top: 15px;">
+                <button onclick="window.location.href='#config-ai'" class="btn">Configurar IA</button>
+            </div>
+            <div class="stats" id="aiStats" style="display: none;">
+                <div class="stat-item">
+                    <div class="stat-value" id="aiProvider">-</div>
+                    <div class="stat-label">Provider</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="aiModel">-</div>
+                    <div class="stat-label">Model</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Card Fluxos -->
+        <div class="card">
+            <h2>🔄 Fluxos de Automação</h2>
+            <p style="margin-bottom: 15px; color: #666;">
+                Automações ativas
+            </p>
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="flowsTotal">0</div>
+                    <div class="stat-label">Total</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="flowsActive">0</div>
+                    <div class="stat-label">Ativos</div>
+                </div>
+            </div>
+            <div style="margin-top: 15px;">
+                <a href="/flows" class="btn">Gerenciar Fluxos</a>
+            </div>
+        </div>
+        
+        <!-- Card Conversas -->
+        <div class="card">
+            <h2>💬 Conversas</h2>
+            <p style="margin-bottom: 15px; color: #666;">
+                Conversas ativas
+            </p>
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="conversationsTotal">0</div>
+                    <div class="stat-label">Total</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="conversationsUnread">0</div>
+                    <div class="stat-label">Não lidas</div>
+                </div>
+            </div>
+            <div style="margin-top: 15px;">
+                <a href="/conversations" class="btn">Ver Conversas</a>
+            </div>
+        </div>
+        
+        <!-- Card Leads -->
+        <div class="card">
+            <h2>🎯 Leads</h2>
+            <p style="margin-bottom: 15px; color: #666;">
+                Leads capturados
+            </p>
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="leadsTotal">0</div>
+                    <div class="stat-label">Total</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="leadsNew">0</div>
+                    <div class="stat-label">Novos</div>
+                </div>
+            </div>
+            <div style="margin-top: 15px;">
+                <a href="/leads" class="btn">Ver Leads</a>
+            </div>
+        </div>
+        
+        <!-- Card Métricas -->
+        <div class="card">
+            <h2>📊 Métricas</h2>
+            <p style="margin-bottom: 15px; color: #666;">
+                Estatísticas gerais
+            </p>
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="metricsMessages">0</div>
+                    <div class="stat-label">Mensagens</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="metricsToday">0</div>
+                    <div class="stat-label">Hoje</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Seção de Configuração de IA -->
+    <div class="config-section" id="config-ai">
+        <h2 style="margin-bottom: 20px;">⚙️ Configuração de IA</h2>
+        <form id="aiConfigForm" onsubmit="saveAIConfig(event)">
+            <div class="form-group">
+                <label>Provider</label>
+                <select id="aiProvider" name="provider">
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic (Claude)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>API Key</label>
+                <input type="password" id="aiApiKey" name="api_key" placeholder="sk-...">
+            </div>
+            
+            <div class="form-group">
+                <label>Model</label>
+                <select id="aiModel" name="model">
+                    <option value="gpt-4o-mini">GPT-4o Mini</option>
+                    <option value="gpt-4o">GPT-4o</option>
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                    <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>System Prompt</label>
+                <textarea id="aiSystemPrompt" name="system_prompt" placeholder="Você é um assistente útil e amigável."></textarea>
+            </div>
+            
+            <button type="submit" class="btn">Salvar Configuração</button>
+        </form>
+    </div>
+{% endblock %}
+
+{% block extra_scripts %}
+    <script>
+        // Carrega configuração da IA
+        function loadAIConfig() {
+            fetch('/api/ai-config')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.config) {
+                        const config = data.config;
+                        document.getElementById('aiProvider').value = config.provider || 'openai';
+                        document.getElementById('aiApiKey').value = config.api_key || '';
+                        document.getElementById('aiModel').value = config.model || 'gpt-4o-mini';
+                        document.getElementById('aiSystemPrompt').value = config.system_prompt || 'Você é um assistente útil e amigável.';
+                        
+                        // Atualiza status
+                        if (config.api_key) {
+                            document.getElementById('aiStatus').textContent = '✓ Configurada';
+                            document.getElementById('aiStatus').className = 'status connected';
+                            document.getElementById('aiStats').style.display = 'flex';
+                            document.getElementById('aiProvider').textContent = config.provider || 'OpenAI';
+                            document.getElementById('aiModel').textContent = config.model || 'gpt-4o-mini';
+                        }
+                    }
+                })
+                .catch(err => console.error('Erro ao carregar config:', err));
+        }
+        
+        // Salva configuração da IA
+        function saveAIConfig(event) {
+            event.preventDefault();
+            
+            const formData = {
+                provider: document.getElementById('aiProvider').value,
+                api_key: document.getElementById('aiApiKey').value,
+                model: document.getElementById('aiModel').value,
+                system_prompt: document.getElementById('aiSystemPrompt').value
+            };
+            
+            fetch('/api/ai-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Configuração salva com sucesso!');
+                    loadAIConfig();
+                } else {
+                    alert('Erro ao salvar: ' + (data.error || 'Erro desconhecido'));
+                }
+            })
+            .catch(err => {
+                alert('Erro ao salvar configuração: ' + err.message);
+            });
+        }
+        
+        // Verifica status do WhatsApp
+        function checkStatus() {
+            const statusEl = document.getElementById('whatsappStatus');
+            const errorEl = document.getElementById('whatsappError');
+            const connectBtn = document.getElementById('connectBtn');
+            const updateBtn = document.getElementById('updateBtn');
+            
+            statusEl.textContent = '⏳ Verificando...';
+            errorEl.classList.add('hidden');
+            
+            fetch('/api/whatsapp-status')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.connected) {
+                        statusEl.textContent = '✓ Conectado';
+                        statusEl.className = 'status connected';
+                        connectBtn.style.display = 'none';
+                        updateBtn.style.display = 'inline-block';
+                    } else {
+                        statusEl.textContent = '✗ Desconectado';
+                        statusEl.className = 'status disconnected';
+                        connectBtn.style.display = 'inline-block';
+                        updateBtn.style.display = 'none';
+                        
+                        if (data.error) {
+                            errorEl.textContent = data.error;
+                            errorEl.classList.remove('hidden');
+                        }
+                    }
+                })
+                .catch(err => {
+                    statusEl.textContent = '✗ Erro';
+                    statusEl.className = 'status disconnected';
+                    errorEl.textContent = 'Erro ao verificar status: ' + err.message;
+                    errorEl.classList.remove('hidden');
+                });
+        }
+        
+        // Carrega métricas
+        function loadMetrics() {
+            // Conversas
+            fetch('/api/conversations')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.chats) {
+                        document.getElementById('conversationsTotal').textContent = data.chats.length;
+                        const unread = data.chats.filter(c => c.unreadCount > 0).length;
+                        document.getElementById('conversationsUnread').textContent = unread;
+                    }
+                })
+                .catch(err => console.error('Erro ao carregar conversas:', err));
+            
+            // Leads
+            fetch('/api/leads')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.leads) {
+                        document.getElementById('leadsTotal').textContent = data.leads.length;
+                        const today = new Date();
+                        const newLeads = data.leads.filter(l => {
+                            const leadDate = new Date(l.created_at);
+                            return leadDate.toDateString() === today.toDateString();
+                        }).length;
+                        document.getElementById('leadsNew').textContent = newLeads;
+                    }
+                })
+                .catch(err => console.error('Erro ao carregar leads:', err));
+        }
+        
+        // Inicializa
+        loadAIConfig();
+        checkStatus();
+        loadMetrics();
+        
+        // Atualiza a cada 30 segundos
+        setInterval(() => {
+            checkStatus();
+            loadMetrics();
+        }, 30000);
+    </script>
+{% endblock %}
+

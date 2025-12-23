@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard do Bot - BOT YLADA</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #333;
+            font-size: 28px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #2563eb;
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+        }
+        
+        .btn-success {
+            background: #10b981;
+        }
+        
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card h3 {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .card .value {
+            color: #333;
+            font-size: 32px;
+            font-weight: 600;
+        }
+        
+        .status-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        
+        .status.connected {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status.disconnected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .status.connecting {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .info {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <a href="/instances" class="btn btn-secondary" style="margin-bottom: 12px; display: inline-block;">← Voltar</a>
+                <h1 id="instance-name">Carregando...</h1>
+            </div>
+            <a href="/instances/{{ instance_id }}/connect" class="btn" id="connect-btn" style="display: none;">Conectar WhatsApp</a>
+        </div>
+        
+        <div class="status-card">
+            <h2 style="margin-bottom: 16px; color: #333;">Status da Conexão</h2>
+            <div id="status-container">
+                <div class="loading">Carregando...</div>
+            </div>
+        </div>
+        
+        <div class="cards">
+            <div class="card">
+                <h3>Mensagens Enviadas</h3>
+                <div class="value" id="messages-sent">0</div>
+            </div>
+            <div class="card">
+                <h3>Mensagens Recebidas</h3>
+                <div class="value" id="messages-received">0</div>
+            </div>
+            <div class="card">
+                <h3>Porta</h3>
+                <div class="value" id="port">-</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const instanceId = {{ instance_id|default(1) }};
+        
+        async function loadInstance() {
+            try {
+                const response = await fetch(`/api/instances/${instanceId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const instance = data.instance;
+                    
+                    // Atualiza header
+                    document.getElementById('instance-name').textContent = instance.name;
+                    
+                    // Atualiza cards
+                    document.getElementById('messages-sent').textContent = instance.messages_sent || 0;
+                    document.getElementById('messages-received').textContent = instance.messages_received || 0;
+                    document.getElementById('port').textContent = instance.port || '-';
+                    
+                    // Atualiza status
+                    checkStatus();
+                }
+            } catch (error) {
+                console.error('Erro ao carregar instância:', error);
+            }
+        }
+        
+        async function checkStatus() {
+            try {
+                const response = await fetch(`/api/instances/${instanceId}/status`);
+                const data = await response.json();
+                
+                const container = document.getElementById('status-container');
+                const connectBtn = document.getElementById('connect-btn');
+                
+                if (data.success && data.connected) {
+                    container.innerHTML = `
+                        <span class="status connected">✅ Conectado</span>
+                        <div class="info">WhatsApp está conectado e funcionando</div>
+                    `;
+                    connectBtn.style.display = 'none';
+                } else {
+                    container.innerHTML = `
+                        <span class="status disconnected">❌ Desconectado</span>
+                        <div class="info">WhatsApp não está conectado. Clique em "Conectar WhatsApp" para começar.</div>
+                    `;
+                    connectBtn.style.display = 'inline-block';
+                }
+            } catch (error) {
+                console.error('Erro ao verificar status:', error);
+            }
+        }
+        
+        // Carrega dados ao carregar a página
+        loadInstance();
+        
+        // Atualiza status a cada 10 segundos
+        setInterval(checkStatus, 10000);
+    </script>
+</body>
+</html>
+

@@ -39,3 +39,6 @@ logs/
 backup_limpeza/
 docs_archive/
 env.local.COMPLETO.txt
+*.token
+*.key
+ghp_*

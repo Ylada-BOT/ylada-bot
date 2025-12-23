@@ -678,6 +678,9 @@ def health():
 # INICIALIZAÇÃO DO SERVIDOR WHATSAPP
 # ============================================
 
+# Exporta app para Vercel
+application = app
+
 if __name__ == '__main__':
     print("\n" + "="*50)
     print("🔗 BOT by YLADA")

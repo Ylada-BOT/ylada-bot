@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Criar Cliente - BOT YLADA</title>
+    <title>Criar Organização - BOT YLADA</title>
     <style>
         * {
             margin: 0;
@@ -124,13 +124,13 @@
 <body>
     <div class="container">
         <div class="card">
-            <h1>➕ Criar Novo Cliente</h1>
+            <h1>➕ Criar Nova Organização</h1>
             
             <div id="alert" class="alert"></div>
             
             <form id="create-form">
                 <div class="form-group">
-                    <label for="name">Nome do Cliente *</label>
+                    <label for="name">Nome da Organização *</label>
                     <input type="text" id="name" name="name" required placeholder="Ex: Empresa XYZ">
                 </div>
                 
@@ -142,7 +142,7 @@
                     </select>
                 </div>
                 
-                <button type="submit" class="btn" id="submit-btn">Criar Cliente</button>
+                <button type="submit" class="btn" id="submit-btn">Criar Organização</button>
                 <a href="/tenants" class="btn btn-secondary" style="text-align: center; display: block; text-decoration: none;">Cancelar</a>
             </form>
             
@@ -187,16 +187,16 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    showAlert('Cliente criado com sucesso!', 'success');
+                    showAlert('Organização criada com sucesso!', 'success');
                     setTimeout(() => {
                         window.location.href = `/tenants/${data.tenant.id}`;
                     }, 1500);
                 } else {
-                    showAlert(data.error || 'Erro ao criar cliente', 'error');
+                    showAlert(data.error || 'Erro ao criar organização', 'error');
                     submitBtn.disabled = false;
                 }
             } catch (error) {
-                showAlert('Erro ao criar cliente: ' + error.message, 'error');
+                showAlert('Erro ao criar organização: ' + error.message, 'error');
                 submitBtn.disabled = false;
             } finally {
                 loading.style.display = 'none';

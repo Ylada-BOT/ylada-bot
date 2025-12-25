@@ -69,6 +69,54 @@ def require_api_auth(f):
     
     return decorated_function
 
+# Decorator para exigir role de admin
+def require_admin(f):
+    """Decorator para exigir que o usuário seja admin"""
+    from functools import wraps
+    
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Se autenticação está desabilitada, permite acesso
+        if not AUTH_REQUIRED:
+            return f(*args, **kwargs)
+        
+        # Verifica se usuário está logado
+        if 'user_id' not in session:
+            return redirect(url_for('login_page'))
+        
+        # Verifica se é admin
+        user_role = session.get('user_role', 'user')
+        if user_role != 'admin':
+            return redirect(url_for('index')), 403
+        
+        return f(*args, **kwargs)
+    
+    return decorated_function
+
+# Decorator para exigir que seja tenant (não admin)
+def require_tenant(f):
+    """Decorator para exigir que o usuário seja tenant (não admin)"""
+    from functools import wraps
+    
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Se autenticação está desabilitada, permite acesso
+        if not AUTH_REQUIRED:
+            return f(*args, **kwargs)
+        
+        # Verifica se usuário está logado
+        if 'user_id' not in session:
+            return redirect(url_for('login_page'))
+        
+        # Verifica se NÃO é admin (é tenant)
+        user_role = session.get('user_role', 'user')
+        if user_role == 'admin':
+            return redirect(url_for('admin_dashboard'))
+        
+        return f(*args, **kwargs)
+    
+    return decorated_function
+
 # Importa rotas de autenticação (pode falhar se DB não estiver configurado)
 try:
     from web.api.auth import bp as auth_bp
@@ -101,13 +149,21 @@ try:
 except Exception as e:
     print(f"[!] Rotas de leads não disponíveis: {e}")
 
-# Importa rotas de tenants
+# Importa rotas de organizations
 try:
-    from web.api.tenants import bp as tenants_bp
-    app.register_blueprint(tenants_bp)
-    print("[✓] Rotas de tenants registradas")
+    from web.api.organizations import bp as organizations_bp
+    app.register_blueprint(organizations_bp)
+    print("[✓] Rotas de organizations registradas")
 except Exception as e:
-    print(f"[!] Rotas de tenants não disponíveis: {e}")
+    print(f"[!] Rotas de organizations não disponíveis: {e}")
+
+# Importa rotas administrativas
+try:
+    from web.api.admin import bp as admin_bp
+    app.register_blueprint(admin_bp)
+    print("[✓] Rotas administrativas registradas")
+except Exception as e:
+    print(f"[!] Rotas administrativas não disponíveis: {e}")
 
 # Importa rotas de instâncias
 try:
@@ -254,18 +310,35 @@ def logout():
 @app.route('/')
 @require_login
 def index():
-    """Dashboard principal"""
-    config = load_config()
+    """Redireciona baseado no role do usuário"""
+    if not AUTH_REQUIRED:
+        # Modo desenvolvimento - usa dashboard normal
+        try:
+            return render_template('dashboard_new.html')
+        except:
+            return render_template('dashboard.html')
     
-    # Verifica status do WhatsApp - SEMPRE começa como desconectado
-    # O status será verificado via JavaScript em tempo real
-    # Isso evita mostrar "Conectado" quando não está
-    # Usa novo template com sidebar
-    try:
-        return render_template('dashboard_new.html')
-    except:
-        # Fallback para template antigo se novo não existir
-        return render_template('dashboard.html')
+    # Verifica role do usuário
+    user_role = session.get('user_role', 'user')
+    
+    if user_role == 'admin':
+        # Admin vai para área administrativa
+        return redirect(url_for('admin_dashboard'))
+    else:
+        # Tenant vai para área do tenant
+        return redirect(url_for('tenant_dashboard'))
+
+@app.route('/admin')
+@require_admin
+def admin_dashboard():
+    """Dashboard administrativo"""
+    return render_template('admin/dashboard.html')
+
+@app.route('/tenant/dashboard')
+@require_tenant
+def tenant_dashboard():
+    """Dashboard do tenant"""
+    return render_template('tenant/dashboard.html')
 
 @app.route('/simple')
 def index_simple():
@@ -273,57 +346,162 @@ def index_simple():
     config = load_config()
     return render_template('dashboard.html')
 
+# ============================================
+# ROTAS - TENANT (Clientes)
+# ============================================
+
+@app.route('/tenant/flows')
+@require_tenant
+def tenant_flows_list():
+    """Lista de fluxos do tenant"""
+    return render_template('tenant/flows/list.html')
+
+@app.route('/tenant/flows/new')
+@require_tenant
+def tenant_flows_new():
+    """Criar novo fluxo do tenant"""
+    return render_template('tenant/flows/new.html')
+
+@app.route('/tenant/notifications')
+@require_tenant
+def tenant_notifications_list():
+    """Lista de notificações do tenant"""
+    return render_template('tenant/notifications/list.html')
+
+@app.route('/tenant/leads')
+@require_tenant
+def tenant_leads_list():
+    """Lista de leads do tenant"""
+    return render_template('tenant/leads/list.html')
+
+@app.route('/tenant/conversations')
+@require_tenant
+def tenant_conversations_list():
+    """Lista de conversas do tenant"""
+    return render_template('tenant/conversations/list.html')
+
+@app.route('/tenant/instances')
+@require_tenant
+def tenant_instances_list():
+    """Lista de instâncias do tenant"""
+    tenant_id = request.args.get('tenant_id', type=int)
+    return render_template('tenant/instances/list.html', tenant_id=tenant_id)
+
+@app.route('/tenant/qr')
+@require_tenant
+def tenant_qr_code():
+    """Página para escanear QR Code (tenant)"""
+    return render_template('tenant/qr.html')
+
+# ============================================
+# ROTAS - ADMIN (Compatibilidade - redireciona)
+# ============================================
+
 @app.route('/flows')
 @require_login
 def flows_list():
-    """Lista de fluxos"""
-    return render_template('flows/list.html')
+    """Redireciona para área correta"""
+    if not AUTH_REQUIRED:
+        return render_template('flows/list.html')
+    user_role = session.get('user_role', 'user')
+    if user_role == 'admin':
+        return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('tenant_flows_list'))
 
 @app.route('/flows/new')
 @require_login
 def flows_new():
-    """Criar novo fluxo"""
-    return render_template('flows/new.html')
+    """Redireciona para área correta"""
+    if not AUTH_REQUIRED:
+        return render_template('flows/new.html')
+    user_role = session.get('user_role', 'user')
+    if user_role == 'admin':
+        return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('tenant_flows_new'))
 
 @app.route('/notifications')
 @require_login
 def notifications_list():
-    """Lista de notificações"""
-    return render_template('notifications/list.html')
+    """Redireciona para área correta"""
+    if not AUTH_REQUIRED:
+        return render_template('notifications/list.html')
+    user_role = session.get('user_role', 'user')
+    if user_role == 'admin':
+        return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('tenant_notifications_list'))
 
 @app.route('/leads')
 @require_login
 def leads_list():
-    """Lista de leads"""
-    return render_template('leads/list.html')
+    """Redireciona para área correta"""
+    if not AUTH_REQUIRED:
+        return render_template('leads/list.html')
+    user_role = session.get('user_role', 'user')
+    if user_role == 'admin':
+        return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('tenant_leads_list'))
 
 @app.route('/conversations')
 @require_login
 def conversations_list():
-    """Lista de conversas"""
-    return render_template('conversations/list.html')
+    """Redireciona para área correta"""
+    if not AUTH_REQUIRED:
+        return render_template('conversations/list.html')
+    user_role = session.get('user_role', 'user')
+    if user_role == 'admin':
+        return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('tenant_conversations_list'))
 
 # ============================================
 # ROTAS - TENANTS
 # ============================================
 
-@app.route('/tenants')
-@require_login
-def tenants_list():
-    """Lista de tenants"""
-    return render_template('tenants/list.html')
+@app.route('/admin/organizations')
+@require_admin
+def admin_organizations_list():
+    """Lista de organizações (apenas admin)"""
+    return render_template('admin/organizations/list.html')
 
-@app.route('/tenants/new')
-@require_login
-def tenants_new():
-    """Criar novo tenant"""
-    return render_template('tenants/create.html')
+@app.route('/admin/organizations/new')
+@require_admin
+def admin_organizations_new():
+    """Criar nova organização (apenas admin)"""
+    return render_template('admin/organizations/create.html')
 
-@app.route('/tenants/<int:tenant_id>')
+@app.route('/admin/organizations/<int:organization_id>')
+@require_admin
+def admin_organizations_detail(organization_id):
+    """Detalhes da organização (apenas admin)"""
+    return render_template('admin/organizations/dashboard.html', organization_id=organization_id)
+
+# Rotas para /organizations (sem /admin) - compatibilidade
+@app.route('/organizations')
 @require_login
-def tenants_detail(tenant_id):
-    """Detalhes do tenant"""
-    return render_template('tenants/dashboard.html', tenant_id=tenant_id)
+def organizations_list():
+    """Lista de organizações"""
+    # Redireciona para admin se for admin, senão mostra lista normal
+    user_role = session.get('user_role', 'user')
+    if user_role == 'admin':
+        return redirect(url_for('admin_organizations_list'))
+    return render_template('organizations/list.html')
+
+@app.route('/organizations/new')
+@require_login
+def organizations_new():
+    """Criar nova organização"""
+    user_role = session.get('user_role', 'user')
+    if user_role == 'admin':
+        return redirect(url_for('admin_organizations_new'))
+    return render_template('organizations/create.html')
+
+@app.route('/organizations/<int:organization_id>')
+@require_login
+def organizations_detail(organization_id):
+    """Detalhes da organização"""
+    user_role = session.get('user_role', 'user')
+    if user_role == 'admin':
+        return redirect(url_for('admin_organizations_detail', organization_id=organization_id))
+    return render_template('organizations/dashboard.html', organization_id=organization_id)
 
 # ============================================
 # ROTAS - INSTÂNCIAS
@@ -362,8 +540,13 @@ def instances_connect(instance_id):
 @app.route('/qr')
 @require_login
 def qr_code():
-    """Página para escanear QR Code"""
-    return render_template('qr.html')
+    """Redireciona para área correta"""
+    if not AUTH_REQUIRED:
+        return render_template('qr.html')
+    user_role = session.get('user_role', 'user')
+    if user_role == 'admin':
+        return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('tenant_qr_code'))
 
 @app.route('/api/qr')
 def get_qr():
@@ -523,6 +706,34 @@ def whatsapp_status():
             
     except Exception as e:
         return jsonify({"connected": False, "error": str(e), "hasQr": False})
+
+@app.route('/api/whatsapp-disconnect', methods=['POST'])
+@require_api_auth
+def whatsapp_disconnect():
+    """Desconecta o WhatsApp"""
+    if not whatsapp:
+        return jsonify({"success": False, "error": "WhatsApp não inicializado"}), 400
+    
+    try:
+        import requests
+        whatsapp_port = whatsapp.port if hasattr(whatsapp, 'port') else 5001
+        
+        # Chama endpoint de desconexão do servidor Node.js
+        try:
+            response = requests.post(f"http://localhost:{whatsapp_port}/disconnect", timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                return jsonify({
+                    "success": True,
+                    "message": data.get("message", "WhatsApp desconectado com sucesso")
+                })
+            else:
+                return jsonify({"success": False, "error": "Erro ao desconectar"}), 500
+        except requests.exceptions.RequestException as e:
+            return jsonify({"success": False, "error": f"Erro ao conectar com servidor: {str(e)}"}), 500
+            
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 # ============================================
 # ROTAS - IA

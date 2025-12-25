@@ -122,7 +122,7 @@
             <div id="alert" class="alert"></div>
             
             <form id="create-form">
-                <input type="hidden" id="tenant_id" name="tenant_id" value="{{ tenant_id|default('') }}">
+                <input type="hidden" id="organization_id" name="organization_id" value="{{ organization_id|default('') }}">
                 
                 <div class="form-group">
                     <label for="name">Nome do Bot *</label>
@@ -130,7 +130,7 @@
                 </div>
                 
                 <button type="submit" class="btn" id="submit-btn">Criar Bot</button>
-                <a href="/instances?tenant_id={{ tenant_id|default('') }}" class="btn btn-secondary" style="text-align: center; display: block; text-decoration: none;">Cancelar</a>
+                <a href="/instances?organization_id={{ organization_id|default('') }}" class="btn btn-secondary" style="text-align: center; display: block; text-decoration: none;">Cancelar</a>
             </form>
             
             <div id="loading" class="loading">Criando bot...</div>
@@ -138,12 +138,12 @@
     </div>
     
     <script>
-        // Obtém tenant_id da URL se não estiver no template
+        // Obtém organization_id da URL se não estiver no template
         const urlParams = new URLSearchParams(window.location.search);
-        const tenantId = urlParams.get('tenant_id') || document.getElementById('tenant_id').value;
+        const organizationId = urlParams.get('organization_id') || document.getElementById('organization_id').value;
         
-        if (tenantId) {
-            document.getElementById('tenant_id').value = tenantId;
+        if (organizationId) {
+            document.getElementById('organization_id').value = organizationId;
         }
         
         const form = document.getElementById('create-form');
@@ -155,15 +155,15 @@
             e.preventDefault();
             
             const name = document.getElementById('name').value;
-            const tenantIdValue = document.getElementById('tenant_id').value;
+            const organizationIdValue = document.getElementById('organization_id').value;
             
             if (!name.trim()) {
                 showAlert('Nome é obrigatório', 'error');
                 return;
             }
             
-            if (!tenantIdValue) {
-                showAlert('Tenant ID é obrigatório', 'error');
+            if (!organizationIdValue) {
+                showAlert('Organization ID é obrigatório', 'error');
                 return;
             }
             
@@ -180,7 +180,7 @@
                     },
                     body: JSON.stringify({
                         name: name,
-                        tenant_id: parseInt(tenantIdValue)
+                        tenant_id: parseInt(organizationIdValue)  // API ainda usa tenant_id internamente
                     })
                 });
                 
@@ -211,4 +211,5 @@
     </script>
 </body>
 </html>
+
 

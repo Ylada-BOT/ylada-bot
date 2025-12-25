@@ -9,6 +9,7 @@ import logging
 from src.leads.lead_manager import LeadManager
 from src.models.lead import LeadStatus
 from src.database.db import SessionLocal
+from web.utils.auth_helpers import get_current_tenant_id, is_admin
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,22 @@ def list_leads():
     try:
         manager = LeadManager()
         
-        tenant_id = request.args.get('tenant_id', type=int)
+        # Obtém tenant_id do usuário atual (ou do parâmetro se for admin)
+        current_tenant_id = get_current_tenant_id()
+        requested_tenant_id = request.args.get('tenant_id', type=int)
+        
+        # Admin pode ver todos ou filtrar por tenant_id
+        if is_admin():
+            tenant_id = requested_tenant_id  # Admin pode escolher qual tenant ver
+        else:
+            # Tenant só vê seus próprios leads
+            tenant_id = current_tenant_id
+            if not tenant_id:
+                return jsonify({
+                    'success': True,
+                    'leads': [],
+                    'total': 0
+                }), 200
         status_str = request.args.get('status')
         source = request.args.get('source')
         search = request.args.get('search')

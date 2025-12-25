@@ -204,6 +204,29 @@ app.get('/status', (req, res) => {
     });
 });
 
+// Desconecta o WhatsApp
+app.post('/disconnect', async (req, res) => {
+    try {
+        if (!client) {
+            return res.status(400).json({ error: 'Cliente não inicializado' });
+        }
+        
+        // Desconecta o cliente
+        await client.logout();
+        isReady = false;
+        qrCodeData = null;
+        
+        console.log('✅ WhatsApp desconectado com sucesso');
+        res.json({ success: true, message: 'WhatsApp desconectado com sucesso' });
+    } catch (error) {
+        console.error('❌ Erro ao desconectar:', error);
+        // Mesmo com erro, marca como desconectado
+        isReady = false;
+        qrCodeData = null;
+        res.json({ success: true, message: 'WhatsApp desconectado (pode ter havido um erro, mas foi desconectado)' });
+    }
+});
+
 // Lista todas as conversas/chats do WhatsApp (melhorado)
 app.get('/chats', async (req, res) => {
     if (!isReady) {

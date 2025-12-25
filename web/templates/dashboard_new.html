@@ -101,6 +101,14 @@
             background: #4b5563;
         }
         
+        .btn-danger {
+            background: #ef4444;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        
         .stats {
             display: flex;
             gap: 20px;
@@ -200,6 +208,7 @@
             <div id="whatsappActions">
                 <a href="/qr" class="btn" id="connectBtn">Conectar WhatsApp</a>
                 <button onclick="checkStatus()" class="btn btn-secondary" id="updateBtn" style="display: none;">Atualizar Status</button>
+                <button onclick="disconnectWhatsApp()" class="btn" id="disconnectBtn" style="display: none; background: #ef4444;">Desconectar WhatsApp</button>
             </div>
             <div id="whatsappError" class="hidden" style="margin-top: 10px; color: #ef4444; font-size: 12px;"></div>
         </div>
@@ -411,6 +420,7 @@
             const errorEl = document.getElementById('whatsappError');
             const connectBtn = document.getElementById('connectBtn');
             const updateBtn = document.getElementById('updateBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
             
             statusEl.textContent = '⏳ Verificando...';
             errorEl.classList.add('hidden');
@@ -423,11 +433,13 @@
                         statusEl.className = 'status connected';
                         connectBtn.style.display = 'none';
                         updateBtn.style.display = 'inline-block';
+                        disconnectBtn.style.display = 'inline-block';
                     } else {
                         statusEl.textContent = '✗ Desconectado';
                         statusEl.className = 'status disconnected';
                         connectBtn.style.display = 'inline-block';
                         updateBtn.style.display = 'none';
+                        disconnectBtn.style.display = 'none';
                         
                         if (data.error) {
                             errorEl.textContent = data.error;
@@ -441,6 +453,52 @@
                     errorEl.textContent = 'Erro ao verificar status: ' + err.message;
                     errorEl.classList.remove('hidden');
                 });
+        }
+        
+        // Desconecta o WhatsApp
+        function disconnectWhatsApp() {
+            if (!confirm('Tem certeza que deseja desconectar o WhatsApp?')) {
+                return;
+            }
+            
+            const statusEl = document.getElementById('whatsappStatus');
+            const errorEl = document.getElementById('whatsappError');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            
+            statusEl.textContent = '⏳ Desconectando...';
+            disconnectBtn.disabled = true;
+            errorEl.classList.add('hidden');
+            
+            fetch('/api/whatsapp-disconnect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    statusEl.textContent = '✗ Desconectado';
+                    statusEl.className = 'status disconnected';
+                    disconnectBtn.style.display = 'none';
+                    document.getElementById('connectBtn').style.display = 'inline-block';
+                    document.getElementById('updateBtn').style.display = 'none';
+                    errorEl.textContent = '';
+                    errorEl.classList.add('hidden');
+                    
+                    // Atualiza status após 2 segundos
+                    setTimeout(() => {
+                        checkStatus();
+                    }, 2000);
+                } else {
+                    errorEl.textContent = 'Erro: ' + (data.error || 'Erro ao desconectar');
+                    errorEl.classList.remove('hidden');
+                }
+                disconnectBtn.disabled = false;
+            })
+            .catch(err => {
+                errorEl.textContent = 'Erro ao desconectar: ' + err.message;
+                errorEl.classList.remove('hidden');
+                disconnectBtn.disabled = false;
+            });
         }
         
         // Carrega métricas

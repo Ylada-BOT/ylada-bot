@@ -78,3 +78,4 @@ Depois escaneie o QR Code novamente.
 
 **Última atualização:** 23/12/2024
 
+

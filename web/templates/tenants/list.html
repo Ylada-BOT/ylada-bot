@@ -156,8 +156,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📋 Meus Clientes</h1>
-            <a href="/tenants/new" class="btn">+ Novo Cliente</a>
+            <h1>🏢 Organizações</h1>
+            <a href="/tenants/new" class="btn">+ Nova Organização</a>
         </div>
         
         <div id="tenants-container">
@@ -176,9 +176,9 @@
                 if (!data.success || data.tenants.length === 0) {
                     container.innerHTML = `
                         <div class="empty-state">
-                            <h2>Nenhum cliente encontrado</h2>
-                            <p>Crie seu primeiro cliente para começar</p>
-                            <a href="/tenants/new" class="btn">Criar Primeiro Cliente</a>
+                            <h2>Nenhuma organização encontrada</h2>
+                            <p>Crie sua primeira organização para começar</p>
+                            <a href="/tenants/new" class="btn">Criar Primeira Organização</a>
                         </div>
                     `;
                     return;
@@ -205,7 +205,7 @@
                 console.error('Erro ao carregar tenants:', error);
                 document.getElementById('tenants-container').innerHTML = `
                     <div class="empty-state">
-                        <h2>Erro ao carregar clientes</h2>
+                        <h2>Erro ao carregar organizações</h2>
                         <p>${error.message}</p>
                         <button onclick="loadTenants()" class="btn">Tentar Novamente</button>
                     </div>

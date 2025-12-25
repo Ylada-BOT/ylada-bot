@@ -7,6 +7,7 @@ from src.database.db import SessionLocal, get_db
 from src.models.flow import Flow, FlowStatus
 from src.flows.flow_engine import flow_engine
 from src.whatsapp.message_handler import message_handler
+from web.utils.auth_helpers import get_current_tenant_id, is_admin
 from datetime import datetime
 import json
 
@@ -21,8 +22,17 @@ def list_flows():
         try:
             db = SessionLocal()
             try:
-                # Busca fluxos do banco (por enquanto, sem filtro de tenant)
-                flows = db.query(Flow).all()
+                # Filtra por tenant_id (admin vê todos, tenant vê só seus)
+                current_tenant_id = get_current_tenant_id()
+                if is_admin():
+                    # Admin vê todos os fluxos
+                    flows = db.query(Flow).all()
+                else:
+                    # Tenant vê apenas seus fluxos
+                    if current_tenant_id:
+                        flows = db.query(Flow).filter(Flow.tenant_id == current_tenant_id).all()
+                    else:
+                        flows = []  # Sem tenant, sem fluxos
                 
                 flows_list = []
                 for flow in flows:

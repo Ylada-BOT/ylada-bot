@@ -120,3 +120,4 @@ node whatsapp_server.js
 
 **Data:** 23/12/2024
 
+

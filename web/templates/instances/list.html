@@ -145,10 +145,10 @@
     <div class="container">
         <div class="header">
             <div>
-                <a href="/tenants" class="btn btn-secondary" style="margin-bottom: 12px; display: inline-block;">← Voltar</a>
+                <a href="/organizations" class="btn btn-secondary" style="margin-bottom: 12px; display: inline-block;">← Voltar</a>
                 <h1>🤖 Meus Bots</h1>
             </div>
-            <a href="/instances/new?tenant_id={{ tenant_id|default('') }}" class="btn" id="new-btn">+ Novo Bot</a>
+            <a href="/instances/new?organization_id={{ organization_id|default('') }}" class="btn" id="new-btn">+ Novo Bot</a>
         </div>
         
         <div id="instances-container">
@@ -157,25 +157,25 @@
     </div>
     
     <script>
-        const tenantId = new URLSearchParams(window.location.search).get('tenant_id') || {{ tenant_id|default('null') }};
+        const organizationId = new URLSearchParams(window.location.search).get('organization_id') || {{ organization_id|default('null') }};
         
-        if (!tenantId) {
+        if (!organizationId) {
             document.getElementById('instances-container').innerHTML = `
                 <div class="empty-state">
-                    <h2>Tenant ID não fornecido</h2>
-                    <a href="/tenants" class="btn">Voltar para Clientes</a>
+                    <h2>Organização não selecionada</h2>
+                    <a href="/organizations" class="btn">Voltar para Organizações</a>
                 </div>
             `;
         } else {
             // Atualiza link de criar
-            document.getElementById('new-btn').href = `/instances/new?tenant_id=${tenantId}`;
+            document.getElementById('new-btn').href = `/instances/new?organization_id=${organizationId}`;
             
             loadInstances();
         }
         
         async function loadInstances() {
             try {
-                const response = await fetch(`/api/instances?tenant_id=${tenantId}`);
+                const response = await fetch(`/api/instances?tenant_id=${organizationId}`);
                 const data = await response.json();
                 
                 const container = document.getElementById('instances-container');
@@ -185,7 +185,7 @@
                         <div class="empty-state">
                             <h2>Nenhum bot criado ainda</h2>
                             <p>Crie seu primeiro bot para começar</p>
-                            <a href="/instances/new?tenant_id=${tenantId}" class="btn">Criar Primeiro Bot</a>
+                            <a href="/instances/new?organization_id=${organizationId}" class="btn">Criar Primeiro Bot</a>
                         </div>
                     `;
                     return;

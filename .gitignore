@@ -42,3 +42,5 @@ env.local.COMPLETO.txt
 *.token
 *.key
 ghp_*
+.env.local.bak*
+.env.local.SUPABASE

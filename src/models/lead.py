@@ -41,9 +41,6 @@ class Lead(Base):
     extra_data = Column('metadata', JSON, default=dict, nullable=True)  # Mapeado para 'metadata' no banco
     tags = Column(JSON, default=list, nullable=True)
     
-    # Conversa relacionada
-    conversation_id = Column(Integer, ForeignKey('conversations.id'), nullable=True)
-    
     # Datas
     first_contact_at = Column(DateTime, nullable=True)
     last_contact_at = Column(DateTime, nullable=True)
@@ -54,9 +51,9 @@ class Lead(Base):
     
     # Relacionamentos
     tenant = relationship("Tenant", back_populates="leads")
-    # Conversation tem many-to-one com Lead, então Lead tem one-to-many com Conversation
-    # Mas como Lead.conversation_id é FK, é many-to-one também, então usamos uselist=False
-    conversation = relationship("Conversation", back_populates="lead", foreign_keys=[conversation_id], uselist=False)
+    # Lead pode ter uma Conversation (one-to-one)
+    # Conversation tem lead_id (FK), então Lead tem one-to-one com Conversation
+    conversation = relationship("Conversation", back_populates="lead", uselist=False)
     
     def __repr__(self):
         return f"<Lead(id={self.id}, phone={self.phone}, status={self.status.value}, score={self.score})>"

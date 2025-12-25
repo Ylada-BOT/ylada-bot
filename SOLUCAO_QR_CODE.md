@@ -110,3 +110,4 @@ curl http://localhost:5001/qr
 
 **Última atualização:** 13/12/2024
 
+

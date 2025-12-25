@@ -148,3 +148,4 @@ Frontend (Vercel) → API Calls → Backend (Railway)
 
 **Última atualização:** 23/12/2024
 
+

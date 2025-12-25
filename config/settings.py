@@ -4,6 +4,24 @@ Configurações gerais do sistema
 import os
 from pathlib import Path
 
+# Carrega variáveis de ambiente do .env.local
+try:
+    from dotenv import load_dotenv
+    env_path = Path(__file__).resolve().parent.parent / '.env.local'
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"[✓] Carregado .env.local de {env_path}")
+    else:
+        # Tenta carregar .env se .env.local não existir
+        env_path = Path(__file__).resolve().parent.parent / '.env'
+        if env_path.exists():
+            load_dotenv(env_path)
+            print(f"[✓] Carregado .env de {env_path}")
+except ImportError:
+    print("[!] python-dotenv não instalado. Instale com: pip install python-dotenv")
+except Exception as e:
+    print(f"[!] Erro ao carregar .env.local: {e}")
+
 # Diretório base
 BASE_DIR = Path(__file__).resolve().parent.parent
 

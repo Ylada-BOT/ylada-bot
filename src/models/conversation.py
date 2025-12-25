@@ -62,7 +62,8 @@ class Conversation(Base):
     # Relacionamentos
     tenant = relationship("Tenant", back_populates="conversations")
     instance = relationship("Instance", back_populates="conversations")
-    lead = relationship("Lead", back_populates="conversation", foreign_keys=[lead_id], uselist=False)
+    # Conversation pertence a um Lead (many-to-one)
+    lead = relationship("Lead", back_populates="conversation", foreign_keys=[lead_id])
     messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
     
     def __repr__(self):

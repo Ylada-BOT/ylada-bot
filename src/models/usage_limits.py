@@ -50,3 +50,4 @@ class UsageLimits(Base):
         self.limit_reset_date = next_month
         self.last_updated = datetime.utcnow()
 
+

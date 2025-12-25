@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organizações - BOT YLADA</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #333;
+            font-size: 28px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+        
+        .organizations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .organization-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .organization-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+        }
+        
+        .organization-card h3 {
+            color: #333;
+            margin-bottom: 12px;
+            font-size: 20px;
+        }
+        
+        .organization-card .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        
+        .status.active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status.trial {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status.blocked {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .organization-card .info {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .organization-card .actions {
+            margin-top: 16px;
+            display: flex;
+            gap: 8px;
+        }
+        
+        .organization-card .btn-small {
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 12px;
+        }
+        
+        .empty-state h2 {
+            color: #666;
+            margin-bottom: 12px;
+        }
+        
+        .empty-state p {
+            color: #999;
+            margin-bottom: 24px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏢 Organizações</h1>
+            <a href="/organizations/new" class="btn">+ Nova Organização</a>
+        </div>
+        
+        <div id="organizations-container">
+            <div class="loading">Carregando...</div>
+        </div>
+    </div>
+    
+    <script>
+        async function loadOrganizations() {
+            try {
+                const response = await fetch('/api/organizations');
+                const data = await response.json();
+                
+                const container = document.getElementById('organizations-container');
+                
+                if (!data.success || data.organizations.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <h2>Nenhuma organização encontrada</h2>
+                            <p>Crie sua primeira organização para começar</p>
+                            <a href="/organizations/new" class="btn">Criar Primeira Organização</a>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <div class="organizations-grid">
+                        ${data.organizations.map(org => `
+                            <div class="organization-card" onclick="window.location.href='/organizations/${org.id}'">
+                                <h3>${org.name}</h3>
+                                <span class="status ${org.status}">${getStatusLabel(org.status)}</span>
+                                ${org.is_blocked ? '<span class="status blocked">Bloqueado</span>' : ''}
+                                <div class="info">📱 ${org.instances_count || 0} bot(s)</div>
+                                ${org.plan ? `<div class="info">💰 ${org.plan.name} - R$ ${org.plan.price.toFixed(2)}/mês</div>` : ''}
+                                <div class="info">📅 Criado em ${new Date(org.created_at).toLocaleDateString('pt-BR')}</div>
+                                <div class="actions" onclick="event.stopPropagation()">
+                                    <a href="/organizations/${org.id}" class="btn btn-small">Ver Detalhes</a>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Erro ao carregar organizações:', error);
+                document.getElementById('organizations-container').innerHTML = `
+                    <div class="empty-state">
+                        <h2>Erro ao carregar organizações</h2>
+                        <p>${error.message}</p>
+                        <button onclick="loadOrganizations()" class="btn">Tentar Novamente</button>
+                    </div>
+                `;
+            }
+        }
+        
+        function getStatusLabel(status) {
+            const labels = {
+                'active': 'Ativo',
+                'trial': 'Trial',
+                'suspended': 'Suspenso',
+                'cancelled': 'Cancelado'
+            };
+            return labels[status] || status;
+        }
+        
+        // Carrega organizações ao carregar a página
+        loadOrganizations();
+    </script>
+</body>
+</html>
+

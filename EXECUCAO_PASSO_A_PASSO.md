@@ -260,3 +260,4 @@ Quer que eu comece criando o arquivo `web/api/tenants.py` agora?
 
 **Última atualização:** 13/12/2024
 
+

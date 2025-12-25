@@ -176,3 +176,4 @@ O QR Code do terminal funciona melhor em alguns casos:
 
 **Data:** 23/12/2024
 
+

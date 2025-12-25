@@ -15,10 +15,7 @@ logger = logging.getLogger(__name__)
 bp = Blueprint('instances', __name__, url_prefix='/api/instances')
 
 
-def get_current_user_id():
-    """Obtém ID do usuário atual da sessão"""
-    from flask import session
-    return session.get('user_id')
+from web.utils.auth_helpers import get_current_user_id, get_current_tenant_id, is_admin
 
 
 def get_next_available_port():
@@ -103,27 +100,32 @@ def create_instance():
 
 @bp.route('', methods=['GET'])
 def list_instances():
-    """Lista instâncias"""
+    """Lista instâncias (filtra por tenant_id automaticamente)"""
     try:
-        tenant_id = request.args.get('tenant_id', type=int)
-        
-        if not tenant_id:
-            return jsonify({'error': 'tenant_id é obrigatório'}), 400
-        
         db = SessionLocal()
         try:
-            # Verifica se tenant existe
-            tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-            if not tenant:
-                return jsonify({'error': 'Tenant não encontrado'}), 404
+            # Obtém tenant_id do usuário atual (ou do parâmetro se for admin)
+            current_tenant_id = get_current_tenant_id()
+            requested_tenant_id = request.args.get('tenant_id', type=int)
             
-            # Verifica se usuário tem acesso
-            user_id = get_current_user_id()
-            if user_id and tenant.user_id != user_id:
-                return jsonify({'error': 'Acesso negado'}), 403
-            
-            # Busca instâncias do tenant
-            instances = db.query(Instance).filter(Instance.tenant_id == tenant_id).all()
+            # Admin pode ver todos ou filtrar por tenant_id
+            if is_admin():
+                tenant_id = requested_tenant_id  # Admin pode escolher qual tenant ver
+                if tenant_id:
+                    # Verifica se tenant existe
+                    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+                    if not tenant:
+                        return jsonify({'error': 'Tenant não encontrado'}), 404
+                    instances = db.query(Instance).filter(Instance.tenant_id == tenant_id).all()
+                else:
+                    # Admin vê todas as instâncias
+                    instances = db.query(Instance).all()
+            else:
+                # Tenant só vê suas próprias instâncias
+                if not current_tenant_id:
+                    return jsonify({'error': 'Tenant não encontrado para o usuário'}), 404
+                tenant_id = current_tenant_id
+                instances = db.query(Instance).filter(Instance.tenant_id == tenant_id).all()
             
             result = []
             for instance in instances:
@@ -358,4 +360,5 @@ def get_instance_qr(instance_id):
     except Exception as e:
         logger.error(f"Erro ao obter QR Code: {e}")
         return jsonify({'error': str(e)}), 500
+
 

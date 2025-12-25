@@ -1,0 +1,176 @@
+{% extends "base_tenant.html" %}
+
+{% block title %}Meu Dashboard - BOT by YLADA{% endblock %}
+
+{% block extra_styles %}
+        .page-header {
+            background: white;
+            border-radius: 12px;
+            padding: 25px 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+            border: 1px solid #e5e7eb;
+        }
+        
+        .page-header h1 {
+            color: #333;
+            margin: 0;
+            font-size: 28px;
+        }
+        
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+            border-color: #3b82f6;
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        
+        .status.connected {
+            background: #10b981;
+            color: white;
+        }
+        
+        .status.disconnected {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #3b82f6;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #3b82f6;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            margin-top: 15px;
+        }
+        
+        .btn:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+{% endblock %}
+
+{% block content %}
+    <div class="page-header">
+        <h1>📊 Meu Dashboard</h1>
+        <p style="color: #666; margin-top: 5px;">Visão geral do seu bot</p>
+    </div>
+    
+    <div class="cards">
+        <div class="card">
+            <h2>📱 WhatsApp</h2>
+            <span class="status disconnected" id="whatsappStatus">
+                ✗ Desconectado
+            </span>
+            <div id="whatsappActions">
+                <a href="/tenant/qr" class="btn">Conectar WhatsApp</a>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>💬 Conversas</h2>
+            <div class="stat-value" id="conversationsTotal">0</div>
+            <div class="stat-label">Total</div>
+            <a href="/tenant/conversations" class="btn">Ver Conversas</a>
+        </div>
+        
+        <div class="card">
+            <h2>🎯 Leads</h2>
+            <div class="stat-value" id="leadsTotal">0</div>
+            <div class="stat-label">Total</div>
+            <a href="/tenant/leads" class="btn">Ver Leads</a>
+        </div>
+        
+        <div class="card">
+            <h2>🔄 Fluxos</h2>
+            <div class="stat-value" id="flowsTotal">0</div>
+            <div class="stat-label">Ativos</div>
+            <a href="/tenant/flows" class="btn">Gerenciar Fluxos</a>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_scripts %}
+    <script>
+        // Carrega estatísticas
+        function loadStats() {
+            // Conversas
+            fetch('/api/conversations')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.chats) {
+                        document.getElementById('conversationsTotal').textContent = data.chats.length;
+                    }
+                })
+                .catch(err => console.error('Erro:', err));
+            
+            // Leads
+            fetch('/api/leads')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.leads) {
+                        document.getElementById('leadsTotal').textContent = data.leads.length;
+                    }
+                })
+                .catch(err => console.error('Erro:', err));
+        }
+        
+        loadStats();
+    </script>
+{% endblock %}
+
+

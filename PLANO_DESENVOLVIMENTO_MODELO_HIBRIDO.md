@@ -500,3 +500,4 @@ Quer que eu comece criando os modelos de banco de dados?
 
 **Última atualização:** 13/12/2024
 
+

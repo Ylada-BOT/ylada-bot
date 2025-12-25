@@ -40,3 +40,4 @@ class IAUsage(Base):
     def __repr__(self):
         return f"<IAUsage(tenant_id={self.tenant_id}, date={self.date}, messages={self.messages_count})>"
 
+

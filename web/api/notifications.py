@@ -10,6 +10,7 @@ from src.notifications.notification_manager import NotificationManager
 from src.notifications.notification_sender import NotificationSender
 from src.models.notification import NotificationType, NotificationStatus
 from src.database.db import SessionLocal
+from web.utils.auth_helpers import get_current_tenant_id, is_admin
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,22 @@ def list_notifications():
     try:
         manager = NotificationManager()
         
-        tenant_id = request.args.get('tenant_id', type=int)
+        # Obtém tenant_id do usuário atual (ou do parâmetro se for admin)
+        current_tenant_id = get_current_tenant_id()
+        requested_tenant_id = request.args.get('tenant_id', type=int)
+        
+        # Admin pode ver todos ou filtrar por tenant_id
+        if is_admin():
+            tenant_id = requested_tenant_id  # Admin pode escolher qual tenant ver
+        else:
+            # Tenant só vê suas próprias notificações
+            tenant_id = current_tenant_id
+            if not tenant_id:
+                return jsonify({
+                    'success': True,
+                    'notifications': [],
+                    'total': 0
+                }), 200
         notification_type = request.args.get('type')
         status = request.args.get('status')
         limit = request.args.get('limit', 50, type=int)

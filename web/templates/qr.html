@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Conectar WhatsApp - BOT by YLADA</title>
     <!-- Biblioteca QRCode - múltiplas fontes para garantir funcionamento -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" 
             onerror="this.onerror=null; this.src='/static/js/qrcode.min.js';"></script>
     <script>
@@ -185,8 +186,32 @@
                     
                     // Função para gerar QR Code
                     function generateQRCode() {
-                        if (typeof QRCode !== 'undefined' && QRCode.CorrectLevel) {
-                            // Usa qrcodejs (cdnjs - mais confiável)
+                        // Tenta primeiro com qrcode.js (jsdelivr - mais confiável)
+                        if (typeof QRCode !== 'undefined' && QRCode.toCanvas) {
+                            const canvas = document.createElement('canvas');
+                            canvas.id = 'qrcode-canvas';
+                            qrDiv.innerHTML = '';
+                            qrDiv.appendChild(canvas);
+                            
+                            QRCode.toCanvas(canvas, data.qr, {
+                                width: 400,
+                                margin: 4,
+                                color: {
+                                    dark: '#000000',
+                                    light: '#FFFFFF'
+                                },
+                                errorCorrectionLevel: 'H'
+                            }, function (error) {
+                                if (error) {
+                                    console.error('Erro ao gerar QR Code (qrcode.js):', error);
+                                    // Tenta fallback com qrcodejs
+                                    tryFallbackQRCode();
+                                } else {
+                                    console.log('✅ QR Code gerado com sucesso (qrcode.js)!');
+                                }
+                            });
+                        } else if (typeof QRCode !== 'undefined' && QRCode.CorrectLevel) {
+                            // Usa qrcodejs (cdnjs - fallback)
                             qrDiv.innerHTML = '<div id="qrcode"></div>';
                             try {
                                 new QRCode(document.getElementById("qrcode"), {
@@ -198,13 +223,13 @@
                                     correctLevel: QRCode.CorrectLevel.H,
                                     margin: 4
                                 });
-                                console.log('✅ QR Code gerado com sucesso!');
+                                console.log('✅ QR Code gerado com sucesso (qrcodejs)!');
                                 console.log('QR Code string length:', data.qr.length);
                             } catch (e) {
-                                console.error('Erro ao gerar QR Code:', e);
+                                console.error('Erro ao gerar QR Code (qrcodejs):', e);
                                 qrDiv.innerHTML = '<div class="status error">Erro ao gerar QR Code: ' + e.message + '</div>';
                             }
-                        } else if (typeof QRCode !== 'undefined' && QRCode.toCanvas) {
+                        } else {
                             // Usa qrcode.js (unpkg fallback)
                             const canvas = document.createElement('canvas');
                             canvas.id = 'qrcode-canvas';
@@ -231,6 +256,28 @@
                             qrDiv.innerHTML = '<div class="status error">Erro: Biblioteca QRCode não carregada. Aguarde alguns segundos e recarregue a página.</div>';
                             // Tenta novamente após 2 segundos
                             setTimeout(generateQRCode, 2000);
+                        }
+                    }
+                    
+                    // Função fallback para tentar novamente
+                    function tryFallbackQRCode() {
+                        if (typeof QRCode !== 'undefined' && QRCode.CorrectLevel) {
+                            qrDiv.innerHTML = '<div id="qrcode"></div>';
+                            try {
+                                new QRCode(document.getElementById("qrcode"), {
+                                    text: data.qr,
+                                    width: 400,
+                                    height: 400,
+                                    colorDark: "#000000",
+                                    colorLight: "#ffffff",
+                                    correctLevel: QRCode.CorrectLevel.H,
+                                    margin: 4
+                                });
+                                console.log('✅ QR Code gerado com sucesso (fallback)!');
+                            } catch (e) {
+                                console.error('Erro no fallback:', e);
+                                qrDiv.innerHTML = '<div class="status error">Erro ao gerar QR Code. Recarregue a página.</div>';
+                            }
                         }
                     }
                     

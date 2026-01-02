@@ -90,3 +90,6 @@ Vou simplificar para funcionar **sem banco de dados** no modo desenvolvimento:
 **Última atualização:** 13/12/2024
 
 
+
+
+

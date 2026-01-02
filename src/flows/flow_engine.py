@@ -343,8 +343,67 @@ class FlowEngine:
                 'error': str(e)
             }
     
-    def get_active_flows(self) -> List[Dict]:
-        """Retorna lista de fluxos ativos"""
+    def get_active_flows(self, tenant_id: Optional[int] = None, instance_id: Optional[int] = None) -> List[Dict]:
+        """
+        Retorna lista de fluxos ativos
+        
+        Args:
+            tenant_id: Filtra por tenant (opcional)
+            instance_id: Filtra por instance (opcional). Se fornecido, retorna:
+                - Fluxos específicos da instance (instance_id = X)
+                - Fluxos compartilhados (instance_id = NULL) do tenant
+        
+        Returns:
+            Lista de fluxos ativos
+        """
+        # Se filtros fornecidos, busca do banco
+        if tenant_id is not None or instance_id is not None:
+            try:
+                from src.database.db import SessionLocal
+                from src.models.flow import Flow, FlowStatus
+                
+                db = SessionLocal()
+                try:
+                    query = db.query(Flow).filter(Flow.status == FlowStatus.ACTIVE)
+                    
+                    if tenant_id is not None:
+                        query = query.filter(Flow.tenant_id == tenant_id)
+                    
+                    if instance_id is not None:
+                        # Fluxos específicos da instance OU fluxos compartilhados (instance_id = NULL)
+                        from sqlalchemy import or_
+                        query = query.filter(
+                            or_(
+                                Flow.instance_id == instance_id,
+                                Flow.instance_id == None
+                            )
+                        )
+                        # Se tenant_id não fornecido, busca do tenant da instance
+                        if tenant_id is None:
+                            from src.models.instance import Instance
+                            instance = db.query(Instance).filter(Instance.id == instance_id).first()
+                            if instance:
+                                query = query.filter(Flow.tenant_id == instance.tenant_id)
+                    
+                    flows = query.all()
+                    
+                    return [
+                        {
+                            'flow_id': flow.id,
+                            'name': flow.name,
+                            'description': flow.description,
+                            'trigger': flow.trigger_keywords or [],
+                            'steps_count': len(flow.flow_data.get('steps', [])) if isinstance(flow.flow_data, dict) else 0,
+                            'instance_id': flow.instance_id
+                        }
+                        for flow in flows
+                    ]
+                finally:
+                    db.close()
+            except Exception as e:
+                logger.warning(f"Erro ao buscar fluxos do banco: {e}, usando memória")
+        
+        # Fallback: retorna da memória (sem filtros)
         return [
             {
                 'flow_id': flow_id,

@@ -11,6 +11,7 @@ from src.notifications.notification_sender import NotificationSender
 from src.models.notification import NotificationType, NotificationStatus
 from src.database.db import SessionLocal
 from web.utils.auth_helpers import get_current_tenant_id, is_admin
+from web.utils.rate_limiter import rate_limit_whatsapp
 
 logger = logging.getLogger(__name__)
 
@@ -248,6 +249,7 @@ def create_notification():
 
 
 @bp.route('/<int:notification_id>/send', methods=['POST'])
+@rate_limit_whatsapp  # Rate limiting para envio de notificações
 def send_notification(notification_id: int):
     """Envia uma notificação pendente"""
     try:
@@ -292,6 +294,7 @@ def send_notification(notification_id: int):
 
 
 @bp.route('/pending/send-all', methods=['POST'])
+@rate_limit_whatsapp  # Rate limiting para envio em massa
 def send_all_pending():
     """
     Envia todas as notificações pendentes

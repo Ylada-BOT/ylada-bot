@@ -20,3 +20,10 @@ anthropic>=0.18.0
 
 # Utilitários
 python-dateutil==2.8.2
+
+# Rate limiting
+flask-limiter==3.5.0
+
+# Fila de mensagens (Bull/BullMQ via Python)
+redis==5.0.1
+huey==2.5.0  # Alternativa mais simples que Celery para filas

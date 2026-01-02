@@ -193,9 +193,12 @@
         async function loadOrganization() {
             try {
                 const response = await fetch(`/api/organizations/${organizationId}`);
+                if (!response.ok) {
+                    throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                }
                 const data = await response.json();
                 
-                if (data.success) {
+                if (data.success && data.organization) {
                     const org = data.organization;
                     
                     // Atualiza header
@@ -203,13 +206,13 @@
                     
                     // Atualiza cards
                     document.getElementById('status').textContent = getStatusLabel(org.status);
-                    document.getElementById('instances-count').textContent = org.instances.length;
-                    document.getElementById('plan-name').textContent = org.plan ? org.plan.name : 'Trial';
+                    document.getElementById('instances-count').textContent = org.instances ? org.instances.length : 0;
+                    document.getElementById('plan-name').textContent = org.plan ? org.plan.name : (org.status === 'trial' ? 'Trial' : '-');
                     
                     // Atualiza instâncias
                     const container = document.getElementById('instances-container');
                     
-                    if (org.instances.length === 0) {
+                    if (!org.instances || org.instances.length === 0) {
                         container.innerHTML = `
                             <div style="text-align: center; padding: 40px; color: #666;">
                                 <p>Nenhum bot criado ainda</p>
@@ -231,6 +234,15 @@
                 }
             } catch (error) {
                 console.error('Erro ao carregar organização:', error);
+                const container = document.getElementById('instances-container');
+                if (container) {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: #dc2626;">
+                            <p>Erro ao carregar dados da organização</p>
+                            <p style="font-size: 14px; margin-top: 8px;">${error.message || 'Erro desconhecido'}</p>
+                        </div>
+                    `;
+                }
             }
         }
         
@@ -259,4 +271,6 @@
     </script>
 </body>
 </html>
+
+
 

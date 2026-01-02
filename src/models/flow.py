@@ -21,6 +21,7 @@ class Flow(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, ForeignKey('tenants.id'), nullable=False)
+    instance_id = Column(Integer, ForeignKey('instances.id'), nullable=True, index=True)  # NULL = compartilhado
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     

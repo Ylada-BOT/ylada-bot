@@ -21,8 +21,8 @@
         /* Sidebar */
         .sidebar {
             width: 260px;
-            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-            color: white;
+            background: #ffffff;
+            color: #1f2937;
             position: fixed;
             height: 100vh;
             left: 0;
@@ -30,16 +30,21 @@
             overflow-y: auto;
             overflow-x: hidden;
             z-index: 1000;
-            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.08);
+            border-right: 1px solid #e5e7eb;
             transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
         }
         
         .sidebar-header {
             padding: 25px 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid #e5e7eb;
             display: flex;
             align-items: center;
             gap: 12px;
+            background: #f9fafb;
+            flex-shrink: 0;
         }
         
         .sidebar-logo {
@@ -52,21 +57,25 @@
             justify-content: center;
             font-size: 20px;
             font-weight: bold;
+            color: white;
         }
         
         .sidebar-title {
             font-size: 18px;
             font-weight: 600;
+            color: #1f2937;
         }
         
         .sidebar-subtitle {
             font-size: 11px;
-            opacity: 0.7;
+            color: #6b7280;
             margin-top: 2px;
         }
         
         .sidebar-nav {
             padding: 20px 0;
+            flex: 1;
+            overflow-y: auto;
         }
         
         .nav-section {
@@ -79,8 +88,19 @@
             letter-spacing: 1px;
             padding: 0 20px;
             margin-bottom: 10px;
-            opacity: 0.6;
+            color: #9ca3af;
             font-weight: 600;
+        }
+        
+        .nav-section.admin-section {
+            border-top: 2px solid #e5e7eb;
+            margin-top: 20px;
+            padding-top: 20px;
+        }
+        
+        .nav-section.admin-section .nav-section-title {
+            color: #dc2626;
+            font-weight: 700;
         }
         
         .nav-item {
@@ -88,7 +108,7 @@
             align-items: center;
             gap: 12px;
             padding: 12px 20px;
-            color: rgba(255, 255, 255, 0.8);
+            color: #4b5563;
             text-decoration: none;
             transition: all 0.2s ease;
             border-left: 3px solid transparent;
@@ -96,16 +116,31 @@
         }
         
         .nav-item:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
+            background: #f3f4f6;
+            color: #1f2937;
             border-left-color: #3b82f6;
         }
         
         .nav-item.active {
-            background: rgba(59, 130, 246, 0.2);
-            color: white;
+            background: #eff6ff;
+            color: #1e40af;
             border-left-color: #3b82f6;
             font-weight: 500;
+        }
+        
+        .nav-item.admin-item {
+            color: #991b1b;
+        }
+        
+        .nav-item.admin-item:hover {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+        
+        .nav-item.admin-item.active {
+            background: #fee2e2;
+            color: #dc2626;
+            border-left-color: #dc2626;
         }
         
         .nav-item-icon {
@@ -115,19 +150,79 @@
         }
         
         .sidebar-footer {
-            padding: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            margin-top: auto;
-            position: absolute;
+            padding: 15px 20px;
+            border-top: 1px solid #e5e7eb;
+            position: sticky;
             bottom: 0;
             width: 100%;
-            background: #1e293b;
+            background: #ffffff;
+            margin-top: auto;
+            flex-shrink: 0;
         }
         
         .sidebar-footer-text {
-            font-size: 12px;
-            opacity: 0.6;
+            font-size: 11px;
+            color: #9ca3af;
             text-align: center;
+            margin: 0;
+        }
+        
+        /* Seletor de Instância */
+        .instance-selector {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            background: #f9fafb;
+            flex-shrink: 0;
+        }
+        
+        .instance-selector-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #9ca3af;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: block;
+        }
+        
+        .instance-selector select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: white;
+            color: #1f2937;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .instance-selector select:hover {
+            border-color: #3b82f6;
+        }
+        
+        .instance-selector select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .instance-selector-info {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .instance-selector-info.connected {
+            color: #10b981;
+        }
+        
+        .instance-selector-info.disconnected {
+            color: #ef4444;
         }
         
         /* Main Content */
@@ -151,14 +246,14 @@
             top: 20px;
             left: 20px;
             z-index: 1001;
-            background: #1e293b;
-            color: white;
-            border: none;
+            background: white;
+            color: #1f2937;
+            border: 1px solid #e5e7eb;
             padding: 12px;
             border-radius: 8px;
             cursor: pointer;
             font-size: 20px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         
         /* Responsive */
@@ -253,21 +348,7 @@
                 </a>
             </div>
             
-            <div class="nav-section">
-                <div class="nav-section-title">Administração</div>
-                <a href="/admin/users" class="nav-item" data-path="/admin/users">
-                    <span class="nav-item-icon">👤</span>
-                    <span>Usuários</span>
-                </a>
-                <a href="/admin/organizations" class="nav-item" data-path="/admin/organizations">
-                    <span class="nav-item-icon">🏢</span>
-                    <span>Organizações</span>
-                </a>
-                <a href="/admin/settings" class="nav-item" data-path="/admin/settings">
-                    <span class="nav-item-icon">⚙️</span>
-                    <span>Configurações</span>
-                </a>
-            </div>
+            <!-- Seção Administração removida - não é necessária no menu principal -->
         </nav>
         
         <div class="sidebar-footer">
@@ -291,6 +372,12 @@
     </div>
     
     <script>
+        // Função global para obter instância do usuário (sempre retorna a primeira/única)
+        window.getSelectedInstanceId = function() {
+            // Em modo simplificado, sempre retorna null para buscar a instância do usuário
+            return null;
+        };
+        
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebarOverlay');

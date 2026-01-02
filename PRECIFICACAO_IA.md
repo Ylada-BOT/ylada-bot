@@ -418,3 +418,6 @@ def calcular_fatura(tenant_id):
 **Última atualização:** 13/12/2024
 
 
+
+
+

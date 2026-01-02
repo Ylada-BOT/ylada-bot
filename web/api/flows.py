@@ -18,21 +18,38 @@ bp = Blueprint('flows', __name__, url_prefix='/api/flows')
 def list_flows():
     """Lista todos os fluxos"""
     try:
+        # Parâmetro opcional: instance_id (filtra fluxos por instância)
+        instance_id = request.args.get('instance_id', type=int)
+        
         # Tenta buscar do banco de dados
         try:
             db = SessionLocal()
             try:
+                from sqlalchemy import or_
+                
                 # Filtra por tenant_id (admin vê todos, tenant vê só seus)
                 current_tenant_id = get_current_tenant_id()
                 if is_admin():
                     # Admin vê todos os fluxos
-                    flows = db.query(Flow).all()
+                    query = db.query(Flow)
                 else:
                     # Tenant vê apenas seus fluxos
                     if current_tenant_id:
-                        flows = db.query(Flow).filter(Flow.tenant_id == current_tenant_id).all()
+                        query = db.query(Flow).filter(Flow.tenant_id == current_tenant_id)
                     else:
-                        flows = []  # Sem tenant, sem fluxos
+                        query = db.query(Flow).filter(False)  # Sem tenant, sem fluxos
+                
+                # Filtra por instance_id se fornecido
+                if instance_id is not None:
+                    # Fluxos específicos da instance OU fluxos compartilhados (instance_id = NULL)
+                    query = query.filter(
+                        or_(
+                            Flow.instance_id == instance_id,
+                            Flow.instance_id == None
+                        )
+                    )
+                
+                flows = query.all()
                 
                 flows_list = []
                 for flow in flows:
@@ -41,6 +58,7 @@ def list_flows():
                         'flow_name': flow.name,
                         'description': flow.description,
                         'status': flow.status.value,
+                        'instance_id': flow.instance_id,  # NULL = compartilhado
                         'trigger': flow.trigger_keywords or [],
                         'steps_count': len(flow.flow_data.get('steps', [])) if isinstance(flow.flow_data, dict) else 0,
                         'times_executed': flow.times_executed,
@@ -103,7 +121,8 @@ def create_flow():
                     trigger_keywords = flow_data['trigger'].get('keywords', [])
                 
                 # Obtém tenant_id (por enquanto usa 1, depois pegar do usuário logado)
-                tenant_id = data.get('tenant_id', 1)
+                tenant_id = data.get('tenant_id') or get_current_tenant_id() or 1
+                instance_id = data.get('instance_id')  # Opcional: NULL = compartilhado
                 
                 # Se tenant_id=1 não existir, cria um tenant padrão
                 try:
@@ -139,9 +158,20 @@ def create_flow():
                     print(f"[!] Erro ao verificar tenant: {e}")
                     # Continua com tenant_id=1 mesmo se der erro
                 
+                # Se instance_id fornecido, verifica se existe e pertence ao tenant
+                if instance_id:
+                    from src.models.instance import Instance
+                    instance = db.query(Instance).filter(
+                        Instance.id == instance_id,
+                        Instance.tenant_id == tenant_id
+                    ).first()
+                    if not instance:
+                        return jsonify({'error': 'Instance não encontrada ou não pertence ao tenant'}), 404
+                
                 # Cria fluxo no banco
                 flow = Flow(
                     tenant_id=tenant_id,
+                    instance_id=instance_id,  # NULL = compartilhado, valor = específico da instance
                     name=flow_data.get('name', data.get('name', 'Sem nome')),
                     description=flow_data.get('description', ''),
                     flow_data=flow_data,

@@ -16,12 +16,65 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from whatsapp_webjs_handler import WhatsAppWebJSHandler
 from ai_handler import AIHandler
 
+# Rate limiting
+from web.utils.rate_limiter import init_rate_limiter, rate_limit_whatsapp, limiter
+from config.settings import REDIS_URL, USE_REDIS
+
+# Fila de mensagens
+from web.utils.message_queue import init_message_queue, get_message_queue
+from web.workers.message_worker import init_message_worker, get_message_worker
+import threading
+
 # Cria o app PRIMEIRO
 app = Flask(__name__,
             template_folder=os.path.join(os.path.dirname(__file__), 'templates'),
             static_folder=os.path.join(os.path.dirname(__file__), 'static'),
             static_url_path='/static')
 CORS(app)
+
+# Handler global para erros não tratados - sempre retorna JSON para APIs
+from werkzeug.exceptions import HTTPException
+
+@app.errorhandler(HTTPException)
+def handle_http_error(e):
+    """Handler para erros HTTP - retorna JSON para APIs"""
+    if request.path.startswith('/api/'):
+        return jsonify({
+            'success': False,
+            'error': e.name,
+            'message': e.description
+        }), e.code
+    return e
+
+@app.errorhandler(Exception)
+def handle_generic_error(e):
+    """Handler para erros genéricos não tratados - retorna JSON para APIs"""
+    # Se a rota é uma API, retorna JSON
+    if request.path.startswith('/api/'):
+        import traceback
+        error_msg = str(e)
+        
+        # Erros de banco de dados
+        if 'psycopg2' in error_msg or 'OperationalError' in error_msg or 'connection' in error_msg.lower() or 'Tenant or user not found' in error_msg:
+            return jsonify({
+                'success': False,
+                'error': 'Erro de conexão com o banco de dados',
+                'message': 'Verifique se a DATABASE_URL está correta no arquivo .env.local',
+                'hint': 'Acesse: Settings > Database no Supabase para obter a connection string correta',
+                'details': error_msg if app.debug else None
+            }), 503
+        
+        # Outros erros
+        logger.error(f"Erro não tratado em {request.path}: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Erro interno do servidor',
+            'message': error_msg if app.debug else 'Ocorreu um erro. Tente novamente.',
+            'details': traceback.format_exc() if app.debug else None
+        }), 500
+    
+    # Para rotas não-API, deixa o Flask tratar normalmente
+    raise e
 
 # Configuração de sessão
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -172,6 +225,14 @@ try:
     print("[✓] Rotas de instâncias registradas")
 except Exception as e:
     print(f"[!] Rotas de instâncias não disponíveis: {e}")
+
+# Importa rotas de agentes
+try:
+    from web.api.agents import bp as agents_bp
+    app.register_blueprint(agents_bp)
+    print("[✓] Rotas de agentes registradas")
+except Exception as e:
+    print(f"[!] Rotas de agentes não disponíveis: {e}")
 
 # ============================================
 # INICIALIZAÇÃO
@@ -474,30 +535,91 @@ def admin_organizations_detail(organization_id):
     """Detalhes da organização (apenas admin)"""
     return render_template('admin/organizations/dashboard.html', organization_id=organization_id)
 
+@app.route('/admin/users')
+@require_admin
+def admin_users_list():
+    """Lista de usuários (admin)"""
+    return render_template('admin/users/list.html')
+
+@app.route('/admin/instances')
+@require_admin
+def admin_instances_list():
+    """Lista de instâncias (admin)"""
+    return render_template('admin/instances/list.html')
+
+@app.route('/admin/settings')
+@require_admin
+def admin_settings():
+    """Configurações do sistema (admin)"""
+    return render_template('admin/settings.html')
+
+@app.route('/admin/logs')
+@require_admin
+def admin_logs():
+    """Logs do sistema (admin)"""
+    return render_template('admin/logs.html')
+
+@app.route('/admin/analytics')
+@require_admin
+def admin_analytics():
+    """Analytics do sistema (admin)"""
+    return render_template('admin/analytics.html')
+
+@app.route('/admin/security')
+@require_admin
+def admin_security():
+    """Segurança do sistema (admin)"""
+    return render_template('admin/security.html')
+
+@app.route('/admin/backups')
+@require_admin
+def admin_backups():
+    """Backups do sistema (admin)"""
+    return render_template('admin/backups.html')
+
 # Rotas para /organizations (sem /admin) - compatibilidade
 @app.route('/organizations')
-@require_login
 def organizations_list():
     """Lista de organizações"""
-    # Redireciona para admin se for admin, senão mostra lista normal
-    user_role = session.get('user_role', 'user')
-    if user_role == 'admin':
-        return redirect(url_for('admin_organizations_list'))
+    # Permite acesso sem autenticação em modo desenvolvimento
+    if AUTH_REQUIRED:
+        if 'user_id' not in session:
+            try:
+                return redirect(url_for('login_page'))
+            except:
+                pass
+        user_role = session.get('user_role', 'user')
+        if user_role == 'admin':
+            return redirect(url_for('admin_organizations_list'))
     return render_template('organizations/list.html')
 
 @app.route('/organizations/new')
-@require_login
 def organizations_new():
     """Criar nova organização"""
-    user_role = session.get('user_role', 'user')
-    if user_role == 'admin':
-        return redirect(url_for('admin_organizations_new'))
+    # Permite acesso sem autenticação em modo desenvolvimento
+    if AUTH_REQUIRED:
+        # Se autenticação estiver habilitada, verifica login
+        if 'user_id' not in session:
+            try:
+                return redirect(url_for('login_page'))
+            except:
+                # Se não tiver login_page, permite acesso (modo dev)
+                pass
+        user_role = session.get('user_role', 'user')
+        if user_role == 'admin':
+            return redirect(url_for('admin_organizations_new'))
     return render_template('organizations/create.html')
 
 @app.route('/organizations/<int:organization_id>')
-@require_login
 def organizations_detail(organization_id):
     """Detalhes da organização"""
+    # Permite acesso sem autenticação em modo desenvolvimento
+    if AUTH_REQUIRED:
+        if 'user_id' not in session:
+            try:
+                return redirect(url_for('login_page'))
+            except:
+                pass
     user_role = session.get('user_role', 'user')
     if user_role == 'admin':
         return redirect(url_for('admin_organizations_detail', organization_id=organization_id))
@@ -510,27 +632,81 @@ def organizations_detail(organization_id):
 @app.route('/instances')
 @require_login
 def instances_list():
-    """Lista de instâncias"""
-    tenant_id = request.args.get('tenant_id', type=int)
-    return render_template('instances/list.html', tenant_id=tenant_id)
+    """Lista de instâncias (modo simplificado: redireciona para conexão)"""
+    # No modo simplificado, redireciona direto para página de conexão
+    from web.utils.instance_helper import get_or_create_user_instance
+    from web.utils.auth_helpers import get_current_user_id
+    
+    user_id = get_current_user_id() or 1
+    user_instance = get_or_create_user_instance(user_id)
+    
+    # Redireciona para página de conexão da instância do usuário
+    return redirect(url_for('instances_connect', instance_id=user_instance.get('id')))
 
 @app.route('/instances/new')
-@require_login
 def instances_new():
-    """Criar nova instância"""
-    tenant_id = request.args.get('tenant_id', type=int)
-    return render_template('instances/create.html', tenant_id=tenant_id)
+    """Criar nova instância (modo simplificado: redireciona - instância já existe)"""
+    # No modo simplificado, a instância é criada automaticamente
+    # Redireciona para a instância do usuário
+    from web.utils.instance_helper import get_or_create_user_instance
+    from web.utils.auth_helpers import get_current_user_id
+    
+    user_id = get_current_user_id() or 1
+    user_instance = get_or_create_user_instance(user_id)
+    
+    # Redireciona para detalhes da instância (já existe)
+    return redirect(url_for('instances_detail', instance_id=user_instance.get('id')))
 
 @app.route('/instances/<int:instance_id>')
 @require_login
 def instances_detail(instance_id):
-    """Detalhes da instância"""
+    """Detalhes da instância (modo simplificado: redireciona para conexão se não conectado)"""
+    # Verifica se é a instância do usuário
+    from web.utils.instance_helper import get_or_create_user_instance
+    from web.utils.auth_helpers import get_current_user_id
+    import requests
+    
+    user_id = get_current_user_id() or 1
+    user_instance = get_or_create_user_instance(user_id)
+    
+    if user_instance.get('id') != instance_id:
+        # Não é a instância do usuário - redireciona para conexão da instância correta
+        return redirect(url_for('instances_connect', instance_id=user_instance.get('id')))
+    
+    # Verifica se está conectado
+    try:
+        port = user_instance.get('port', 5001)
+        status_response = requests.get(f"http://localhost:{port}/status", timeout=1)
+        if status_response.status_code == 200:
+            status_data = status_response.json()
+            actually_connected = status_data.get("actuallyConnected", False)
+            ready = status_data.get("ready", False)
+            has_qr = status_data.get("hasQr", False)
+            
+            # Se não está conectado, redireciona para página de conexão
+            if not (actually_connected or (ready and not has_qr)):
+                return redirect(url_for('instances_connect', instance_id=instance_id))
+    except:
+        # Se não consegue verificar, redireciona para conexão
+        return redirect(url_for('instances_connect', instance_id=instance_id))
+    
     return render_template('instances/dashboard.html', instance_id=instance_id)
 
 @app.route('/instances/<int:instance_id>/connect')
 @require_login
 def instances_connect(instance_id):
     """Conectar WhatsApp da instância"""
+    # Verifica se é a instância do usuário (modo simplificado)
+    from web.utils.instance_helper import get_or_create_user_instance
+    from web.utils.auth_helpers import get_current_user_id
+    
+    user_id = get_current_user_id() or 1
+    user_instance = get_or_create_user_instance(user_id)
+    
+    if user_instance.get('id') != instance_id:
+        # Não é a instância do usuário - redireciona
+        return redirect(url_for('instances_connect', instance_id=user_instance.get('id')))
+    
     return render_template('instances/connect.html', instance_id=instance_id)
 
 # ============================================
@@ -540,13 +716,15 @@ def instances_connect(instance_id):
 @app.route('/qr')
 @require_login
 def qr_code():
-    """Redireciona para área correta"""
-    if not AUTH_REQUIRED:
-        return render_template('qr.html')
-    user_role = session.get('user_role', 'user')
-    if user_role == 'admin':
-        return redirect(url_for('admin_dashboard'))
-    return redirect(url_for('tenant_qr_code'))
+    """Conecta WhatsApp - modo simplificado: redireciona para instância do usuário"""
+    from web.utils.instance_helper import get_or_create_user_instance
+    from web.utils.auth_helpers import get_current_user_id
+    
+    user_id = get_current_user_id() or 1
+    user_instance = get_or_create_user_instance(user_id)
+    
+    # Redireciona para página de conexão da instância do usuário
+    return redirect(url_for('instances_connect', instance_id=user_instance.get('id')))
 
 @app.route('/api/qr')
 def get_qr():
@@ -606,11 +784,61 @@ def get_conversations():
     
     try:
         import requests
+        import json
+        import os
+        
+        # Verifica se há instance_id na query string
+        instance_id = request.args.get('instance_id', type=int)
         whatsapp_port = whatsapp.port if hasattr(whatsapp, 'port') else 5001
+        
+        # Se instance_id foi fornecido, busca a porta da instância
+        if instance_id:
+            orgs_file = os.path.join(os.path.dirname(__file__), '..', 'data', 'organizations.json')
+            if os.path.exists(orgs_file):
+                try:
+                    with open(orgs_file, 'r', encoding='utf-8') as f:
+                        organizations = json.load(f)
+                        for org in organizations:
+                            for inst in org.get('instances', []):
+                                if inst.get('id') == instance_id:
+                                    whatsapp_port = inst.get('port', whatsapp_port)
+                                    break
+                except:
+                    pass
+        
+        # Parâmetros opcionais
+        only_individuals = request.args.get('only_individuals', 'false').lower() == 'true'
+        limit = request.args.get('limit', type=int)
+        
         response = requests.get(f"http://localhost:{whatsapp_port}/chats", timeout=10)
         
         if response.status_code == 200:
-            return jsonify(response.json())
+            data = response.json()
+            
+            # Garante formato padronizado
+            if isinstance(data, dict) and 'chats' in data:
+                chats = data['chats']
+            elif isinstance(data, list):
+                chats = data
+            else:
+                chats = []
+            
+            # Filtra apenas conversas individuais se solicitado
+            if only_individuals:
+                chats = [c for c in chats if not c.get('isGroup', False)]
+            
+            # Ordena por timestamp (mais recentes primeiro)
+            chats.sort(key=lambda x: x.get('timestamp', 0), reverse=True)
+            
+            # Limita quantidade se solicitado
+            if limit:
+                chats = chats[:limit]
+            
+            return jsonify({
+                "success": True,
+                "chats": chats,
+                "total": len(chats)
+            })
         else:
             return jsonify({"success": False, "error": "Erro ao buscar conversas"}), 500
             
@@ -645,64 +873,129 @@ def get_conversation_messages(chat_id):
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/api/whatsapp-status')
-def whatsapp_status():
-    """Status da conexão WhatsApp"""
+@app.route('/api/conversations/send', methods=['POST'])
+@require_api_auth
+def send_message():
+    """Envia mensagem via WhatsApp"""
     if not whatsapp:
-        return jsonify({"connected": False, "error": "WhatsApp não inicializado"})
+        return jsonify({"success": False, "error": "WhatsApp não inicializado"}), 500
     
     try:
-        # Verifica se o servidor Node.js está rodando
-        import requests
-        try:
-            whatsapp_port = whatsapp.port if hasattr(whatsapp, 'port') else 5001
-            server_response = requests.get(f"http://localhost:{whatsapp_port}/health", timeout=2)
-            if server_response.status_code != 200:
-                return jsonify({"connected": False, "error": "Servidor WhatsApp não está respondendo"})
-        except requests.exceptions.RequestException:
-            return jsonify({"connected": False, "error": "Servidor WhatsApp não está rodando", "hasQr": False})
+        data = request.get_json()
+        phone = data.get('phone')
+        message = data.get('message')
         
-        # Verifica status detalhado
+        if not phone or not message:
+            return jsonify({"success": False, "error": "Telefone e mensagem são obrigatórios"}), 400
+        
+        # Envia via WhatsApp
+        success = whatsapp.send_message(phone, message)
+        
+        if success:
+            return jsonify({"success": True, "message": "Mensagem enviada com sucesso"})
+        else:
+            return jsonify({"success": False, "error": "Erro ao enviar mensagem"}), 500
+            
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/flows/check', methods=['GET'])
+@require_api_auth
+def check_active_flow():
+    """Verifica se há fluxo ativo para um número"""
+    try:
+        phone = request.args.get('phone')
+        if not phone:
+            return jsonify({"success": False, "error": "Telefone é obrigatório"}), 400
+        
+        # Remove formatação do número
+        phone = phone.replace('@c.us', '').replace('@s.whatsapp.net', '').replace('+', '').replace(' ', '')
+        
+        # Verifica fluxos ativos
+        from src.flows.flow_engine import flow_engine
+        
+        # Procura fluxo que pode ser ativado para este número
+        active_flow = None
+        for flow_id, flow_data in flow_engine.active_flows.items():
+            trigger = flow_data.get('trigger', {})
+            trigger_type = trigger.get('type', 'always')
+            
+            # Se for 'always', está ativo
+            if trigger_type == 'always':
+                active_flow = {
+                    'id': flow_id,
+                    'name': flow_data.get('name', 'Fluxo sem nome')
+                }
+                break
+        
+        if active_flow:
+            return jsonify({"success": True, "flow": active_flow})
+        else:
+            return jsonify({"success": True, "flow": None})
+            
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/whatsapp-status')
+def whatsapp_status():
+    """Status da conexão WhatsApp (modo simplificado: usa instância do usuário)"""
+    try:
+        from web.utils.instance_helper import get_or_create_user_instance
+        from web.utils.auth_helpers import get_current_user_id
+        import requests
+        
+        # Obtém instância do usuário
+        user_id = get_current_user_id() or 1
+        instance = get_or_create_user_instance(user_id)
+        whatsapp_port = instance.get('port', 5001)
+        
+        # Verifica status do servidor Node.js da instância do usuário
         try:
-            whatsapp_port = whatsapp.port if hasattr(whatsapp, 'port') else 5001
-            status_response = requests.get(f"http://localhost:{whatsapp_port}/status", timeout=2)
+            status_response = requests.get(f"http://localhost:{whatsapp_port}/status", timeout=1)
             if status_response.status_code == 200:
                 status_data = status_response.json()
                 has_qr = status_data.get("hasQr", False)
                 actually_connected = status_data.get("actuallyConnected", False)
                 ready = status_data.get("ready", False)
                 
-                # Só considera conectado se realmente estiver conectado (não apenas se o servidor está rodando)
+                # Só considera conectado se realmente estiver conectado
                 connected = actually_connected or (ready and not has_qr)
                 
                 if connected:
                     return jsonify({
                         "connected": True, 
                         "message": "WhatsApp conectado",
-                        "hasQr": False
+                        "hasQr": False,
+                        "port": whatsapp_port
                     })
                 elif has_qr:
                     return jsonify({
                         "connected": False, 
                         "message": "QR Code disponível. Escaneie para conectar.",
-                        "hasQr": True
+                        "hasQr": True,
+                        "port": whatsapp_port
                     })
                 else:
                     return jsonify({
                         "connected": False, 
                         "message": "Aguardando conexão. Clique em 'Conectar WhatsApp' para gerar QR Code.",
-                        "hasQr": False
+                        "hasQr": False,
+                        "port": whatsapp_port
                     })
-        except requests.exceptions.RequestException:
-            pass
-        
-        # Fallback: verifica se realmente está conectado
-        connected = whatsapp.is_ready()
-        
-        if connected:
-            return jsonify({"connected": True, "message": "WhatsApp conectado", "hasQr": False})
-        else:
-            return jsonify({"connected": False, "message": "Aguardando conexão. Escaneie o QR Code.", "hasQr": False})
+        except requests.exceptions.ConnectionError:
+            return jsonify({
+                "connected": False, 
+                "error": f"Servidor WhatsApp não está rodando na porta {whatsapp_port}",
+                "hasQr": False,
+                "port": whatsapp_port
+            })
+        except requests.exceptions.RequestException as e:
+            return jsonify({
+                "connected": False, 
+                "error": f"Erro ao conectar com servidor: {str(e)}",
+                "hasQr": False,
+                "port": whatsapp_port
+            })
             
     except Exception as e:
         return jsonify({"connected": False, "error": str(e), "hasQr": False})
@@ -782,6 +1075,7 @@ def set_ai_config():
 # ============================================
 
 @app.route('/webhook', methods=['POST'])
+@rate_limit_whatsapp  # Rate limiting para webhook (envio de mensagens)
 def webhook():
     """
     Webhook que recebe mensagens do WhatsApp
@@ -800,7 +1094,32 @@ def webhook():
         # Remove formatação do número
         phone = phone.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('+', '').replace(' ', '')
         
-        print(f"[📨] Mensagem recebida de {phone}: {message}")
+        # Tenta identificar instance_id (pode vir no request ou buscar pelo número)
+        instance_id = data.get('instance_id')
+        tenant_id = data.get('tenant_id')
+        
+        # Se não fornecido, tenta buscar pela conversa
+        if not instance_id:
+            try:
+                from src.database.db import SessionLocal
+                from src.models.conversation import Conversation
+                db = SessionLocal()
+                try:
+                    # Busca conversa mais recente com este telefone
+                    conversation = db.query(Conversation).filter(
+                        Conversation.phone == phone
+                    ).order_by(Conversation.last_message_at.desc()).first()
+                    
+                    if conversation:
+                        instance_id = conversation.instance_id
+                        if not tenant_id:
+                            tenant_id = conversation.tenant_id
+                finally:
+                    db.close()
+            except Exception as e:
+                print(f"[!] Erro ao buscar instance_id: {e}")
+        
+        print(f"[📨] Mensagem recebida de {phone}: {message} (instance_id={instance_id}, tenant_id={tenant_id})")
         
         # Tenta processar com fluxos primeiro
         try:
@@ -810,6 +1129,8 @@ def webhook():
             flow_result = message_handler.process_message(
                 phone=phone,
                 message=message,
+                tenant_id=tenant_id,
+                instance_id=instance_id,
                 whatsapp_handler=whatsapp
             )
             
@@ -852,16 +1173,30 @@ def webhook():
         
         # Obtém resposta da IA
         try:
-            response = ai.get_response(phone, message)
+            response = ai.get_response(phone, message, tenant_id=tenant_id, instance_id=instance_id)
             print(f"[🤖] Resposta da IA: {response}")
             
-            # Envia resposta via WhatsApp
+            # Envia resposta via WhatsApp (usando fila)
             if whatsapp and response:
-                success = whatsapp.send_message(phone, response)
-                if success:
-                    print(f"[✓] Resposta enviada para {phone}")
+                from web.utils.message_sender import send_message_via_queue
+                from web.utils.auth_helpers import get_current_tenant_id
+                
+                tenant_id = get_current_tenant_id()
+                result = send_message_via_queue(
+                    phone=phone,
+                    message=response,
+                    tenant_id=tenant_id,
+                    priority=1,  # Prioridade média para respostas automáticas
+                    use_queue=True
+                )
+                
+                if result.get('success'):
+                    if result.get('via_queue'):
+                        print(f"[✓] Resposta adicionada à fila para {phone}")
+                    else:
+                        print(f"[✓] Resposta enviada diretamente para {phone}")
                 else:
-                    print(f"[!] Erro ao enviar resposta para {phone}")
+                    print(f"[!] Erro ao enviar resposta para {phone}: {result.get('error')}")
         except Exception as e:
             print(f"[!] Erro ao processar com IA: {e}")
             return jsonify({"error": str(e)}), 500
@@ -884,6 +1219,33 @@ def webhook():
 def health():
     """Health check"""
     return jsonify({"status": "ok"})
+
+# ============================================
+# INICIALIZAÇÃO DO RATE LIMITER
+# ============================================
+
+# Inicializa rate limiter
+redis_url = REDIS_URL if USE_REDIS else None
+init_rate_limiter(app, redis_url=redis_url)
+
+# ============================================
+# INICIALIZAÇÃO DA FILA DE MENSAGENS
+# ============================================
+
+# Inicializa fila de mensagens
+message_queue_instance = init_message_queue(redis_url=redis_url, use_redis=USE_REDIS)
+
+# Inicializa worker de mensagens (em thread separada)
+def start_message_worker():
+    """Inicia worker de mensagens em thread separada"""
+    if whatsapp and message_queue_instance:
+        try:
+            worker = init_message_worker(message_queue_instance, whatsapp, interval=1.0)
+            worker_thread = threading.Thread(target=worker.start, daemon=True)
+            worker_thread.start()
+            print("[✓] Worker de mensagens iniciado em background")
+        except Exception as e:
+            print(f"[!] Erro ao iniciar worker de mensagens: {e}")
 
 # ============================================
 # INICIALIZAÇÃO DO SERVIDOR WHATSAPP
@@ -914,6 +1276,14 @@ if __name__ == '__main__':
         except Exception as e:
             print(f"[!] Erro ao iniciar servidor WhatsApp: {e}")
             print("[!] Você pode iniciar manualmente com: node whatsapp_server.js")
+    
+    # Inicia worker de mensagens (aguarda um pouco para garantir que tudo está pronto)
+    import time
+    time.sleep(2)
+    try:
+        start_message_worker()
+    except Exception as e:
+        print(f"[!] Erro ao iniciar worker de mensagens: {e}")
     
     # Inicia Flask
     port = int(os.getenv('PORT', 5002))

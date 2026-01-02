@@ -49,6 +49,9 @@ def list_leads():
                     'leads': [],
                     'total': 0
                 }), 200
+        # Parâmetro opcional: instance_id (filtra leads por instância através de conversations)
+        instance_id = request.args.get('instance_id', type=int)
+        
         status_str = request.args.get('status')
         source = request.args.get('source')
         search = request.args.get('search')
@@ -71,7 +74,8 @@ def list_leads():
             search=search,
             min_score=min_score,
             limit=limit,
-            offset=offset
+            offset=offset,
+            instance_id=instance_id  # Novo parâmetro
         )
         
         return jsonify({

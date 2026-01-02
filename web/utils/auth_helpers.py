@@ -81,3 +81,6 @@ def get_user_tenants():
         logger.error(f"Erro ao obter tenants do usuário: {e}")
         return []
 
+
+
+

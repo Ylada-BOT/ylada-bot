@@ -1,0 +1,43 @@
+{% extends "base_admin.html" %}
+
+{% block title %}Usuários - Administração{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>👤 Gerenciar Usuários</h1>
+    <a href="/admin/users/new" class="btn">➕ Novo Usuário</a>
+</div>
+
+<div class="admin-card">
+    <p style="color: #6b7280;">Lista de usuários do sistema</p>
+    <div id="usersList" class="loading">Carregando usuários...</div>
+</div>
+
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+    
+    .btn {
+        padding: 10px 20px;
+        background: #dc2626;
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 500;
+    }
+    
+    .admin-card {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+</style>
+{% endblock %}
+
+
+

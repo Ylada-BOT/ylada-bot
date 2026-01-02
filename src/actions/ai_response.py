@@ -43,8 +43,10 @@ class AIResponseAction:
                     'error': 'IA não disponível'
                 }
             
-            # Gera resposta com IA
-            response = ai.get_response(phone, initial_message)
+            # Gera resposta com IA (passa tenant_id e instance_id se disponíveis)
+            tenant_id = kwargs.get('tenant_id')
+            instance_id = kwargs.get('instance_id')
+            response = ai.get_response(phone, initial_message, tenant_id=tenant_id, instance_id=instance_id)
             
             if not response or response.startswith('⚠️'):
                 return {

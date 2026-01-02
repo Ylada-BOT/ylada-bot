@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fluxos - BOT by YLADA</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 25px 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+            border: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        h1 {
+            color: #333;
+            margin: 0;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #3b82f6;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        
+        .btn-success {
+            background: #10b981;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+        
+        .flows-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .flow-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s;
+        }
+        
+        .flow-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .flow-card h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+        
+        .flow-card p {
+            color: #666;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .flow-info {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .flow-info span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .flow-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .badge-active {
+            background: #10b981;
+            color: white;
+        }
+        
+        .badge-inactive {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .empty-state {
+            background: white;
+            border-radius: 12px;
+            padding: 60px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+            border: 1px solid #e5e7eb;
+        }
+        
+        .empty-state h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .empty-state p {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .alert.success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+        
+        .alert.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <img src="/static/assets/logo.png" alt="BOT by YLADA" style="height: 50px;">
+                <a href="/" style="text-decoration: none; color: inherit;">
+                    <h1 style="margin: 0;">🔄 Fluxos de Automação</h1>
+                </a>
+            </div>
+            <div>
+                <button onclick="loadTemplates()" class="btn btn-secondary">📋 Templates</button>
+                <a href="/tenant/flows/new" class="btn">➕ Novo Fluxo</a>
+                <a href="/" class="btn btn-secondary">🏠 Dashboard</a>
+            </div>
+        </div>
+        
+        <div id="alert" class="alert hidden"></div>
+        
+        <div id="flowsContainer">
+            <div class="empty-state">
+                <h2>📭 Nenhum fluxo criado</h2>
+                <p>Crie seu primeiro fluxo de automação para começar!</p>
+                <a href="/tenant/flows/new" class="btn">Criar Primeiro Fluxo</a>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function showAlert(message, type = 'success') {
+            const alertDiv = document.getElementById('alert');
+            alertDiv.textContent = message;
+            alertDiv.className = `alert ${type}`;
+            alertDiv.classList.remove('hidden');
+            
+            setTimeout(() => {
+                alertDiv.classList.add('hidden');
+            }, 5000);
+        }
+        
+        function loadFlows() {
+            fetch('/api/flows')
+                .then(r => r.json())
+                .then(data => {
+                    const container = document.getElementById('flowsContainer');
+                    
+                    if (!data.success || data.flows.length === 0) {
+                        container.innerHTML = `
+                            <div class="empty-state">
+                                <h2>📭 Nenhum fluxo criado</h2>
+                                <p>Crie seu primeiro fluxo de automação para começar!</p>
+                                <a href="/tenant/flows/new" class="btn">Criar Primeiro Fluxo</a>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    container.innerHTML = '<div class="flows-grid"></div>';
+                    const grid = container.querySelector('.flows-grid');
+                    
+                    data.flows.forEach(flow => {
+                        const card = document.createElement('div');
+                        card.className = 'flow-card';
+                        
+                        const triggerInfo = flow.trigger.type === 'keyword' 
+                            ? `Palavras-chave: ${flow.trigger.keywords?.join(', ') || 'Nenhuma'}`
+                            : flow.trigger.type === 'always'
+                            ? 'Sempre ativo'
+                            : 'Condição customizada';
+                        
+                        card.innerHTML = `
+                            <h3>${flow.flow_name || 'Sem nome'}</h3>
+                            <p>${triggerInfo}</p>
+                            <div class="flow-info">
+                                <span>📊 ${flow.steps_count || 0} steps</span>
+                                <span class="badge badge-active">✓ Ativo</span>
+                            </div>
+                            <div class="flow-actions">
+                                <button onclick="testFlow(${flow.flow_id})" class="btn btn-success btn-small">🧪 Testar</button>
+                                <button onclick="editFlow(${flow.flow_id})" class="btn btn-secondary btn-small">✏️ Editar</button>
+                                <button onclick="deleteFlow(${flow.flow_id})" class="btn btn-danger btn-small">🗑️ Excluir</button>
+                            </div>
+                        `;
+                        
+                        grid.appendChild(card);
+                    });
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar fluxos:', error);
+                    showAlert('Erro ao carregar fluxos', 'error');
+                });
+        }
+        
+        function testFlow(flowId) {
+            const testPhone = prompt('Digite o número para testar (ex: 5511999999999):');
+            if (!testPhone) return;
+            
+            const testMessage = prompt('Digite a mensagem de teste:', 'teste');
+            
+            fetch('/api/flows/test', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    flow_id: flowId,
+                    test_phone: testPhone,
+                    test_message: testMessage
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('Fluxo testado com sucesso!');
+                } else {
+                    showAlert('Erro ao testar fluxo: ' + (data.error || 'Erro desconhecido'), 'error');
+                }
+            })
+            .catch(error => {
+                showAlert('Erro ao testar fluxo', 'error');
+            });
+        }
+        
+        function editFlow(flowId) {
+            window.location.href = `/tenant/flows/edit/${flowId}`;
+        }
+        
+        function deleteFlow(flowId) {
+            if (!confirm('Tem certeza que deseja excluir este fluxo?')) return;
+            
+            fetch(`/api/flows/${flowId}`, {
+                method: 'DELETE'
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('Fluxo excluído com sucesso!');
+                    loadFlows();
+                } else {
+                    showAlert('Erro ao excluir fluxo', 'error');
+                }
+            })
+            .catch(error => {
+                showAlert('Erro ao excluir fluxo', 'error');
+            });
+        }
+        
+        function loadTemplates() {
+            fetch('/api/flows/templates')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.templates.length > 0) {
+                        const template = data.templates[0]; // Usa primeiro template como exemplo
+                        if (confirm('Deseja criar um fluxo usando o template "Boas-vindas"?')) {
+                            createFlowFromTemplate(template.flow_data);
+                        }
+                    }
+                });
+        }
+        
+        function createFlowFromTemplate(flowData) {
+            fetch('/api/flows', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    name: flowData.name,
+                    flow_data: flowData
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('Fluxo criado a partir do template!');
+                    loadFlows();
+                } else {
+                    showAlert('Erro ao criar fluxo: ' + (data.error || 'Erro desconhecido'), 'error');
+                }
+            });
+        }
+        
+        // Carrega fluxos ao abrir a página
+        loadFlows();
+        
+        // Atualiza a cada 30 segundos
+        setInterval(loadFlows, 30000);
+    </script>
+</body>
+</html>

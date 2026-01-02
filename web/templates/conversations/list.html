@@ -207,6 +207,87 @@
             color: #666;
         }
         
+        .message-input-container {
+            border-top: 1px solid #e5e7eb;
+            padding: 15px;
+            background: white;
+        }
+        
+        .message-input-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        
+        .message-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 20px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: none;
+            max-height: 120px;
+            overflow-y: auto;
+            transition: border-color 0.2s;
+        }
+        
+        .message-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        
+        .btn-send {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        
+        .btn-send:hover {
+            background: #2563eb;
+            transform: scale(1.05);
+        }
+        
+        .btn-send:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .flow-status {
+            margin-top: 10px;
+            padding: 8px;
+            background: #f0f9ff;
+            border-radius: 8px;
+            color: #0369a1;
+            font-size: 12px;
+        }
+        
+        .search-box {
+            width: 100%;
+            padding: 10px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 15px;
+            transition: border-color 0.2s;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        
         .search-box {
             padding: 10px;
             border: 1px solid #ddd;
@@ -214,6 +295,69 @@
             margin-bottom: 15px;
             width: 100%;
             font-size: 14px;
+        }
+        
+        .filters-container {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-btn {
+            flex: 1;
+            min-width: 100px;
+            padding: 10px 15px;
+            background: #f3f4f6;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: #4b5563;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        
+        .filter-btn:hover {
+            background: #e5e7eb;
+            border-color: #d1d5db;
+        }
+        
+        .filter-btn.active {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1e40af;
+            font-weight: 600;
+        }
+        
+        .filter-count {
+            background: #d1d5db;
+            color: #4b5563;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            min-width: 20px;
+            text-align: center;
+        }
+        
+        .filter-btn.active .filter-count {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .filter-btn[data-filter="unread"] .filter-count {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .filter-btn.active[data-filter="unread"] .filter-count {
+            background: #f59e0b;
+            color: white;
         }
 {% endblock %}
 
@@ -227,7 +371,30 @@
         
         <div class="conversations-container">
             <div class="conversations-list">
-                <input type="text" class="search-box" id="searchInput" placeholder="Buscar conversas..." onkeyup="filterConversations()">
+                <!-- Filtros -->
+                <div class="filters-container">
+                    <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">
+                        <span>Todas</span>
+                        <span class="filter-count" id="countAll">0</span>
+                    </button>
+                    <button class="filter-btn" data-filter="unread" onclick="setFilter('unread')">
+                        <span>Não Lidas</span>
+                        <span class="filter-count" id="countUnread">0</span>
+                    </button>
+                    <button class="filter-btn" data-filter="individuals" onclick="setFilter('individuals')">
+                        <span>Individuais</span>
+                        <span class="filter-count" id="countIndividuals">0</span>
+                    </button>
+                    <button class="filter-btn" data-filter="groups" onclick="setFilter('groups')">
+                        <span>Grupos</span>
+                        <span class="filter-count" id="countGroups">0</span>
+                    </button>
+                </div>
+                
+                <!-- Busca -->
+                <input type="text" class="search-box" id="searchInput" placeholder="🔍 Buscar conversas..." onkeyup="filterConversations()">
+                
+                <!-- Lista -->
                 <div id="conversationsList">
                     <div class="loading">Carregando conversas...</div>
                 </div>
@@ -243,6 +410,24 @@
                         <p>Escolha uma conversa da lista ao lado para ver as mensagens</p>
                     </div>
                 </div>
+                <!-- Campo de envio de mensagem -->
+                <div class="message-input-container" id="messageInputContainer" style="display: none;">
+                    <div class="message-input-wrapper">
+                        <textarea 
+                            id="messageInput" 
+                            class="message-input" 
+                            placeholder="Digite sua mensagem..."
+                            rows="1"
+                            onkeydown="handleMessageKeyDown(event)"
+                        ></textarea>
+                        <button onclick="sendMessage()" class="btn-send" id="sendButton">
+                            <span>➤</span>
+                        </button>
+                    </div>
+                    <div class="flow-status" id="flowStatus" style="display: none;">
+                        <small>🤖 Fluxo ativo: <span id="activeFlowName">-</span></small>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -250,19 +435,44 @@
     <script>
         let conversations = [];
         let selectedChatId = null;
+        let currentFilter = 'all'; // all, unread, individuals, groups
         
         function loadConversations() {
+            // Mostra loading
+            document.getElementById('conversationsList').innerHTML = '<div class="loading">Carregando conversas...</div>';
+            
             fetch('/api/conversations')
-                .then(r => r.json())
+                .then(r => {
+                    if (!r.ok) {
+                        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+                    }
+                    return r.json();
+                })
                 .then(data => {
+                    console.log('Dados recebidos:', data);
+                    
+                    // Tenta diferentes formatos de resposta
+                    let chats = [];
                     if (data.success && data.chats) {
-                        conversations = data.chats;
-                        renderConversations(conversations);
+                        chats = data.chats;
+                    } else if (Array.isArray(data)) {
+                        chats = data;
+                    } else if (data.chats) {
+                        chats = data.chats;
+                    }
+                    
+                    if (chats && chats.length > 0) {
+                        conversations = chats;
+                        updateFilterCounts(conversations);
+                        applyFilters();
                     } else {
                         document.getElementById('conversationsList').innerHTML = `
                             <div class="empty-state">
                                 <h3>📭 Nenhuma conversa encontrada</h3>
                                 <p>As conversas aparecerão aqui quando você receber mensagens</p>
+                                <p style="margin-top: 10px; font-size: 12px; color: #666;">
+                                    💡 <strong>Dica:</strong> Envie uma mensagem do seu celular para testar!
+                                </p>
                             </div>
                         `;
                     }
@@ -274,40 +484,161 @@
                             <h3>❌ Erro ao carregar conversas</h3>
                             <p>${error.message}</p>
                             <p style="margin-top: 10px; font-size: 12px;">Verifique se o WhatsApp está conectado</p>
+                            <button onclick="loadConversations()" class="btn" style="margin-top: 10px;">🔄 Tentar Novamente</button>
                         </div>
                     `;
                 });
+        }
+        
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Atualiza contadores dos filtros
+        function updateFilterCounts(convs) {
+            const all = convs.length;
+            const unread = convs.filter(c => c.unreadCount > 0).length;
+            const individuals = convs.filter(c => !c.isGroup).length;
+            const groups = convs.filter(c => c.isGroup).length;
+            
+            document.getElementById('countAll').textContent = all;
+            document.getElementById('countUnread').textContent = unread;
+            document.getElementById('countIndividuals').textContent = individuals;
+            document.getElementById('countGroups').textContent = groups;
+        }
+        
+        // Aplica filtros ativos
+        function applyFilters() {
+            let filtered = [...conversations];
+            
+            // Aplica filtro selecionado
+            switch(currentFilter) {
+                case 'unread':
+                    filtered = filtered.filter(c => c.unreadCount > 0);
+                    break;
+                case 'individuals':
+                    filtered = filtered.filter(c => !c.isGroup);
+                    break;
+                case 'groups':
+                    filtered = filtered.filter(c => c.isGroup);
+                    break;
+                case 'all':
+                default:
+                    // Mostra todas
+                    break;
+            }
+            
+            // Aplica busca se houver
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            if (search) {
+                filtered = filtered.filter(conv => 
+                    conv.name.toLowerCase().includes(search) ||
+                    conv.phone.includes(search) ||
+                    (conv.lastMessage && conv.lastMessage.toLowerCase().includes(search))
+                );
+            }
+            
+            renderConversations(filtered);
+        }
+        
+        // Define filtro ativo
+        function setFilter(filter) {
+            currentFilter = filter;
+            
+            // Atualiza botões
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`.filter-btn[data-filter="${filter}"]`).classList.add('active');
+            
+            // Aplica filtros
+            applyFilters();
         }
         
         function renderConversations(convs) {
             const list = document.getElementById('conversationsList');
             
             if (convs.length === 0) {
+                let message = '';
+                if (currentFilter === 'unread') {
+                    message = 'Nenhuma conversa não lida';
+                } else if (currentFilter === 'groups') {
+                    message = 'Nenhum grupo encontrado';
+                } else if (currentFilter === 'individuals') {
+                    message = 'Nenhuma conversa individual encontrada';
+                } else {
+                    message = 'Nenhuma conversa encontrada';
+                }
+                
                 list.innerHTML = `
                     <div class="empty-state">
-                        <h3>📭 Nenhuma conversa encontrada</h3>
+                        <h3>📭 ${message}</h3>
+                        <p style="margin-top: 10px; font-size: 14px; color: #666;">
+                            ${currentFilter === 'all' ? '💡 <strong>Dica:</strong> Envie uma mensagem do seu celular para testar o bot!' : 'Tente outro filtro ou limpe a busca.'}
+                        </p>
                     </div>
                 `;
                 return;
             }
             
-            list.innerHTML = convs.map(conv => {
-                const date = new Date(conv.timestamp);
-                const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                const isActive = selectedChatId === conv.id;
-                
-                return `
-                    <div class="conversation-item ${isActive ? 'active' : ''}" onclick="selectConversation('${conv.id}', '${conv.name.replace(/'/g, "\\'")}', '${conv.phone}')">
-                        <div class="conversation-header">
-                            <div>
-                                <span class="conversation-name">${conv.name}</span>
-                                ${conv.unreadCount > 0 ? `<span class="unread-badge">${conv.unreadCount}</span>` : ''}
+            // Separa individuais e grupos
+            const individualChats = convs.filter(c => !c.isGroup);
+            const groupChats = convs.filter(c => c.isGroup);
+            
+            let html = '';
+            
+            // Mostra conversas individuais primeiro (se não estiver filtrando apenas grupos)
+            if (individualChats.length > 0 && currentFilter !== 'groups') {
+                html += individualChats.map(conv => {
+                    const date = new Date(conv.timestamp);
+                    const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                    const isActive = selectedChatId === conv.id;
+                    const preview = conv.lastMessage || '';
+                    const previewText = preview.length > 50 ? preview.substring(0, 50) + '...' : preview;
+                    
+                    return `
+                        <div class="conversation-item ${isActive ? 'active' : ''}" onclick="selectConversation('${conv.id}', '${escapeHtml(conv.name).replace(/'/g, "\\'")}', '${conv.phone}')">
+                            <div class="conversation-header">
+                                <div>
+                                    <span class="conversation-name">${escapeHtml(conv.name)}</span>
+                                    ${conv.unreadCount > 0 ? `<span class="unread-badge">${conv.unreadCount}</span>` : ''}
+                                </div>
+                                <span class="conversation-time">${timeStr}</span>
                             </div>
-                            <span class="conversation-time">${timeStr}</span>
+                            ${previewText ? `<div class="conversation-preview">${escapeHtml(previewText)}</div>` : ''}
                         </div>
-                    </div>
-                `;
-            }).join('');
+                    `;
+                }).join('');
+            }
+            
+            // Mostra grupos depois (se não estiver filtrando apenas individuais)
+            if (groupChats.length > 0 && currentFilter !== 'individuals') {
+                if (individualChats.length > 0 && currentFilter === 'all') {
+                    html += '<div style="padding: 10px; font-weight: bold; color: #666; border-top: 1px solid #e5e7eb; margin-top: 10px;">Grupos</div>';
+                }
+                html += groupChats.map(conv => {
+                    const date = new Date(conv.timestamp);
+                    const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                    const isActive = selectedChatId === conv.id;
+                    
+                    return `
+                        <div class="conversation-item ${isActive ? 'active' : ''}" onclick="selectConversation('${conv.id}', '${escapeHtml(conv.name).replace(/'/g, "\\'")}', '${conv.phone}')">
+                            <div class="conversation-header">
+                                <div>
+                                    <span class="conversation-name">👥 ${escapeHtml(conv.name)}</span>
+                                    ${conv.unreadCount > 0 ? `<span class="unread-badge">${conv.unreadCount}</span>` : ''}
+                                </div>
+                                <span class="conversation-time">${timeStr}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            list.innerHTML = html;
         }
         
         function formatPreview(text) {
@@ -335,23 +666,33 @@
         }
         
         function filterConversations() {
-            const search = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = conversations.filter(conv => 
-                conv.name.toLowerCase().includes(search) ||
-                conv.phone.includes(search) ||
-                (conv.lastMessage && conv.lastMessage.toLowerCase().includes(search))
-            );
-            renderConversations(filtered);
+            // Aplica busca junto com filtro ativo
+            applyFilters();
         }
+        
+        let selectedChatPhone = null;
+        let selectedChatName = null;
         
         function selectConversation(chatId, name, phone) {
             selectedChatId = chatId;
+            selectedChatPhone = phone;
+            selectedChatName = name;
+            
             loadConversations(); // Re-renderiza para destacar a selecionada
             
             document.getElementById('messagesHeader').innerHTML = `
                 <h3 style="margin: 0; color: #333;">${escapeHtml(name)}</h3>
                 <p style="color: #999; font-size: 14px; margin-top: 5px; margin-bottom: 0;">${escapeHtml(phone)}</p>
             `;
+            
+            // Mostra campo de input
+            document.getElementById('messageInputContainer').style.display = 'block';
+            
+            // Limpa input
+            document.getElementById('messageInput').value = '';
+            
+            // Verifica se há fluxo ativo
+            checkActiveFlow(phone);
             
             loadMessages(chatId);
         }
@@ -524,7 +865,104 @@
         // Carrega conversas ao iniciar
         loadConversations();
         
-        // Atualiza a cada 30 segundos
-        setInterval(loadConversations, 30000);
+        // Função para enviar mensagem
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || !selectedChatPhone) {
+                return;
+            }
+            
+            // Desabilita botão
+            const sendBtn = document.getElementById('sendButton');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<span>⏳</span>';
+            
+            // Envia mensagem
+            fetch('/api/conversations/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    phone: selectedChatPhone,
+                    message: message
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    // Limpa input
+                    input.value = '';
+                    input.style.height = 'auto';
+                    
+                    // Recarrega mensagens para mostrar a enviada
+                    setTimeout(() => {
+                        loadMessages(selectedChatId);
+                    }, 500);
+                } else {
+                    alert('Erro ao enviar mensagem: ' + (data.error || 'Erro desconhecido'));
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao enviar mensagem:', error);
+                alert('Erro ao enviar mensagem. Tente novamente.');
+            })
+            .finally(() => {
+                // Reabilita botão
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<span>➤</span>';
+            });
+        }
+        
+        // Função para lidar com Enter no input
+        function handleMessageKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+        
+        // Auto-resize do textarea
+        document.addEventListener('DOMContentLoaded', function() {
+            const input = document.getElementById('messageInput');
+            if (input) {
+                input.addEventListener('input', function() {
+                    this.style.height = 'auto';
+                    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+                });
+            }
+        });
+        
+        // Verifica fluxo ativo
+        function checkActiveFlow(phone) {
+            fetch(`/api/flows/check?phone=${encodeURIComponent(phone)}`)
+                .then(r => r.json())
+                .then(data => {
+                    const flowStatus = document.getElementById('flowStatus');
+                    if (data.success && data.flow) {
+                        flowStatus.style.display = 'block';
+                        document.getElementById('activeFlowName').textContent = data.flow.name || 'Fluxo ativo';
+                    } else {
+                        flowStatus.style.display = 'none';
+                    }
+                })
+                .catch(err => {
+                    console.error('Erro ao verificar fluxo:', err);
+                });
+        }
+        
+        // Atualiza conversas automaticamente a cada 5 segundos (para ver mensagens novas rapidamente)
+        setInterval(() => {
+            loadConversations();
+        }, 5000);
+        
+        // Atualiza mensagens da conversa ativa a cada 3 segundos
+        setInterval(() => {
+            if (selectedChatId) {
+                loadMessages(selectedChatId);
+            }
+        }, 3000);
     </script>
 {% endblock %}

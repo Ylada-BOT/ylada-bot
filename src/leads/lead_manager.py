@@ -187,7 +187,8 @@ class LeadManager:
         search: Optional[str] = None,
         min_score: Optional[float] = None,
         limit: int = 50,
-        offset: int = 0
+        offset: int = 0,
+        instance_id: Optional[int] = None
     ) -> List[Lead]:
         """
         Busca leads
@@ -200,16 +201,26 @@ class LeadManager:
             min_score: Pontuação mínima
             limit: Limite de resultados
             offset: Offset para paginação
+            instance_id: Filtrar por instância (através de conversations)
         
         Returns:
             Lista de leads
         """
         db = self._get_db()
         try:
+            from src.models.conversation import Conversation
+            
             query = db.query(Lead)
             
             if tenant_id:
                 query = query.filter(Lead.tenant_id == tenant_id)
+            
+            # Filtra por instance_id através de conversations
+            if instance_id is not None:
+                query = query.join(
+                    Conversation,
+                    Lead.conversation_id == Conversation.id
+                ).filter(Conversation.instance_id == instance_id)
             
             if status:
                 query = query.filter(Lead.status == status)

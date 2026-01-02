@@ -114,3 +114,6 @@ Se o QR Code da web não funcionar, use o do terminal:
 **Última atualização:** 13/12/2024
 
 
+
+
+

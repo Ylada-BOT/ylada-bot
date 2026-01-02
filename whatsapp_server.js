@@ -13,7 +13,7 @@ let isReady = false;
 
 // Inicializa cliente
 function initClient() {
-    // Configuração do Puppeteer
+    // Configuração do Puppeteer (otimizado para gerar QR mais rápido)
     const puppeteerOptions = {
         headless: true,
         args: [
@@ -24,9 +24,28 @@ function initClient() {
             '--no-first-run',
             '--disable-gpu',
             '--disable-software-rasterizer',
-            '--disable-extensions'
+            '--disable-extensions',
+            '--disable-background-networking',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-breakpad',
+            '--disable-client-side-phishing-detection',
+            '--disable-default-apps',
+            '--disable-features=TranslateUI',
+            '--disable-hang-monitor',
+            '--disable-ipc-flooding-protection',
+            '--disable-popup-blocking',
+            '--disable-prompt-on-repost',
+            '--disable-renderer-backgrounding',
+            '--disable-sync',
+            '--metrics-recording-only',
+            '--no-first-run',
+            '--safebrowsing-disable-auto-update',
+            '--enable-automation',
+            '--password-store=basic',
+            '--use-mock-keychain'
         ],
-        timeout: 90000  // Aumenta timeout para 90 segundos
+        timeout: 60000  // 60 segundos (reduzido para não travar)
     };
 
     // Tenta usar Chrome do sistema se disponível (macOS)

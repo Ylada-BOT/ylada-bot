@@ -40,6 +40,7 @@ class Tenant(Base):
     subscription = relationship("Subscription", back_populates="tenant", uselist=False)
     instances = relationship("Instance", back_populates="tenant", cascade="all, delete-orphan")
     flows = relationship("Flow", back_populates="tenant", cascade="all, delete-orphan")
+    agents = relationship("Agent", back_populates="tenant", cascade="all, delete-orphan")
     conversations = relationship("Conversation", back_populates="tenant", cascade="all, delete-orphan")
     leads = relationship("Lead", back_populates="tenant", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="tenant", cascade="all, delete-orphan")

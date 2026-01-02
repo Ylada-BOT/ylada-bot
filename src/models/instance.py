@@ -33,6 +33,7 @@ class Instance(Base):
     # Configurações
     port = Column(Integer, default=5001, nullable=False)
     webhook_url = Column(String(500), nullable=True)
+    agent_id = Column(Integer, ForeignKey('agents.id'), nullable=True)  # Agente configurado para esta instance
     
     # Estatísticas
     messages_sent = Column(Integer, default=0, nullable=False)
@@ -45,6 +46,7 @@ class Instance(Base):
     # Relacionamentos
     tenant = relationship("Tenant", back_populates="instances")
     conversations = relationship("Conversation", back_populates="instance", cascade="all, delete-orphan")
+    agent = relationship("Agent", foreign_keys=[agent_id], uselist=False)
     
     def __repr__(self):
         return f"<Instance(id={self.id}, name={self.name}, status={self.status.value})>"

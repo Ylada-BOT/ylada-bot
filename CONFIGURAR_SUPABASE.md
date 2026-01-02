@@ -151,3 +151,6 @@ python3 web/app.py
 
 **Última atualização:** 23/12/2024
 
+
+
+

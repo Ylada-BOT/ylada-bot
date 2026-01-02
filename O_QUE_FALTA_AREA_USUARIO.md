@@ -114,3 +114,6 @@ Criar função `get_current_tenant_id()` que:
 
 **Última atualização:** 25/12/2024
 
+
+
+

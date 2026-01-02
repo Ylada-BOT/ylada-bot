@@ -86,3 +86,6 @@ Cada **tenant** (cliente) tem sua própria área (`/tenant/*`) onde usa o bot se
 **Última atualização:** 23/12/2024
 
 
+
+
+

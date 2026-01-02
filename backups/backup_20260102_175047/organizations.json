@@ -1,0 +1,41 @@
+[
+  {
+    "id": 1,
+    "name": "teste",
+    "status": "trial",
+    "created_at": "2026-01-02T14:56:39.866349",
+    "instances": [
+      {
+        "id": 1,
+        "name": "teste 1",
+        "status": "disconnected",
+        "port": 5001,
+        "agent_id": null,
+        "phone_number": null,
+        "messages_sent": 0,
+        "messages_received": 0,
+        "created_at": "2026-01-02T15:14:05.519339",
+        "session_dir": "data/sessions/instance_1_teste_1"
+      },
+      {
+        "id": 2,
+        "name": "teste 1",
+        "status": "disconnected",
+        "port": 5002,
+        "agent_id": null,
+        "phone_number": null,
+        "messages_sent": 0,
+        "messages_received": 0,
+        "created_at": "2026-01-02T15:49:27.374683",
+        "session_dir": "data/sessions/instance_1_teste_1"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "PORTAL MAGRA",
+    "status": "trial",
+    "created_at": "2026-01-02T14:57:00.149725",
+    "instances": []
+  }
+]

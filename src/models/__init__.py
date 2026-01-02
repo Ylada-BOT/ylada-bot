@@ -6,6 +6,7 @@ from .tenant import Tenant
 from .subscription import Subscription, Plan
 from .instance import Instance
 from .flow import Flow
+from .agent import Agent
 from .conversation import Conversation, Message
 from .lead import Lead
 from .notification import Notification
@@ -19,6 +20,7 @@ __all__ = [
     'Plan',
     'Instance',
     'Flow',
+    'Agent',
     'Conversation',
     'Message',
     'Lead',

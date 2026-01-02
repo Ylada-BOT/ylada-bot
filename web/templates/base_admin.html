@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Administração - BOT by YLADA{% endblock %}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f0f4f8;
+            min-height: 100vh;
+            display: flex;
+        }
+        
+        /* Sidebar Admin */
+        .sidebar {
+            width: 280px;
+            background: #ffffff;
+            color: #1f2937;
+            position: fixed;
+            height: 100vh;
+            left: 0;
+            top: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            z-index: 1000;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.08);
+            border-right: 2px solid #dc2626;
+            transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar-header {
+            padding: 25px 20px;
+            border-bottom: 2px solid #dc2626;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #fef2f2;
+            flex-shrink: 0;
+        }
+        
+        .sidebar-logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .sidebar-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #dc2626;
+        }
+        
+        .sidebar-subtitle {
+            font-size: 11px;
+            color: #991b1b;
+            margin-top: 2px;
+        }
+        
+        .sidebar-nav {
+            padding: 20px 0;
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .nav-section {
+            margin-bottom: 30px;
+        }
+        
+        .nav-section-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 0 20px;
+            margin-bottom: 10px;
+            color: #dc2626;
+            font-weight: 700;
+        }
+        
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            color: #4b5563;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+            font-size: 14px;
+        }
+        
+        .nav-item:hover {
+            background: #fef2f2;
+            color: #dc2626;
+            border-left-color: #dc2626;
+        }
+        
+        .nav-item.active {
+            background: #fee2e2;
+            color: #dc2626;
+            border-left-color: #dc2626;
+            font-weight: 500;
+        }
+        
+        .nav-item-icon {
+            width: 20px;
+            text-align: center;
+            font-size: 18px;
+        }
+        
+        .back-to-user {
+            padding: 15px 20px;
+            border-top: 1px solid #e5e7eb;
+            background: #f9fafb;
+            flex-shrink: 0;
+        }
+        
+        .sidebar-footer {
+            padding: 20px;
+            border-top: 1px solid #e5e7eb;
+            width: 100%;
+            background: #f9fafb;
+            flex-shrink: 0;
+        }
+        
+        .sidebar-footer-text {
+            font-size: 12px;
+            color: #9ca3af;
+            text-align: center;
+        }
+        
+        .back-to-user a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #3b82f6;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .back-to-user a:hover {
+            color: #2563eb;
+        }
+        
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            min-height: 100vh;
+            padding: 0;
+        }
+        
+        .content-wrapper {
+            padding: 30px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        /* Mobile Menu Toggle */
+        .mobile-menu-toggle {
+            display: none;
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1001;
+            background: white;
+            color: #dc2626;
+            border: 1px solid #e5e7eb;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .mobile-menu-toggle {
+                display: block;
+            }
+            
+            .content-wrapper {
+                padding: 20px 15px;
+            }
+        }
+        
+        /* Overlay para mobile */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+        
+        .sidebar-overlay.open {
+            display: block;
+        }
+        
+        /* Estilos base para páginas */
+        {% block extra_styles %}{% endblock %}
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- Sidebar Admin -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">🔐</div>
+            <div>
+                <div class="sidebar-title">Administração</div>
+                <div class="sidebar-subtitle">BOT by YLADA</div>
+            </div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-section-title">Dashboard</div>
+                <a href="/admin" class="nav-item" data-path="/admin">
+                    <span class="nav-item-icon">📊</span>
+                    <span>Visão Geral</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Gerenciamento</div>
+                <a href="/admin/users" class="nav-item" data-path="/admin/users">
+                    <span class="nav-item-icon">👤</span>
+                    <span>Usuários</span>
+                </a>
+                <a href="/admin/organizations" class="nav-item" data-path="/admin/organizations">
+                    <span class="nav-item-icon">🏢</span>
+                    <span>Organizações</span>
+                </a>
+                <a href="/admin/instances" class="nav-item" data-path="/admin/instances">
+                    <span class="nav-item-icon">🤖</span>
+                    <span>Instâncias</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Sistema</div>
+                <a href="/admin/settings" class="nav-item" data-path="/admin/settings">
+                    <span class="nav-item-icon">⚙️</span>
+                    <span>Configurações</span>
+                </a>
+                <a href="/admin/logs" class="nav-item" data-path="/admin/logs">
+                    <span class="nav-item-icon">📋</span>
+                    <span>Logs</span>
+                </a>
+                <a href="/admin/analytics" class="nav-item" data-path="/admin/analytics">
+                    <span class="nav-item-icon">📈</span>
+                    <span>Analytics</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Segurança</div>
+                <a href="/admin/security" class="nav-item" data-path="/admin/security">
+                    <span class="nav-item-icon">🔒</span>
+                    <span>Segurança</span>
+                </a>
+                <a href="/admin/backups" class="nav-item" data-path="/admin/backups">
+                    <span class="nav-item-icon">💾</span>
+                    <span>Backups</span>
+                </a>
+            </div>
+        </nav>
+        
+        <div class="back-to-user">
+            <a href="/">
+                <span>←</span>
+                <span>Voltar para Área do Usuário</span>
+            </a>
+        </div>
+        
+        <div class="sidebar-footer">
+            <div class="sidebar-footer-text">© 2024 YLADA - Admin</div>
+        </div>
+    </div>
+    
+    <!-- Mobile Menu Toggle -->
+    <button class="mobile-menu-toggle" id="mobileMenuToggle" onclick="toggleSidebar()">
+        ☰
+    </button>
+    
+    <!-- Overlay para mobile -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="content-wrapper">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+    
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('open');
+        }
+        
+        // Fecha sidebar ao clicar em link (mobile)
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                if (window.innerWidth <= 768) {
+                    toggleSidebar();
+                }
+            });
+        });
+        
+        // Detecta rota atual e marca como ativa
+        const currentPath = window.location.pathname;
+        document.querySelectorAll('.nav-item').forEach(item => {
+            const dataPath = item.getAttribute('data-path');
+            const href = item.getAttribute('href');
+            const path = dataPath || href;
+            
+            if (path === '/admin' && currentPath === '/admin') {
+                item.classList.add('active');
+            } else if (path !== '/admin' && currentPath.startsWith(path)) {
+                item.classList.add('active');
+            }
+        });
+    </script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>
+

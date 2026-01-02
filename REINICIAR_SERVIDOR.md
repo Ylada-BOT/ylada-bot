@@ -1,24 +1,28 @@
-# 🔄 Reiniciar Servidor Flask
+# 🔄 REINICIAR SERVIDOR FLASK
 
 ## ⚠️ IMPORTANTE
 
-O servidor Flask precisa ser **reiniciado** para carregar a nova connection string do Supabase!
+O erro "Not Found" acontece porque o servidor Flask precisa ser **reiniciado** para carregar as novas rotas!
 
-## 📋 COMO REINICIAR
+---
 
-### **1. Pare o servidor atual**
+## 🚀 COMO REINICIAR
 
-No terminal onde o Flask está rodando:
-- Pressione **Ctrl+C** para parar
+### **1. Pare o servidor atual:**
+- Vá no terminal onde o Flask está rodando
+- Pressione: `Ctrl + C`
+- Aguarde parar completamente
 
-### **2. Inicie novamente**
-
+### **2. Inicie novamente:**
 ```bash
-python3 web/app.py
+cd "/Users/air/Ylada BOT"
+python web/app.py
 ```
 
-Ou se estiver usando outro comando:
+Ou se estiver usando venv:
 ```bash
+cd "/Users/air/Ylada BOT"
+source venv/bin/activate  # Se tiver venv
 python web/app.py
 ```
 
@@ -26,25 +30,26 @@ python web/app.py
 
 ## ✅ DEPOIS DE REINICIAR
 
-Você deve ver mensagens como:
-```
-[✓] Banco de dados conectado
-[✓] Rotas de organizations registradas
-```
+1. Acesse: `http://localhost:5002/organizations/new`
+2. Deve funcionar sem erro "Not Found"
+3. Crie a organização "Portal Magra"
+4. ✅ Salvo em `data/organizations.json`
 
 ---
 
-## 🧪 TESTAR
+## 📋 VERIFICAÇÕES
 
-Depois de reiniciar:
+### **Se ainda der erro:**
 
-1. Acesse: `http://localhost:5002/admin/organizations`
-2. Clique em **"+ Nova Organização"**
-3. Preencha o nome
-4. Clique em **"Criar Organização"**
-5. Deve funcionar e salvar no Supabase! 🎉
+1. **Verifique se o servidor está rodando:**
+   - Deve aparecer: `Running on http://0.0.0.0:5002`
+
+2. **Verifique se a rota está registrada:**
+   - No terminal, deve aparecer: `[✓] Rotas de organizations registradas`
+
+3. **Verifique o template:**
+   - Arquivo existe: `web/templates/organizations/create.html`
 
 ---
 
-**O servidor precisa ser reiniciado para carregar as novas variáveis de ambiente!**
-
+**Reinicie o servidor e teste novamente!** 🔄

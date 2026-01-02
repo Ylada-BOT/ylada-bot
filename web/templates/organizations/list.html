@@ -25,8 +25,13 @@
         .header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             margin-bottom: 30px;
+        }
+        
+        .header > div {
+            display: flex;
+            flex-direction: column;
         }
         
         h1 {
@@ -156,7 +161,10 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🏢 Organizações</h1>
+            <div>
+                <a href="/" class="btn btn-secondary" style="margin-bottom: 12px; display: inline-block;">← Voltar para Página Inicial</a>
+                <h1>🏢 Organizações</h1>
+            </div>
             <a href="/organizations/new" class="btn">+ Nova Organização</a>
         </div>
         
@@ -228,4 +236,6 @@
     </script>
 </body>
 </html>
+
+
 

@@ -16,22 +16,33 @@ bp = Blueprint('instances', __name__, url_prefix='/api/instances')
 
 
 from web.utils.auth_helpers import get_current_user_id, get_current_tenant_id, is_admin
+from web.utils.instance_helper import get_or_create_user_instance, get_user_instance_id, update_user_instance
 
 
 def get_next_available_port():
-    """Obtém próxima porta disponível para instância"""
-    # Começa na 5001 e vai incrementando
-    # Em produção, você pode usar um sistema mais sofisticado
-    db = SessionLocal()
-    try:
-        instances = db.query(Instance).all()
-        used_ports = {inst.port for inst in instances if inst.port}
-        base_port = 5001
-        while base_port in used_ports:
-            base_port += 1
-        return base_port
-    finally:
-        db.close()
+    """Obtém próxima porta disponível para instância (modo simples)"""
+    # MODO SIMPLES: Calcula porta baseado nas instâncias existentes no JSON
+    import json
+    import os
+    
+    orgs_file = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'organizations.json')
+    
+    used_ports = set()
+    if os.path.exists(orgs_file):
+        try:
+            with open(orgs_file, 'r', encoding='utf-8') as f:
+                organizations = json.load(f)
+                for org in organizations:
+                    for instance in org.get('instances', []):
+                        if instance.get('port'):
+                            used_ports.add(instance['port'])
+        except:
+            pass
+    
+    base_port = 5001
+    while base_port in used_ports:
+        base_port += 1
+    return base_port
 
 
 @bp.route('', methods=['POST'])
@@ -42,13 +53,94 @@ def create_instance():
         
         # Validações
         name = data.get('name')
-        tenant_id = data.get('tenant_id')
+        tenant_id = data.get('tenant_id')  # organization_id
         
         if not name:
-            return jsonify({'error': 'Nome é obrigatório'}), 400
+            return jsonify({
+                'success': False,
+                'error': 'Nome é obrigatório'
+            }), 400
         if not tenant_id:
-            return jsonify({'error': 'tenant_id é obrigatório'}), 400
+            return jsonify({
+                'success': False,
+                'error': 'tenant_id (organization_id) é obrigatório'
+            }), 400
         
+        # MODO SIMPLES: Salva em arquivo JSON (sem banco de dados)
+        import json
+        import os
+        from datetime import datetime
+        
+        orgs_file = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'organizations.json')
+        os.makedirs(os.path.dirname(orgs_file), exist_ok=True)
+        
+        # Carrega organizações
+        organizations = []
+        if os.path.exists(orgs_file):
+            try:
+                with open(orgs_file, 'r', encoding='utf-8') as f:
+                    organizations = json.load(f)
+            except:
+                organizations = []
+        
+        # Busca organização
+        org = None
+        for o in organizations:
+            if o.get('id') == tenant_id:
+                org = o
+                break
+        
+        if not org:
+            return jsonify({
+                'success': False,
+                'error': 'Organização não encontrada'
+            }), 404
+        
+        # Obtém próxima porta disponível
+        port = get_next_available_port()
+        
+        # Calcula próximo ID da instância
+        existing_instances = org.get('instances', [])
+        next_instance_id = max([inst.get('id', 0) for inst in existing_instances], default=0) + 1
+        
+        # Cria nova instância
+        new_instance = {
+            'id': next_instance_id,
+            'name': name,
+            'status': 'disconnected',
+            'port': port,
+            'agent_id': data.get('agent_id'),
+            'phone_number': None,
+            'messages_sent': 0,
+            'messages_received': 0,
+            'created_at': datetime.now().isoformat(),
+            'session_dir': f"data/sessions/instance_{tenant_id}_{name.lower().replace(' ', '_')}"
+        }
+        
+        # Adiciona instância à organização
+        if 'instances' not in org:
+            org['instances'] = []
+        org['instances'].append(new_instance)
+        
+        # Salva no arquivo
+        with open(orgs_file, 'w', encoding='utf-8') as f:
+            json.dump(organizations, f, indent=2, ensure_ascii=False)
+        
+        logger.info(f"Instância criada (modo simples): {new_instance['id']} - {new_instance['name']} (porta {new_instance['port']})")
+        
+        return jsonify({
+            'success': True,
+            'instance': {
+                'id': new_instance['id'],
+                'name': new_instance['name'],
+                'status': new_instance['status'],
+                'port': new_instance['port'],
+                'created_at': new_instance['created_at']
+            }
+        }), 201
+        
+        # CÓDIGO COM BANCO DE DADOS (comentado - usar depois quando precisar)
+        """
         db = SessionLocal()
         try:
             # Verifica se tenant existe
@@ -64,12 +156,24 @@ def create_instance():
             # Obtém próxima porta disponível
             port = get_next_available_port()
             
+            # Verifica agent_id se fornecido
+            agent_id = data.get('agent_id')
+            if agent_id:
+                from src.models.agent import Agent
+                agent = db.query(Agent).filter(
+                    Agent.id == agent_id,
+                    Agent.tenant_id == tenant_id
+                ).first()
+                if not agent:
+                    return jsonify({'error': 'Agente não encontrado ou não pertence ao tenant'}), 404
+            
             # Cria instância
             instance = Instance(
                 tenant_id=tenant_id,
                 name=name,
                 status=InstanceStatus.DISCONNECTED,
                 port=port,
+                agent_id=agent_id,
                 session_dir=f"data/sessions/instance_{tenant_id}_{name.lower().replace(' ', '_')}"
             )
             
@@ -92,16 +196,34 @@ def create_instance():
             
         finally:
             db.close()
+        """
             
     except Exception as e:
         logger.error(f"Erro ao criar instância: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': 'Erro ao criar instância',
+            'message': str(e)
+        }), 500
 
 
 @bp.route('', methods=['GET'])
 def list_instances():
-    """Lista instâncias (filtra por tenant_id automaticamente)"""
+    """Lista instâncias do usuário atual (modo simplificado: 1 usuário = 1 instância)"""
     try:
+        user_id = get_current_user_id() or 1  # Default para desenvolvimento
+        
+        # No modo simplificado, cada usuário tem apenas 1 instância
+        instance = get_or_create_user_instance(user_id)
+        
+        return jsonify({
+            'success': True,
+            'instances': [instance],
+            'total': 1
+        }), 200
+        
+        # CÓDIGO COM BANCO DE DADOS (comentado - usar depois quando precisar)
+        """
         db = SessionLocal()
         try:
             # Obtém tenant_id do usuário atual (ou do parâmetro se for admin)
@@ -135,6 +257,7 @@ def list_instances():
                     'status': instance.status.value,
                     'port': instance.port,
                     'phone_number': instance.phone_number,
+                    'agent_id': instance.agent_id,
                     'messages_sent': instance.messages_sent,
                     'messages_received': instance.messages_received,
                     'created_at': instance.created_at.isoformat()
@@ -148,16 +271,39 @@ def list_instances():
             
         finally:
             db.close()
+        """
             
     except Exception as e:
         logger.error(f"Erro ao listar instâncias: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': 'Erro ao listar instâncias',
+            'message': str(e)
+        }), 500
 
 
 @bp.route('/<int:instance_id>', methods=['GET'])
 def get_instance(instance_id):
-    """Obtém detalhes da instância"""
+    """Obtém detalhes da instância (modo simplificado: retorna instância do usuário)"""
     try:
+        user_id = get_current_user_id() or 1
+        
+        # No modo simplificado, verifica se é a instância do usuário
+        instance = get_or_create_user_instance(user_id)
+        
+        if instance.get('id') != instance_id:
+            return jsonify({
+                'success': False,
+                'error': 'Instância não encontrada'
+            }), 404
+        
+        return jsonify({
+            'success': True,
+            'instance': instance
+        }), 200
+        
+        # CÓDIGO COM BANCO DE DADOS (comentado - usar depois quando precisar)
+        """
         db = SessionLocal()
         try:
             instance = db.query(Instance).filter(Instance.id == instance_id).first()
@@ -179,6 +325,7 @@ def get_instance(instance_id):
                     'status': instance.status.value,
                     'port': instance.port,
                     'phone_number': instance.phone_number,
+                    'agent_id': instance.agent_id,
                     'messages_sent': instance.messages_sent,
                     'messages_received': instance.messages_received,
                     'last_message_at': instance.last_message_at.isoformat() if instance.last_message_at else None,
@@ -189,10 +336,15 @@ def get_instance(instance_id):
             
         finally:
             db.close()
+        """
             
     except Exception as e:
         logger.error(f"Erro ao obter instância: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': 'Erro ao obter instância',
+            'message': str(e)
+        }), 500
 
 
 @bp.route('/<int:instance_id>', methods=['PUT'])
@@ -219,6 +371,18 @@ def update_instance(instance_id):
                 instance.name = data['name']
             if 'status' in data:
                 instance.status = InstanceStatus(data['status'])
+            if 'agent_id' in data:
+                agent_id = data['agent_id']
+                if agent_id:
+                    # Verifica se agente existe e pertence ao tenant
+                    from src.models.agent import Agent
+                    agent = db.query(Agent).filter(
+                        Agent.id == agent_id,
+                        Agent.tenant_id == instance.tenant_id
+                    ).first()
+                    if not agent:
+                        return jsonify({'error': 'Agente não encontrado ou não pertence ao tenant'}), 404
+                instance.agent_id = agent_id
             
             instance.updated_at = datetime.utcnow()
             db.commit()
@@ -283,8 +447,55 @@ def delete_instance(instance_id):
 
 @bp.route('/<int:instance_id>/status', methods=['GET'])
 def get_instance_status(instance_id):
-    """Obtém status da conexão WhatsApp da instância"""
+    """Obtém status da conexão WhatsApp da instância (modo simplificado)"""
     try:
+        import requests
+        
+        user_id = get_current_user_id() or 1
+        
+        # Verifica se é a instância do usuário
+        instance = get_or_create_user_instance(user_id)
+        
+        if instance.get('id') != instance_id:
+            return jsonify({
+                'success': False,
+                'error': 'Instância não encontrada'
+            }), 404
+        
+        # Verifica conexão com servidor Node.js
+        port = instance.get('port', 5001)
+        try:
+            response = requests.get(f"http://localhost:{port}/status", timeout=2)
+            if response.status_code == 200:
+                server_status = response.json()
+                return jsonify({
+                    'success': True,
+                    'connected': server_status.get('ready', False),
+                    'has_qr': server_status.get('hasQr', False),
+                    'status': instance.get('status', 'disconnected')
+                }), 200
+        except requests.exceptions.ConnectionError:
+            return jsonify({
+                'success': True,
+                'connected': False,
+                'has_qr': False,
+                'status': instance.get('status', 'disconnected'),
+                'message': f'Servidor WhatsApp não está rodando na porta {port}'
+            }), 200
+        except Exception as e:
+            logger.error(f"Erro ao verificar status: {e}")
+        
+        # Se servidor não está respondendo
+        return jsonify({
+            'success': True,
+            'connected': False,
+            'has_qr': False,
+            'status': instance.get('status', 'disconnected'),
+            'message': 'Servidor WhatsApp não está rodando'
+        }), 200
+        
+        # CÓDIGO COM BANCO DE DADOS (comentado - usar depois quando precisar)
+        """
         db = SessionLocal()
         try:
             instance = db.query(Instance).filter(Instance.id == instance_id).first()
@@ -318,16 +529,63 @@ def get_instance_status(instance_id):
             
         finally:
             db.close()
+        """
             
     except Exception as e:
         logger.error(f"Erro ao obter status: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': 'Erro ao obter status',
+            'message': str(e)
+        }), 500
 
 
 @bp.route('/<int:instance_id>/qr', methods=['GET'])
 def get_instance_qr(instance_id):
     """Obtém QR Code da instância"""
     try:
+        # Modo simplificado: usa helper
+        import requests
+        
+        user_id = get_current_user_id() or 1
+        instance = get_or_create_user_instance(user_id)
+        
+        if instance.get('id') != instance_id:
+            return jsonify({
+                'success': False,
+                'error': 'Instância não encontrada'
+            }), 404
+        
+        # Busca QR Code do servidor Node.js
+        port = instance.get('port', 5001)
+        try:
+            response = requests.get(f"http://localhost:{port}/qr", timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                return jsonify({
+                    'success': True,
+                    'qr': data.get('qr'),
+                    'ready': data.get('ready', False)
+                }), 200
+        except requests.exceptions.ConnectionError:
+            return jsonify({
+                'success': False,
+                'error': f'Servidor WhatsApp não está rodando na porta {port}. Inicie o servidor primeiro.'
+            }), 503
+        except Exception as e:
+            logger.error(f"Erro ao buscar QR Code: {e}")
+            return jsonify({
+                'success': False,
+                'error': f'Erro ao conectar com servidor WhatsApp: {str(e)}'
+            }), 503
+        
+        return jsonify({
+            'success': False,
+            'error': 'Servidor WhatsApp não está respondendo. Inicie o servidor primeiro.'
+        }), 503
+        
+        # CÓDIGO COM BANCO DE DADOS (comentado - usar depois quando precisar)
+        """
         db = SessionLocal()
         try:
             instance = db.query(Instance).filter(Instance.id == instance_id).first()
@@ -356,9 +614,14 @@ def get_instance_qr(instance_id):
             
         finally:
             db.close()
+        """
             
     except Exception as e:
         logger.error(f"Erro ao obter QR Code: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': 'Erro ao obter QR Code',
+            'message': str(e)
+        }), 500
 
 

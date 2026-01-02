@@ -190,12 +190,18 @@
 {% endblock %}
 
 {% block content %}
-    <div class="page-header">
-        <h1>📊 Dashboard</h1>
-        <p style="color: #666; margin-top: 5px;">Visão geral do sistema</p>
-    </div>
-    
-    <div class="cards">
+    <!-- Dashboard simplificado: 1 usuário = 1 WhatsApp -->
+    <div id="dashboard-content">
+        <div class="page-header">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1>📊 Dashboard</h1>
+                    <p style="color: #666; margin-top: 5px;">Visão geral do seu WhatsApp</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="cards">
         <!-- Card WhatsApp -->
         <div class="card">
             <h2>📱 WhatsApp</h2>
@@ -205,7 +211,10 @@
             <span class="status disconnected" id="whatsappStatus">
                 ✗ Desconectado
             </span>
-            <div id="whatsappActions">
+            <div id="whatsappConnectionInfo" style="margin-top: 15px; padding: 12px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; font-size: 13px; color: #166534; display: none;">
+                <div id="connectedInstanceInfo"></div>
+            </div>
+            <div id="whatsappActions" style="margin-top: 15px;">
                 <a href="/qr" class="btn" id="connectBtn">Conectar WhatsApp</a>
                 <button onclick="checkStatus()" class="btn btn-secondary" id="updateBtn" style="display: none;">Atualizar Status</button>
                 <button onclick="disconnectWhatsApp()" class="btn" id="disconnectBtn" style="display: none; background: #ef4444;">Desconectar WhatsApp</button>
@@ -359,6 +368,14 @@
 
 {% block extra_scripts %}
     <script>
+        // Modo simplificado: sempre mostra dashboard (não precisa de organizações)
+        function checkOrganizations() {
+            // Sempre mostra dashboard - modo simplificado
+            document.getElementById('onboarding-screen').style.display = 'none';
+            document.getElementById('dashboard-content').style.display = 'block';
+            document.getElementById('config-ai').style.display = 'block';
+        }
+        
         // Carrega configuração da IA
         function loadAIConfig() {
             fetch('/api/ai-config')
@@ -414,45 +431,82 @@
             });
         }
         
-        // Verifica status do WhatsApp
-        function checkStatus() {
+        // Verifica status do WhatsApp (modo simplificado: usa API direta)
+        async function checkStatus() {
             const statusEl = document.getElementById('whatsappStatus');
             const errorEl = document.getElementById('whatsappError');
             const connectBtn = document.getElementById('connectBtn');
             const updateBtn = document.getElementById('updateBtn');
             const disconnectBtn = document.getElementById('disconnectBtn');
+            const connectionInfo = document.getElementById('whatsappConnectionInfo');
+            const connectedInstanceInfo = document.getElementById('connectedInstanceInfo');
             
             statusEl.textContent = '⏳ Verificando...';
             errorEl.classList.add('hidden');
+            connectionInfo.style.display = 'none';
             
-            fetch('/api/whatsapp-status')
-                .then(r => r.json())
-                .then(data => {
-                    if (data.connected) {
-                        statusEl.textContent = '✓ Conectado';
-                        statusEl.className = 'status connected';
-                        connectBtn.style.display = 'none';
-                        updateBtn.style.display = 'inline-block';
-                        disconnectBtn.style.display = 'inline-block';
-                    } else {
-                        statusEl.textContent = '✗ Desconectado';
-                        statusEl.className = 'status disconnected';
-                        connectBtn.style.display = 'inline-block';
-                        updateBtn.style.display = 'none';
-                        disconnectBtn.style.display = 'none';
-                        
-                        if (data.error) {
-                            errorEl.textContent = data.error;
-                            errorEl.classList.remove('hidden');
+            try {
+                // Usa API simplificada que já busca a instância do usuário
+                const statusResponse = await fetch('/api/whatsapp-status');
+                const statusData = await statusResponse.json();
+                
+                if (statusData.connected) {
+                    // Conectado
+                    statusEl.textContent = '✓ Conectado';
+                    statusEl.className = 'status connected';
+                    connectBtn.style.display = 'none';
+                    updateBtn.style.display = 'inline-block';
+                    disconnectBtn.style.display = 'inline-block';
+                    
+                    // Busca informações da instância para mostrar detalhes
+                    try {
+                        const instancesResponse = await fetch('/api/instances');
+                        const instancesData = await instancesResponse.json();
+                        if (instancesData.success && instancesData.instances && instancesData.instances.length > 0) {
+                            const instance = instancesData.instances[0];
+                            
+                            // Mostra informações
+                            let infoHtml = '<div style="font-weight: 600; margin-bottom: 10px; color: #166534;">📱 WhatsApp Conectado:</div>';
+                            infoHtml += `
+                                <div style="margin-top: 10px; padding: 12px; background: white; border-radius: 8px; border-left: 4px solid #10b981; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                    <div style="font-weight: 600; color: #166534; margin-bottom: 6px; font-size: 14px;">${instance.name || 'Meu WhatsApp'}</div>
+                                    <div style="color: #166534; font-size: 12px; line-height: 1.6;">
+                                        <div>🔌 <strong>Porta:</strong> ${statusData.port || instance.port || 5001}</div>
+                                        ${instance.phone_number ? `<div>📞 <strong>Telefone:</strong> ${instance.phone_number}</div>` : ''}
+                                    </div>
+                                <div style="margin-top: 8px;">
+                                    <a href="/instances/${instance.id}" class="btn" style="font-size: 12px; padding: 6px 12px; text-decoration: none; display: inline-block; margin-right: 8px;">Ver Detalhes</a>
+                                </div>
+                                </div>
+                            `;
+                            connectedInstanceInfo.innerHTML = infoHtml;
+                            connectionInfo.style.display = 'block';
                         }
+                    } catch (e) {
+                        // Ignora erro ao buscar detalhes, mas mantém status conectado
+                        console.warn('Erro ao buscar detalhes da instância:', e);
                     }
-                })
-                .catch(err => {
-                    statusEl.textContent = '✗ Erro';
+                } else {
+                    // Desconectado
+                    statusEl.textContent = '✗ Desconectado';
                     statusEl.className = 'status disconnected';
-                    errorEl.textContent = 'Erro ao verificar status: ' + err.message;
-                    errorEl.classList.remove('hidden');
-                });
+                    connectBtn.style.display = 'inline-block';
+                    connectBtn.textContent = 'Conectar WhatsApp';
+                    connectBtn.href = '/qr';
+                    updateBtn.style.display = 'none';
+                    disconnectBtn.style.display = 'none';
+                    
+                    if (statusData.error) {
+                        errorEl.textContent = statusData.error;
+                        errorEl.classList.remove('hidden');
+                    }
+                }
+            } catch (err) {
+                statusEl.textContent = '✗ Erro';
+                statusEl.className = 'status disconnected';
+                errorEl.textContent = 'Erro ao verificar status: ' + err.message;
+                errorEl.classList.remove('hidden');
+            }
         }
         
         // Desconecta o WhatsApp
@@ -501,7 +555,7 @@
             });
         }
         
-        // Carrega métricas
+        // Carrega métricas (modo simplificado: dados do usuário)
         function loadMetrics() {
             // Conversas
             fetch('/api/conversations')
@@ -530,16 +584,34 @@
                     }
                 })
                 .catch(err => console.error('Erro ao carregar leads:', err));
+            
+            // Fluxos
+            fetch('/api/flows')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.flows) {
+                        const total = data.flows.length;
+                        const active = data.flows.filter(f => f.status === 'active').length;
+                        document.getElementById('flowsTotal').textContent = total;
+                        document.getElementById('flowsActive').textContent = active;
+                    }
+                })
+                .catch(err => console.error('Erro ao carregar fluxos:', err));
         }
         
         // Inicializa
+        checkOrganizations(); // Verifica organizações primeiro
         loadAIConfig();
-        checkStatus();
-        loadMetrics();
         
-        // Atualiza a cada 30 segundos
-        setInterval(() => {
+        // Verifica status imediatamente e depois a cada 3 segundos
+        checkStatus();
+        const statusInterval = setInterval(() => {
             checkStatus();
+        }, 3000); // Atualiza a cada 3 segundos para detectar conexão rapidamente
+        
+        // Atualiza métricas a cada 30 segundos (menos frequente)
+        loadMetrics();
+        setInterval(() => {
             loadMetrics();
         }, 30000);
     </script>

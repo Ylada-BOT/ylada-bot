@@ -28,7 +28,7 @@ class MessageHandler:
             self.flow_engine = flow_engine
     
     def process_message(self, phone: str, message: str, conversation_id: Optional[int] = None,
-                       tenant_id: Optional[int] = None, **kwargs) -> Dict:
+                       tenant_id: Optional[int] = None, instance_id: Optional[int] = None, **kwargs) -> Dict:
         """
         Processa uma mensagem recebida
         
@@ -37,17 +37,21 @@ class MessageHandler:
             message: Conteúdo da mensagem
             conversation_id: ID da conversa (opcional)
             tenant_id: ID do tenant (opcional)
+            instance_id: ID da instance (telefone) que recebeu a mensagem (opcional)
             **kwargs: Dados adicionais
         
         Returns:
             Dict com resultado do processamento
         """
         try:
-            logger.info(f"Processando mensagem de {phone}: {message[:50]}...")
+            logger.info(f"Processando mensagem de {phone}: {message[:50]}... (instance_id={instance_id})")
             
             # Busca fluxos ativos do tenant (se fornecido)
-            # Por enquanto, busca todos os fluxos ativos
-            active_flows = self.flow_engine.get_active_flows()
+            # Filtra por instance_id se fornecido
+            active_flows = self.flow_engine.get_active_flows(
+                tenant_id=tenant_id,
+                instance_id=instance_id
+            )
             
             if not active_flows:
                 logger.info("Nenhum fluxo ativo encontrado")
@@ -176,29 +180,46 @@ class MessageHandler:
                 'error': str(e)
             }
     
-    def load_tenant_flows(self, tenant_id: int):
+    def load_tenant_flows(self, tenant_id: int, instance_id: Optional[int] = None):
         """
-        Carrega fluxos de um tenant específico
+        Carrega fluxos de um tenant específico (e opcionalmente de uma instance)
         
         Args:
             tenant_id: ID do tenant
+            instance_id: ID da instance (opcional). Se fornecido, carrega:
+                - Fluxos específicos da instance
+                - Fluxos compartilhados (instance_id = NULL) do tenant
         """
         try:
             from src.database.db import SessionLocal
             from src.models.flow import Flow, FlowStatus
+            from sqlalchemy import or_
             
             db = SessionLocal()
             try:
                 # Busca fluxos ativos do tenant
-                flows = db.query(Flow).filter(
+                query = db.query(Flow).filter(
                     Flow.tenant_id == tenant_id,
                     Flow.status == FlowStatus.ACTIVE
-                ).all()
+                )
+                
+                if instance_id is not None:
+                    # Fluxos específicos da instance OU fluxos compartilhados
+                    query = query.filter(
+                        or_(
+                            Flow.instance_id == instance_id,
+                            Flow.instance_id == None
+                        )
+                    )
+                
+                flows = query.all()
                 
                 for flow in flows:
-                    self.flow_engine.load_flow(flow.id, flow.flow_data)
+                    if flow.flow_data:
+                        self.flow_engine.load_flow(flow.id, flow.flow_data)
                 
-                logger.info(f"Carregados {len(flows)} fluxos do tenant {tenant_id}")
+                logger.info(f"Carregados {len(flows)} fluxos do tenant {tenant_id}" + 
+                          (f" para instance {instance_id}" if instance_id else ""))
                 
             finally:
                 db.close()

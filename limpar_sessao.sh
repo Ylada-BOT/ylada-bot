@@ -26,3 +26,6 @@ echo "3. Acesse: http://localhost:5002/qr"
 echo "4. Escaneie o QR Code rapidamente"
 
 
+
+
+

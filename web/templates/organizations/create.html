@@ -96,10 +96,11 @@
         }
         
         .alert {
-            padding: 12px;
+            padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
             display: none;
+            line-height: 1.6;
         }
         
         .alert.error {
@@ -134,14 +135,6 @@
                     <input type="text" id="name" name="name" required placeholder="Ex: Empresa XYZ">
                 </div>
                 
-                <div class="form-group">
-                    <label for="plan_id">Plano (Opcional)</label>
-                    <select id="plan_id" name="plan_id">
-                        <option value="">Sem plano (Trial)</option>
-                        <!-- Planos serão carregados dinamicamente -->
-                    </select>
-                </div>
-                
                 <button type="submit" class="btn" id="submit-btn">Criar Organização</button>
                 <a href="/organizations" class="btn btn-secondary" style="text-align: center; display: block; text-decoration: none;">Cancelar</a>
             </form>
@@ -159,10 +152,9 @@
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const name = document.getElementById('name').value;
-            const planId = document.getElementById('plan_id').value;
+            const name = document.getElementById('name').value.trim();
             
-            if (!name.trim()) {
+            if (!name) {
                 showAlert('Nome é obrigatório', 'error');
                 return;
             }
@@ -179,24 +171,50 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        name: name,
-                        plan_id: planId || null
+                        name: name
                     })
                 });
                 
-                const data = await response.json();
+                // Verifica se a resposta é JSON
+                let data;
+                try {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        data = await response.json();
+                    } else {
+                        const text = await response.text();
+                        throw new Error('Resposta não é JSON. Verifique se o servidor está rodando.');
+                    }
+                } catch (parseError) {
+                    showAlert('Erro ao processar resposta do servidor. Verifique se o banco de dados está configurado.', 'error');
+                    submitBtn.disabled = false;
+                    loading.style.display = 'none';
+                    return;
+                }
                 
                 if (data.success) {
-                    showAlert('Organização criada com sucesso!', 'success');
+                    showAlert('✅ Organização criada com sucesso!', 'success');
                     setTimeout(() => {
-                        window.location.href = `/organizations/${data.organization.id}`;
+                        window.location.href = `/organizations`;
                     }, 1500);
                 } else {
-                    showAlert(data.error || 'Erro ao criar organização', 'error');
+                    // Monta mensagem de erro detalhada
+                    let errorMsg = '<strong>' + (data.error || 'Erro ao criar organização') + '</strong>';
+                    if (data.message) {
+                        errorMsg += '<br><br>' + data.message;
+                    }
+                    if (data.hint) {
+                        errorMsg += '<br><br>💡 <strong>Dica:</strong> ' + data.hint;
+                    }
+                    if (data.solution) {
+                        errorMsg += '<br><br>🔧 <strong>Solução:</strong><br>' + data.solution.replace(/\n/g, '<br>');
+                    }
+                    alert.innerHTML = errorMsg;
+                    showAlert('', 'error');
                     submitBtn.disabled = false;
                 }
             } catch (error) {
-                showAlert('Erro ao criar organização: ' + error.message, 'error');
+                showAlert('Erro de conexão: ' + error.message + '. Verifique se o servidor está rodando.', 'error');
                 submitBtn.disabled = false;
             } finally {
                 loading.style.display = 'none';
@@ -204,11 +222,15 @@
         });
         
         function showAlert(message, type) {
-            alert.textContent = message;
+            if (message) {
+                alert.innerHTML = message;
+            }
             alert.className = `alert ${type}`;
             alert.style.display = 'block';
         }
     </script>
 </body>
 </html>
+
+
 

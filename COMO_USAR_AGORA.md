@@ -1,95 +1,57 @@
-# 🚀 Como Usar o BOT Agora
+# 🚀 Como Usar o Sistema Agora - Guia Completo
 
-**Data:** 2025-01-27  
-**Status:** ✅ Servidores Rodando
+## ✅ Você já está conectado!
 
----
-
-## ✅ STATUS ATUAL
-
-### **Servidor Flask** ✅
-- ✅ Rodando na porta 5002
-- ✅ Dashboard acessível: http://localhost:5002
-- ✅ Ambiente virtual configurado
-
-### **Servidor WhatsApp** ✅
-- ✅ Rodando na porta 5001
-- ⏳ Aguardando QR Code ser gerado
+Agora que seu WhatsApp está conectado, você pode configurar o sistema para responder automaticamente.
 
 ---
 
-## 📱 PASSO 1: Conectar WhatsApp
+## 📋 PASSO A PASSO
 
-### **1.1 Acessar Página de QR Code**
-- URL: http://localhost:5002/qr
-- Ou clique em "📱 Conectar WhatsApp" no dashboard
+### 1️⃣ **CONFIGURAR A INTELIGÊNCIA ARTIFICIAL**
 
-### **1.2 Aguardar QR Code**
-- O QR Code pode levar 10-30 segundos para aparecer
-- A página atualiza automaticamente a cada 3 segundos
-- Aguarde até ver o QR Code na tela
+**O que é?**
+- A IA é quem responde quando não há um fluxo específico configurado
+- Você pode escolher entre OpenAI (GPT) ou Anthropic (Claude)
+- Pode personalizar o comportamento com um "System Prompt"
 
-### **1.3 Escanear QR Code**
-1. Abra WhatsApp no seu celular
-2. Vá em: **Configurações** > **Aparelhos conectados**
-3. Toque em: **"Conectar um aparelho"**
-4. Escaneie o QR Code que aparece na tela
-5. Aguarde a confirmação de conexão
+**Como fazer:**
+1. No Dashboard, role até a seção **"Inteligência Artificial"**
+2. Clique em **"Configurar IA"**
+3. Preencha:
+   - **Provider:** Escolha OpenAI ou Anthropic
+   - **API Key:** Cole sua chave de API (ex: `sk-...` para OpenAI)
+   - **Model:** Escolha o modelo (ex: GPT-4o Mini, Claude 3.5 Sonnet)
+   - **System Prompt:** Defina como a IA deve se comportar
+     - Exemplo: "Você é um nutricionista profissional e amigável. Sempre responda de forma educada e ofereça ajuda."
+4. Clique em **"Salvar Configuração"**
 
-### **1.4 Verificar Conexão**
-- O dashboard deve mostrar "✅ Conectado" em verde
-- Ou acesse: http://localhost:5002/api/whatsapp-status
-
----
-
-## 🔄 PASSO 2: Criar Fluxo de Atendimento
-
-### **2.1 Acessar Fluxos**
-- URL: http://localhost:5002/tenant/flows
-- Ou clique em "🔄 Fluxos" no menu lateral
-
-### **2.2 Usar Template Pronto (Recomendado)**
-1. Clique em "📋 Templates"
-2. Escolha um template:
-   - **Boas-vindas** - Responde a "oi", "olá", etc
-   - **Atendimento com IA** - Responde todas as mensagens com IA
-   - **Informações de Produto** - Responde sobre produtos
-3. Clique em "Usar Template"
-4. O fluxo será criado automaticamente
-
-### **2.3 Criar Fluxo Manual**
-1. Clique em "➕ Novo Fluxo"
-2. Preencha:
-   - **Nome:** Ex: "Atendimento Básico"
-   - **Trigger:** Escolha como ativar (palavras-chave, sempre, etc)
-   - **Steps:** Adicione ações (enviar mensagem, IA, etc)
-3. Clique em "Salvar"
-4. Ative o fluxo
-
-### **2.4 Ativar Fluxo**
-- Na lista de fluxos, clique em "Ativar"
-- Ou edite o fluxo e mude status para "Ativo"
+**Onde conseguir API Key:**
+- **OpenAI:** https://platform.openai.com/api-keys
+- **Anthropic:** https://console.anthropic.com/
 
 ---
 
-## 🧪 PASSO 3: Testar
+### 2️⃣ **CRIAR FLUXOS DE AUTOMAÇÃO (OPCIONAL)**
 
-### **3.1 Enviar Mensagem de Teste**
-1. Envie uma mensagem do seu celular para o número conectado
-2. Exemplo: "oi" ou "olá"
+**O que é um Fluxo?**
+- É uma automação que responde automaticamente quando certas palavras são ditas
+- Exemplo: Quando alguém manda "oi" → responde "Olá! Como posso ajudar?"
 
-### **3.2 Verificar Resposta**
-- O bot deve responder automaticamente
-- Se usar template "Boas-vindas", deve responder: "Olá! 👋 Bem-vindo! Como posso ajudar você hoje?"
+**Como criar:**
+1. No Dashboard, clique em **"Gerenciar Fluxos"** (ou vá em `/flows`)
+2. Clique em **"+ Criar Fluxo"**
+3. Configure:
+   - **Nome:** Ex: "Boas-vindas"
+   - **Palavras-chave:** Ex: "oi", "olá", "bom dia"
+   - **Ações:** O que fazer quando ativar
+     - Enviar mensagem
+     - Aguardar X segundos
+     - Usar IA para responder
+     - Chamar webhook externo
+4. Clique em **"Salvar"**
 
-### **3.3 Verificar Logs**
-- No terminal do Flask, você verá logs das mensagens
-- No terminal do WhatsApp server, você verá logs de envio
-
----
-
-## 📋 ESTRUTURA DE UM FLUXO BÁSICO
-
+**Exemplo de Fluxo:**
 ```json
 {
   "name": "Boas-vindas",
@@ -100,14 +62,7 @@
   "steps": [
     {
       "type": "send_message",
-      "message": "Olá! Como posso ajudar?"
-    },
-    {
-      "type": "wait",
-      "duration": 3
-    },
-    {
-      "type": "ai_response"
+      "message": "Olá! Bem-vindo! Como posso ajudar?"
     }
   ]
 }
@@ -115,52 +70,128 @@
 
 ---
 
-## 🎯 O QUE VOCÊ PODE FAZER AGORA
+### 3️⃣ **COMO FUNCIONA O SISTEMA**
 
-### **✅ Já Funciona:**
-1. ✅ Conectar WhatsApp (escanear QR Code)
-2. ✅ Criar fluxos de atendimento
-3. ✅ Usar templates prontos
-4. ✅ Respostas automáticas
-5. ✅ Integração com IA
+**Fluxo de Resposta Automática:**
 
-### **⚠️ Melhorias Futuras:**
-1. ⏳ Builder visual de fluxos (drag & drop)
-2. ⏳ Mais templates prontos
-3. ⏳ Analytics de fluxos
-4. ⏳ Agendamentos
+```
+1. Alguém envia mensagem no WhatsApp
+   ↓
+2. Sistema verifica se há um FLUXO que corresponde
+   (ex: se a mensagem contém "oi" → ativa fluxo "Boas-vindas")
+   ↓
+3a. Se há FLUXO → Executa o fluxo (envia mensagem configurada)
+   ↓
+3b. Se NÃO há FLUXO → Usa a IA para responder automaticamente
+   ↓
+4. Resposta é enviada via WhatsApp
+```
 
----
-
-## 🐛 TROUBLESHOOTING
-
-### **QR Code não aparece:**
-- Aguarde 10-30 segundos (pode demorar)
-- Recarregue a página (F5)
-- Verifique se WhatsApp server está rodando: `curl http://localhost:5001/health`
-
-### **WhatsApp não conecta:**
-- Verifique se escaneou o QR Code corretamente
-- QR Code expira em ~20 segundos, escaneie rapidamente
-- Se não funcionar, limpe sessão: `rm -rf .wwebjs_auth/session-ylada_bot`
-
-### **Fluxo não executa:**
-- Verifique se está ativo (status = "active")
-- Verifique se trigger está correto
-- Verifique logs do Flask
+**Resumo:**
+- ✅ **Fluxos** = Respostas automáticas para situações específicas
+- ✅ **IA** = Resposta inteligente quando não há fluxo específico
 
 ---
 
-## 📝 RESUMO RÁPIDO
+### 4️⃣ **TIPOS DE COMPORTAMENTO (Não há múltiplos robôs no modo simplificado)**
 
-1. ✅ **Servidores rodando** - Flask (5002) e WhatsApp (5001)
-2. ⏳ **Conectar WhatsApp** - Escanear QR Code em http://localhost:5002/qr
-3. ⏳ **Criar fluxo** - Acessar http://localhost:5002/tenant/flows
-4. ⏳ **Testar** - Enviar mensagem e ver resposta
+**No modelo simplificado (1 usuário = 1 WhatsApp):**
+- Você tem **UM WhatsApp** conectado
+- Mas pode criar **MÚLTIPLOS FLUXOS** com comportamentos diferentes
+- Cada fluxo pode ter um propósito diferente
+
+**Exemplos de Fluxos:**
+1. **Fluxo "Boas-vindas"** → Ativa com "oi", "olá"
+2. **Fluxo "Preços"** → Ativa com "preço", "quanto custa"
+3. **Fluxo "Agendamento"** → Ativa com "agendar", "marcar"
+4. **Fluxo "Cardápio"** → Ativa com "cardápio", "menu"
+
+**Resultado:**
+- O mesmo WhatsApp pode ter múltiplos comportamentos
+- Dependendo da palavra-chave, um fluxo diferente é ativado
+- Se nenhum fluxo ativar, a IA responde
 
 ---
 
-**Pronto para usar!** 🚀
+### 5️⃣ **TREINAR A IA (System Prompt)**
 
+**O que é System Prompt?**
+- É como você "treina" a IA para ter um comportamento específico
+- É o contexto que a IA recebe antes de responder
 
+**Exemplos de System Prompt:**
 
+**Para Nutricionista:**
+```
+Você é uma nutricionista profissional e amigável. 
+Sempre responda de forma educada e ofereça ajuda.
+Se alguém perguntar sobre dieta, ofereça uma consulta.
+Se perguntar sobre preços, mencione os valores dos planos.
+```
+
+**Para Vendedor:**
+```
+Você é um vendedor profissional e persuasivo.
+Sempre seja amigável e tente entender a necessidade do cliente.
+Se alguém perguntar sobre produtos, liste os principais.
+Se perguntar sobre preços, ofereça descontos para novos clientes.
+```
+
+**Para Suporte:**
+```
+Você é um atendente de suporte técnico.
+Sempre seja prestativo e tente resolver o problema.
+Se não souber a resposta, peça mais informações ou transfira para um humano.
+```
+
+**Como configurar:**
+1. Vá em **"Configurar IA"** no Dashboard
+2. Cole seu System Prompt no campo **"System Prompt"**
+3. Salve
+
+---
+
+## 🎯 RESUMO RÁPIDO
+
+1. **WhatsApp:** ✅ Já conectado
+2. **Configurar IA:** Dashboard → "Configurar IA" → Preencher API Key e System Prompt
+3. **Criar Fluxos (Opcional):** Dashboard → "Gerenciar Fluxos" → Criar automações
+4. **Pronto!** O sistema já responde automaticamente
+
+---
+
+## 📞 TESTE AGORA
+
+1. Envie uma mensagem para seu WhatsApp conectado
+2. O sistema vai:
+   - Verificar se há um fluxo que corresponde
+   - Se sim → Executa o fluxo
+   - Se não → Usa a IA para responder
+
+---
+
+## ❓ DÚVIDAS COMUNS
+
+**P: Preciso criar fluxos?**
+R: Não é obrigatório. Se não criar fluxos, a IA responde tudo automaticamente.
+
+**P: Posso ter múltiplos WhatsApps?**
+R: No modo simplificado, cada conta tem 1 WhatsApp. Para múltiplos, seria necessário criar outra conta.
+
+**P: Como mudar o comportamento da IA?**
+R: Edite o "System Prompt" em "Configurar IA".
+
+**P: Os fluxos são obrigatórios?**
+R: Não. Eles são úteis para respostas automáticas específicas, mas a IA já funciona sozinha.
+
+---
+
+## 🚀 PRÓXIMOS PASSOS
+
+1. ✅ Configure a IA (API Key + System Prompt)
+2. ✅ Teste enviando uma mensagem
+3. ✅ (Opcional) Crie fluxos para situações específicas
+4. ✅ Monitore conversas em "Conversas"
+5. ✅ Veja leads capturados em "Leads"
+
+**Pronto para começar! 🎉**

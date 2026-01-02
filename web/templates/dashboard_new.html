@@ -187,6 +187,137 @@
             min-height: 100px;
             resize: vertical;
         }
+        
+        /* Chat de Teste */
+        .test-chat-container {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+            border: 1px solid #e5e7eb;
+            margin-top: 30px;
+        }
+        
+        .test-chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .test-chat-header h2 {
+            margin: 0;
+            color: #333;
+            font-size: 20px;
+        }
+        
+        .test-chat-badge {
+            background: #fef3c7;
+            color: #92400e;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .test-chat-messages {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+            background: #f9fafb;
+            margin-bottom: 15px;
+        }
+        
+        .test-message {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .test-message.user {
+            align-items: flex-end;
+        }
+        
+        .test-message.ai {
+            align-items: flex-start;
+        }
+        
+        .test-message-bubble {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            word-wrap: break-word;
+        }
+        
+        .test-message.user .test-message-bubble {
+            background: #3b82f6;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .test-message.ai .test-message-bubble {
+            background: white;
+            color: #333;
+            border: 1px solid #e5e7eb;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .test-message-label {
+            font-size: 11px;
+            color: #6b7280;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+        
+        .test-chat-input-container {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .test-chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .test-chat-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .test-chat-send-btn {
+            padding: 12px 24px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .test-chat-send-btn:hover {
+            background: #2563eb;
+        }
+        
+        .test-chat-send-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        
+        .test-chat-loading {
+            text-align: center;
+            color: #6b7280;
+            padding: 20px;
+            font-style: italic;
+        }
 {% endblock %}
 
 {% block content %}
@@ -328,6 +459,40 @@
         </div>
     </div>
     
+    <!-- Chat de Teste da IA -->
+    <div class="test-chat-container">
+        <div class="test-chat-header">
+            <div>
+                <h2>💬 Teste a IA</h2>
+                <p style="color: #6b7280; font-size: 13px; margin: 5px 0 0 0;">Teste como a IA vai responder antes de habilitar resposta automática</p>
+            </div>
+            <span class="test-chat-badge">MODO TESTE</span>
+        </div>
+        
+        <div class="test-chat-messages" id="testChatMessages">
+            <div class="test-chat-loading" id="testChatLoading" style="display: none;">
+                🤖 IA pensando...
+            </div>
+            <div style="text-align: center; color: #9ca3af; padding: 40px;">
+                <p>💡 Digite uma mensagem abaixo para ver como a IA responderia</p>
+                <p style="font-size: 12px; margin-top: 10px;">As respostas aparecerão aqui sem enviar mensagem real</p>
+            </div>
+        </div>
+        
+        <div class="test-chat-input-container">
+            <input 
+                type="text" 
+                class="test-chat-input" 
+                id="testChatInput" 
+                placeholder="Digite uma mensagem para testar a IA..."
+                onkeypress="if(event.key === 'Enter') sendTestMessage()"
+            />
+            <button class="test-chat-send-btn" id="testChatSendBtn" onclick="sendTestMessage()">
+                Enviar
+            </button>
+        </div>
+    </div>
+    
     <!-- Seção de Configuração de IA -->
     <div class="config-section" id="config-ai">
         <h2 style="margin-bottom: 20px;">⚙️ Configuração de IA</h2>
@@ -371,9 +536,14 @@
         // Modo simplificado: sempre mostra dashboard (não precisa de organizações)
         function checkOrganizations() {
             // Sempre mostra dashboard - modo simplificado
-            document.getElementById('onboarding-screen').style.display = 'none';
-            document.getElementById('dashboard-content').style.display = 'block';
-            document.getElementById('config-ai').style.display = 'block';
+            // Verifica se os elementos existem antes de acessar
+            const onboardingScreen = document.getElementById('onboarding-screen');
+            const dashboardContent = document.getElementById('dashboard-content');
+            const configAI = document.getElementById('config-ai');
+            
+            if (onboardingScreen) onboardingScreen.style.display = 'none';
+            if (dashboardContent) dashboardContent.style.display = 'block';
+            if (configAI) configAI.style.display = 'block';
         }
         
         // Carrega configuração da IA
@@ -384,16 +554,23 @@
                     if (data.config) {
                         const config = data.config;
                         document.getElementById('aiProvider').value = config.provider || 'openai';
-                        document.getElementById('aiApiKey').value = config.api_key || '';
+                        // Se API key já está configurada (do .env), mostra indicador
+                        if (config.api_key_configured) {
+                            document.getElementById('aiApiKey').placeholder = 'Chave já configurada no .env (pode deixar em branco)';
+                            document.getElementById('aiApiKey').value = ''; // Não mostra a chave por segurança
+                        } else {
+                            document.getElementById('aiApiKey').placeholder = 'sk-...';
+                        }
                         document.getElementById('aiModel').value = config.model || 'gpt-4o-mini';
                         document.getElementById('aiSystemPrompt').value = config.system_prompt || 'Você é um assistente útil e amigável.';
                         
                         // Atualiza status
-                        if (config.api_key) {
+                        if (config.api_key_configured) {
                             document.getElementById('aiStatus').textContent = '✓ Configurada';
                             document.getElementById('aiStatus').className = 'status connected';
                             document.getElementById('aiStats').style.display = 'flex';
-                            document.getElementById('aiProvider').textContent = config.provider || 'OpenAI';
+                            const providerName = config.provider === 'openai' ? 'OpenAI' : config.provider === 'anthropic' ? 'Anthropic' : config.provider;
+                            document.getElementById('aiProvider').textContent = providerName;
                             document.getElementById('aiModel').textContent = config.model || 'gpt-4o-mini';
                         }
                     }
@@ -405,12 +582,18 @@
         function saveAIConfig(event) {
             event.preventDefault();
             
+            const apiKeyInput = document.getElementById('aiApiKey').value;
             const formData = {
                 provider: document.getElementById('aiProvider').value,
-                api_key: document.getElementById('aiApiKey').value,
                 model: document.getElementById('aiModel').value,
                 system_prompt: document.getElementById('aiSystemPrompt').value
             };
+            
+            // Só envia API key se o usuário preencheu (para atualizar)
+            // Se deixar em branco, mantém a do .env automaticamente
+            if (apiKeyInput && apiKeyInput.trim()) {
+                formData.api_key = apiKeyInput;
+            }
             
             fetch('/api/ai-config', {
                 method: 'POST',
@@ -447,10 +630,17 @@
             
             try {
                 // Usa API simplificada que já busca a instância do usuário
-                const statusResponse = await fetch('/api/whatsapp-status');
+                const statusResponse = await fetch('/api/whatsapp-status', {
+                    cache: 'no-cache',
+                    headers: {
+                        'Cache-Control': 'no-cache'
+                    }
+                });
                 const statusData = await statusResponse.json();
                 
-                if (statusData.connected) {
+                console.log('Status recebido:', statusData); // Debug
+                
+                if (statusData.connected === true) {
                     // Conectado
                     statusEl.textContent = '✓ Conectado';
                     statusEl.className = 'status connected';
@@ -471,8 +661,7 @@
                                 <div style="margin-top: 10px; padding: 12px; background: white; border-radius: 8px; border-left: 4px solid #10b981; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                                     <div style="font-weight: 600; color: #166534; margin-bottom: 6px; font-size: 14px;">${instance.name || 'Meu WhatsApp'}</div>
                                     <div style="color: #166534; font-size: 12px; line-height: 1.6;">
-                                        <div>🔌 <strong>Porta:</strong> ${statusData.port || instance.port || 5001}</div>
-                                        ${instance.phone_number ? `<div>📞 <strong>Telefone:</strong> ${instance.phone_number}</div>` : ''}
+                                        ${statusData.phone_number ? `<div>📞 <strong>Número:</strong> ${statusData.phone_number}</div>` : (instance.phone_number ? `<div>📞 <strong>Número:</strong> ${instance.phone_number}</div>` : '')}
                                     </div>
                                 <div style="margin-top: 8px;">
                                     <a href="/instances/${instance.id}" class="btn" style="font-size: 12px; padding: 6px 12px; text-decoration: none; display: inline-block; margin-right: 8px;">Ver Detalhes</a>
@@ -605,15 +794,102 @@
         
         // Verifica status imediatamente e depois a cada 3 segundos
         checkStatus();
+        // Atualiza mais frequentemente quando a página carrega (primeiros 30 segundos)
+        let updateCount = 0;
         const statusInterval = setInterval(() => {
             checkStatus();
-        }, 3000); // Atualiza a cada 3 segundos para detectar conexão rapidamente
+            updateCount++;
+            // Após 10 atualizações (30 segundos), reduz frequência para 5 segundos
+            if (updateCount >= 10) {
+                clearInterval(statusInterval);
+                setInterval(() => {
+                    checkStatus();
+                }, 5000); // Atualiza a cada 5 segundos depois
+            }
+        }, 3000); // Atualiza a cada 3 segundos inicialmente
         
         // Atualiza métricas a cada 30 segundos (menos frequente)
         loadMetrics();
         setInterval(() => {
             loadMetrics();
         }, 30000);
+        
+        // Chat de Teste da IA
+        function addTestMessage(message, isUser = false) {
+            const messagesContainer = document.getElementById('testChatMessages');
+            const loading = document.getElementById('testChatLoading');
+            if (loading) loading.style.display = 'none';
+            
+            // Remove mensagem de placeholder se existir
+            const placeholder = messagesContainer.querySelector('div[style*="text-align: center"]');
+            if (placeholder) placeholder.remove();
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `test-message ${isUser ? 'user' : 'ai'}`;
+            
+            const label = document.createElement('div');
+            label.className = 'test-message-label';
+            label.textContent = isUser ? 'Você' : 'IA (Carol - Portal Magra)';
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'test-message-bubble';
+            bubble.textContent = message;
+            
+            messageDiv.appendChild(label);
+            messageDiv.appendChild(bubble);
+            messagesContainer.appendChild(messageDiv);
+            
+            // Scroll para baixo
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        async function sendTestMessage() {
+            const input = document.getElementById('testChatInput');
+            const sendBtn = document.getElementById('testChatSendBtn');
+            const loading = document.getElementById('testChatLoading');
+            const messagesContainer = document.getElementById('testChatMessages');
+            
+            const message = input.value.trim();
+            if (!message) return;
+            
+            // Desabilita input
+            input.disabled = true;
+            sendBtn.disabled = true;
+            
+            // Adiciona mensagem do usuário
+            addTestMessage(message, true);
+            input.value = '';
+            
+            // Mostra loading
+            if (loading) loading.style.display = 'block';
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            try {
+                const response = await fetch('/api/ai/test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.response) {
+                    addTestMessage(data.response, false);
+                } else {
+                    addTestMessage('⚠️ Erro: ' + (data.error || 'Não foi possível obter resposta da IA'), false);
+                }
+            } catch (error) {
+                addTestMessage('⚠️ Erro ao conectar com a IA: ' + error.message, false);
+            } finally {
+                // Reabilita input
+                input.disabled = false;
+                sendBtn.disabled = false;
+                if (loading) loading.style.display = 'none';
+                input.focus();
+            }
+        }
     </script>
 {% endblock %}
 

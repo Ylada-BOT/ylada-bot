@@ -160,8 +160,8 @@
                 <div class="value" id="messages-received">0</div>
             </div>
             <div class="card">
-                <h3>Porta</h3>
-                <div class="value" id="port">-</div>
+                <h3 id="port-label">Número do WhatsApp</h3>
+                <div class="value" id="phone-number">-</div>
             </div>
         </div>
     </div>
@@ -183,9 +183,8 @@
                     // Atualiza cards
                     document.getElementById('messages-sent').textContent = instance.messages_sent || 0;
                     document.getElementById('messages-received').textContent = instance.messages_received || 0;
-                    document.getElementById('port').textContent = instance.port || '-';
                     
-                    // Atualiza status
+                    // Atualiza status (que também atualizará o número do telefone)
                     checkStatus();
                 }
             } catch (error) {
@@ -195,27 +194,45 @@
         
         async function checkStatus() {
             try {
-                const response = await fetch(`/api/instances/${instanceId}/status`);
+                // Usa o endpoint /api/whatsapp-status que já retorna o número do telefone
+                const response = await fetch(`/api/whatsapp-status`);
                 const data = await response.json();
                 
                 const container = document.getElementById('status-container');
                 const connectBtn = document.getElementById('connect-btn');
+                const phoneNumberEl = document.getElementById('phone-number');
+                const portLabelEl = document.getElementById('port-label');
                 
-                if (data.success && data.connected) {
+                if (data.connected) {
                     container.innerHTML = `
                         <span class="status connected">✅ Conectado</span>
                         <div class="info">WhatsApp está conectado e funcionando</div>
                     `;
                     connectBtn.style.display = 'none';
+                    
+                    // Atualiza número do telefone se disponível
+                    if (data.phone_number) {
+                        phoneNumberEl.textContent = data.phone_number;
+                        portLabelEl.textContent = 'Número do WhatsApp';
+                    } else {
+                        phoneNumberEl.textContent = '-';
+                        portLabelEl.textContent = 'Número do WhatsApp';
+                    }
                 } else {
                     container.innerHTML = `
                         <span class="status disconnected">❌ Desconectado</span>
                         <div class="info">WhatsApp não está conectado. Clique em "Conectar WhatsApp" para começar.</div>
                     `;
                     connectBtn.style.display = 'inline-block';
+                    phoneNumberEl.textContent = '-';
+                    portLabelEl.textContent = 'Número do WhatsApp';
                 }
             } catch (error) {
                 console.error('Erro ao verificar status:', error);
+                const phoneNumberEl = document.getElementById('phone-number');
+                const portLabelEl = document.getElementById('port-label');
+                phoneNumberEl.textContent = '-';
+                portLabelEl.textContent = 'Número do WhatsApp';
             }
         }
         

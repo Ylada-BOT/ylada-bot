@@ -10,6 +10,19 @@ import sys
 import os
 import json
 
+# Carrega variáveis de ambiente do .env
+try:
+    from dotenv import load_dotenv
+    from pathlib import Path
+    env_path = Path(__file__).resolve().parent.parent / '.env'
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"[✓] Variáveis de ambiente carregadas de {env_path}")
+except ImportError:
+    print("[!] python-dotenv não instalado. Instale com: pip install python-dotenv")
+except Exception as e:
+    print(f"[!] Erro ao carregar .env: {e}")
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -80,9 +93,9 @@ def handle_generic_error(e):
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Configuração de autenticação
-# Defina AUTH_REQUIRED=true para ativar autenticação (produção)
-# Por padrão, desabilitado para facilitar desenvolvimento
-AUTH_REQUIRED = os.getenv('AUTH_REQUIRED', 'false').lower() == 'true'
+# Defina AUTH_REQUIRED=false para desabilitar autenticação (apenas desenvolvimento)
+# Por padrão, ATIVADO para separar contas e System Prompts
+AUTH_REQUIRED = os.getenv('AUTH_REQUIRED', 'true').lower() == 'true'
 
 # Decorator para proteger rotas (requer login)
 def require_login(f):
@@ -174,6 +187,7 @@ def require_tenant(f):
 try:
     from web.api.auth import bp as auth_bp
     app.register_blueprint(auth_bp)
+    print("[✓] Rotas de autenticação registradas")
 except Exception as e:
     print(f"[!] Rotas de autenticação não disponíveis: {e}")
     print("[!] Configure o banco de dados para usar autenticação completa")
@@ -250,39 +264,84 @@ except Exception as e:
 ai = AIHandler()
 print("[✓] IA Handler inicializado")
 
-# Configuração (salva em arquivo simples)
-CONFIG_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'ai_config.json')
+# Configuração (salva por usuário)
+def get_config_file(user_id=None):
+    """Retorna caminho do arquivo de config do usuário"""
+    if user_id:
+        return os.path.join(os.path.dirname(__file__), '..', 'data', f'ai_config_user_{user_id}.json')
+    return os.path.join(os.path.dirname(__file__), '..', 'data', 'ai_config.json')
 
-def load_config():
-    """Carrega configuração da IA"""
+def load_config(user_id=None):
+    """Carrega configuração da IA (do arquivo do usuário ou .env)"""
+    from web.utils.auth_helpers import get_current_user_id
+    from flask import has_request_context
+    
+    # Se não passou user_id, tenta pegar do usuário logado (só se houver requisição)
+    if not user_id and has_request_context():
+        try:
+            user_id = get_current_user_id()
+        except:
+            user_id = None
+    
+    CONFIG_FILE = get_config_file(user_id)
+    
+    config = {
+        'provider': os.getenv('AI_PROVIDER', 'openai'),
+        'api_key': os.getenv('AI_API_KEY', ''),  # API key global do .env
+        'model': os.getenv('AI_MODEL', 'gpt-4o-mini'),
+        'system_prompt': os.getenv('AI_SYSTEM_PROMPT', 'Você é um assistente útil e amigável.')
+    }
+    
+    # Se existe arquivo de config do usuário, usa ele (tem prioridade sobre .env)
     if os.path.exists(CONFIG_FILE):
         try:
-            with open(CONFIG_FILE, 'r') as f:
-                config = json.load(f)
-                ai.set_config(
-                    provider=config.get('provider', 'openai'),
-                    api_key=config.get('api_key', ''),
-                    model=config.get('model', 'gpt-4o-mini'),
-                    system_prompt=config.get('system_prompt', 'Você é um assistente útil e amigável.')
-                )
-                return config
+            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+                file_config = json.load(f)
+                # Mescla: arquivo tem prioridade, mas .env preenche valores vazios
+                for key in config:
+                    if file_config.get(key):
+                        config[key] = file_config[key]
+                # API key: se não tem no arquivo, usa do .env
+                if not config.get('api_key'):
+                    config['api_key'] = os.getenv('AI_API_KEY', '')
         except:
             pass
-    return {
-        'provider': 'openai',
-        'api_key': '',
-        'model': 'gpt-4o-mini',
-        'system_prompt': 'Você é um assistente útil e amigável.'
-    }
+    
+    # Aplica configuração na IA
+    ai.set_config(
+        provider=config['provider'],
+        api_key=config['api_key'],
+        model=config['model'],
+        system_prompt=config['system_prompt']
+    )
+    
+    return config
 
-def save_config(config):
-    """Salva configuração da IA"""
+def save_config(config, user_id=None):
+    """Salva configuração da IA (por usuário)"""
+    from web.utils.auth_helpers import get_current_user_id
+    
+    # Se não passou user_id, tenta pegar do usuário logado
+    if not user_id:
+        user_id = get_current_user_id()
+    
+    CONFIG_FILE = get_config_file(user_id)
     os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
-    with open(CONFIG_FILE, 'w') as f:
-        json.dump(config, f, indent=2)
+    with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
 
-# Carrega configuração ao iniciar
-load_config()
+# Carrega configuração padrão ao iniciar (para desenvolvimento)
+# Em produção com login, cada usuário terá sua própria config ao fazer login
+if not AUTH_REQUIRED:
+    try:
+        # Tenta carregar config padrão (sem user_id)
+        from web.utils.auth_helpers import get_current_user_id
+        load_config(None)  # Passa None explicitamente
+        print("[✓] Configuração padrão da IA carregada")
+    except:
+        print("[!] Configuração da IA será carregada por usuário ao fazer login")
+else:
+    print("[✓] Sistema com login ativado - configuração será carregada por usuário")
 
 # ============================================
 # CARREGAR FLUXOS DO BANCO DE DADOS
@@ -371,23 +430,20 @@ def logout():
 @app.route('/')
 @require_login
 def index():
-    """Redireciona baseado no role do usuário"""
+    """Dashboard principal"""
+    # Se autenticação está desabilitada, mostra dashboard direto
     if not AUTH_REQUIRED:
-        # Modo desenvolvimento - usa dashboard normal
+        return render_template('dashboard_new.html')
+    
+    # Se autenticação está habilitada, carrega config do usuário logado
+    user_id = session.get('user_id')
+    if user_id:
         try:
-            return render_template('dashboard_new.html')
+            load_config(user_id)
         except:
-            return render_template('dashboard.html')
+            pass
     
-    # Verifica role do usuário
-    user_role = session.get('user_role', 'user')
-    
-    if user_role == 'admin':
-        # Admin vai para área administrativa
-        return redirect(url_for('admin_dashboard'))
-    else:
-        # Tenant vai para área do tenant
-        return redirect(url_for('tenant_dashboard'))
+    return render_template('dashboard_new.html')
 
 @app.route('/admin')
 @require_admin
@@ -404,7 +460,8 @@ def tenant_dashboard():
 @app.route('/simple')
 def index_simple():
     """Dashboard simples (sem tenants) - Modo desenvolvimento"""
-    config = load_config()
+    user_id = session.get('user_id') if AUTH_REQUIRED else None
+    config = load_config(user_id)
     return render_template('dashboard.html')
 
 # ============================================
@@ -438,8 +495,9 @@ def tenant_leads_list():
 @app.route('/tenant/conversations')
 @require_tenant
 def tenant_conversations_list():
-    """Lista de conversas do tenant"""
-    return render_template('tenant/conversations/list.html')
+    """Lista de conversas do tenant - Redireciona para modelo simplificado"""
+    # No modelo simplificado, usa o template direto
+    return render_template('conversations/list.html')
 
 @app.route('/tenant/instances')
 @require_tenant
@@ -505,13 +563,9 @@ def leads_list():
 @app.route('/conversations')
 @require_login
 def conversations_list():
-    """Redireciona para área correta"""
-    if not AUTH_REQUIRED:
-        return render_template('conversations/list.html')
-    user_role = session.get('user_role', 'user')
-    if user_role == 'admin':
-        return redirect(url_for('admin_dashboard'))
-    return redirect(url_for('tenant_conversations_list'))
+    """Lista de conversas - Modelo Simplificado"""
+    # No modelo simplificado, sempre usa o template direto
+    return render_template('conversations/list.html')
 
 # ============================================
 # ROTAS - TENANTS
@@ -640,8 +694,8 @@ def instances_list():
     user_id = get_current_user_id() or 1
     user_instance = get_or_create_user_instance(user_id)
     
-    # Redireciona para página de conexão da instância do usuário
-    return redirect(url_for('instances_connect', instance_id=user_instance.get('id')))
+    # Redireciona para página de conexão simples
+    return redirect(url_for('qr_code'))
 
 @app.route('/instances/new')
 def instances_new():
@@ -670,8 +724,8 @@ def instances_detail(instance_id):
     user_instance = get_or_create_user_instance(user_id)
     
     if user_instance.get('id') != instance_id:
-        # Não é a instância do usuário - redireciona para conexão da instância correta
-        return redirect(url_for('instances_connect', instance_id=user_instance.get('id')))
+        # Não é a instância do usuário - redireciona para conexão simples
+        return redirect(url_for('qr_code'))
     
     # Verifica se está conectado
     try:
@@ -685,126 +739,128 @@ def instances_detail(instance_id):
             
             # Se não está conectado, redireciona para página de conexão
             if not (actually_connected or (ready and not has_qr)):
-                return redirect(url_for('instances_connect', instance_id=instance_id))
+                return redirect(url_for('qr_code'))
     except:
         # Se não consegue verificar, redireciona para conexão
-        return redirect(url_for('instances_connect', instance_id=instance_id))
+        return redirect(url_for('qr_code'))
     
     return render_template('instances/dashboard.html', instance_id=instance_id)
 
 @app.route('/instances/<int:instance_id>/connect')
 @require_login
 def instances_connect(instance_id):
-    """Conectar WhatsApp da instância"""
-    # Verifica se é a instância do usuário (modo simplificado)
-    from web.utils.instance_helper import get_or_create_user_instance
-    from web.utils.auth_helpers import get_current_user_id
-    
-    user_id = get_current_user_id() or 1
-    user_instance = get_or_create_user_instance(user_id)
-    
-    if user_instance.get('id') != instance_id:
-        # Não é a instância do usuário - redireciona
-        return redirect(url_for('instances_connect', instance_id=user_instance.get('id')))
-    
-    return render_template('instances/connect.html', instance_id=instance_id)
+    """Conectar WhatsApp da instância - redireciona para /connect (modo simplificado)"""
+    # No modelo simplificado, redireciona para rota simples
+    return redirect(url_for('qr_code'))
 
 # ============================================
 # ROTAS - WHATSAPP
 # ============================================
 
 @app.route('/qr')
+@app.route('/connect')
 @require_login
 def qr_code():
-    """Conecta WhatsApp - modo simplificado: redireciona para instância do usuário"""
-    from web.utils.instance_helper import get_or_create_user_instance
-    from web.utils.auth_helpers import get_current_user_id
-    
-    user_id = get_current_user_id() or 1
-    user_instance = get_or_create_user_instance(user_id)
-    
-    # Redireciona para página de conexão da instância do usuário
-    return redirect(url_for('instances_connect', instance_id=user_instance.get('id')))
+    """Conecta WhatsApp - modo simplificado: página direta sem instance_id"""
+    # No modelo simplificado, não precisa de instance_id
+    # Cada usuário tem apenas 1 instância
+    return render_template('instances/connect.html')
 
 @app.route('/api/qr')
+@require_login
 def get_qr():
-    """Obtém QR Code do WhatsApp"""
-    if not whatsapp:
-        return jsonify({"error": "WhatsApp não inicializado"}), 500
-    
+    """Obtém QR Code do WhatsApp - Modelo Simplificado"""
     try:
-        # Verifica status detalhado primeiro
+        from web.utils.instance_helper import get_or_create_user_instance
+        from web.utils.auth_helpers import get_current_user_id as get_user_id
         import requests
+        
+        # Obtém instância do usuário
         try:
-            status_response = requests.get(f"http://localhost:{whatsapp.port}/status", timeout=2)
-            if status_response.status_code == 200:
-                status_data = status_response.json()
-                has_qr = status_data.get("hasQr", False)
-                actually_connected = status_data.get("actuallyConnected", False)
+            user_id = get_user_id() or 1
+        except:
+            user_id = 1  # Fallback para desenvolvimento
+        instance = get_or_create_user_instance(user_id)
+        port = instance.get('port', 5001)
+        
+        # Busca QR Code do servidor Node.js
+        try:
+            response = requests.get(f"http://localhost:{port}/qr", timeout=10)
+            if response.status_code == 200:
+                data = response.json()
                 
-                # Se realmente está conectado, retorna connected
-                if actually_connected:
+                # Se já está conectado
+                if data.get('ready'):
                     return jsonify({"status": "connected"})
                 
-                # Se tem QR code, retorna o QR
-                if has_qr:
-                    qr_data = whatsapp.get_qr_code()
-                    if qr_data:
-                        return jsonify({"qr": qr_data, "status": "waiting"})
-        except:
-            pass
+                # Se tem QR code, retorna
+                qr_data = data.get('qr')
+                if qr_data:
+                    return jsonify({
+                        "qr": qr_data, 
+                        "status": "waiting",
+                        "success": True
+                    })
+                
+                # Se não tem QR ainda, verifica se precisa reiniciar o cliente
+                # Se o cliente está inicializado mas não tem QR e não está pronto, pode precisar reiniciar
+                if not data.get('ready') and not qr_data:
+                    return jsonify({
+                        "status": "generating",
+                        "message": "Aguardando geração do QR Code... Se demorar, tente recarregar a página.",
+                        "success": True,
+                        "hint": "O servidor está aguardando o WhatsApp gerar o QR code. Isso pode levar alguns segundos."
+                    })
+                
+                # Se não tem QR ainda, retorna status de geração
+                return jsonify({
+                    "status": "generating",
+                    "message": "Aguardando geração do QR Code...",
+                    "success": True
+                })
+                
+        except requests.exceptions.ConnectionError:
+            return jsonify({
+                "error": f"Servidor WhatsApp não está rodando na porta {port}. Inicie o servidor primeiro.",
+                "status": "error"
+            }), 503
+        except requests.exceptions.Timeout:
+            return jsonify({
+                "error": f"Timeout ao conectar com servidor WhatsApp na porta {port}.",
+                "status": "error"
+            }), 503
+        except Exception as e:
+            return jsonify({
+                "error": f"Erro ao conectar com servidor WhatsApp: {str(e)}",
+                "status": "error"
+            }), 503
         
-        # Tenta obter QR code
-        qr_data = whatsapp.get_qr_code()
-        if qr_data:
-            return jsonify({"qr": qr_data, "status": "waiting"})
-        else:
-            # Verifica se realmente está conectado (verificação dupla)
-            if whatsapp.is_ready():
-                # Verifica novamente com status detalhado
-                try:
-                    status_response = requests.get(f"http://localhost:{whatsapp.port}/status", timeout=2)
-                    if status_response.status_code == 200:
-                        status_data = status_response.json()
-                        if status_data.get("actuallyConnected", False):
-                            return jsonify({"status": "connected"})
-                except:
-                    pass
-            
-            return jsonify({"status": "generating"})
+        return jsonify({
+            "status": "generating",
+            "message": "Aguardando geração do QR Code...",
+            "success": True
+        })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        import traceback
+        return jsonify({
+            "error": str(e),
+            "status": "error",
+            "traceback": traceback.format_exc() if app.debug else None
+        }), 500
 
 @app.route('/api/conversations')
 @require_api_auth
 def get_conversations():
-    """Obtém lista de conversas do WhatsApp"""
-    if not whatsapp:
-        return jsonify({"success": False, "error": "WhatsApp não inicializado"}), 500
-    
+    """Obtém lista de conversas do WhatsApp - Modelo Simplificado"""
     try:
+        from web.utils.instance_helper import get_or_create_user_instance
+        from web.utils.auth_helpers import get_current_user_id
         import requests
-        import json
-        import os
         
-        # Verifica se há instance_id na query string
-        instance_id = request.args.get('instance_id', type=int)
-        whatsapp_port = whatsapp.port if hasattr(whatsapp, 'port') else 5001
-        
-        # Se instance_id foi fornecido, busca a porta da instância
-        if instance_id:
-            orgs_file = os.path.join(os.path.dirname(__file__), '..', 'data', 'organizations.json')
-            if os.path.exists(orgs_file):
-                try:
-                    with open(orgs_file, 'r', encoding='utf-8') as f:
-                        organizations = json.load(f)
-                        for org in organizations:
-                            for inst in org.get('instances', []):
-                                if inst.get('id') == instance_id:
-                                    whatsapp_port = inst.get('port', whatsapp_port)
-                                    break
-                except:
-                    pass
+        # Obtém instância do usuário atual
+        user_id = get_current_user_id() or 1
+        instance = get_or_create_user_instance(user_id)
+        whatsapp_port = instance.get('port', 5001)
         
         # Parâmetros opcionais
         only_individuals = request.args.get('only_individuals', 'false').lower() == 'true'
@@ -850,15 +906,20 @@ def get_conversations():
 @app.route('/api/conversations/<chat_id>/messages')
 @require_api_auth
 def get_conversation_messages(chat_id):
-    """Obtém mensagens de uma conversa específica"""
-    if not whatsapp:
-        return jsonify({"success": False, "error": "WhatsApp não inicializado"}), 500
-    
+    """Obtém mensagens de uma conversa específica - Modelo Simplificado"""
     try:
+        from web.utils.instance_helper import get_or_create_user_instance
+        from web.utils.auth_helpers import get_current_user_id
         import requests
+        
+        # Obtém instância do usuário atual
+        user_id = get_current_user_id() or 1
+        instance = get_or_create_user_instance(user_id)
+        whatsapp_port = instance.get('port', 5001)
+        
         limit = request.args.get('limit', 50, type=int)
         response = requests.get(
-            f"http://localhost:{whatsapp.port}/chats/{chat_id}/messages",
+            f"http://localhost:{whatsapp_port}/chats/{chat_id}/messages",
             params={"limit": limit},
             timeout=10
         )
@@ -951,7 +1012,7 @@ def whatsapp_status():
         
         # Verifica status do servidor Node.js da instância do usuário
         try:
-            status_response = requests.get(f"http://localhost:{whatsapp_port}/status", timeout=1)
+            status_response = requests.get(f"http://localhost:{whatsapp_port}/status", timeout=3)
             if status_response.status_code == 200:
                 status_data = status_response.json()
                 has_qr = status_data.get("hasQr", False)
@@ -959,14 +1020,45 @@ def whatsapp_status():
                 ready = status_data.get("ready", False)
                 
                 # Só considera conectado se realmente estiver conectado
-                connected = actually_connected or (ready and not has_qr)
+                # actually_connected pode ser um objeto (dict) quando conectado, ou False quando não
+                is_connected = False
+                if actually_connected:
+                    # Se actually_connected existe (não é False/None), está conectado
+                    is_connected = True
+                elif ready:
+                    # Se ready existe e não tem QR, também está conectado
+                    if isinstance(ready, dict) or ready is True:
+                        is_connected = True
+                
+                connected = is_connected
+                
+                # Extrai número do telefone se estiver conectado
+                phone_number = None
+                if connected:
+                    # Tenta obter o número do telefone do objeto actually_connected ou ready
+                    if isinstance(actually_connected, dict) and 'user' in actually_connected:
+                        phone_number = actually_connected.get('user')
+                    elif isinstance(ready, dict) and 'user' in ready:
+                        phone_number = ready.get('user')
+                    
+                    # Formata o número para exibição (adiciona formatação brasileira se necessário)
+                    if phone_number:
+                        # Remove @c.us se houver
+                        phone_number = phone_number.replace('@c.us', '').replace('@s.whatsapp.net', '')
+                        # Formata número brasileiro (se começar com 55)
+                        if phone_number.startswith('55') and len(phone_number) >= 12:
+                            formatted = f"+{phone_number[:2]} ({phone_number[2:4]}) {phone_number[4:9]}-{phone_number[9:]}"
+                            phone_number = formatted
+                        else:
+                            phone_number = f"+{phone_number}"
                 
                 if connected:
                     return jsonify({
                         "connected": True, 
                         "message": "WhatsApp conectado",
                         "hasQr": False,
-                        "port": whatsapp_port
+                        "port": whatsapp_port,
+                        "phone_number": phone_number
                     })
                 elif has_qr:
                     return jsonify({
@@ -1033,28 +1125,51 @@ def whatsapp_disconnect():
 # ============================================
 
 @app.route('/api/ai/config', methods=['GET'])
+@app.route('/api/ai-config', methods=['GET'])
 def get_ai_config():
-    """Obtém configuração da IA"""
-    config = load_config()
-    # Não retorna API key por segurança
+    """Obtém configuração da IA (do usuário logado)"""
+    from web.utils.auth_helpers import get_current_user_id
+    
+    user_id = get_current_user_id()
+    if not user_id and AUTH_REQUIRED:
+        return jsonify({"error": "Usuário não autenticado"}), 401
+    
+    config = load_config(user_id)
+    # Retorna configuração completa (API key mascarada para exibição)
+    api_key = config.get('api_key', '')
+    masked_key = api_key[:10] + '...' + api_key[-4:] if len(api_key) > 14 else '***' if api_key else ''
+    
     return jsonify({
-        'provider': config.get('provider'),
-        'model': config.get('model'),
-        'system_prompt': config.get('system_prompt'),
-        'configured': bool(config.get('api_key'))
+        'config': {
+            'provider': config.get('provider', 'openai'),
+            'api_key': masked_key,  # Mascarada para exibição
+            'api_key_configured': bool(api_key),  # Indica se está configurada
+            'model': config.get('model', 'gpt-4o-mini'),
+            'system_prompt': config.get('system_prompt', 'Você é um assistente útil e amigável.')
+        }
     })
 
 @app.route('/api/ai/config', methods=['POST'])
+@app.route('/api/ai-config', methods=['POST'])
 @require_api_auth
 def set_ai_config():
-    """Configura a IA"""
+    """Configura a IA (salva por usuário)"""
+    from web.utils.auth_helpers import get_current_user_id
+    
+    user_id = get_current_user_id()
+    if not user_id and AUTH_REQUIRED:
+        return jsonify({"success": False, "error": "Usuário não autenticado"}), 401
+    
     data = request.get_json()
     
+    # Carrega configuração atual do usuário (pode ter API key do .env)
+    current_config = load_config(user_id)
+    
     config = {
-        'provider': data.get('provider', 'openai'),
-        'api_key': data.get('api_key', ''),
-        'model': data.get('model', 'gpt-4o-mini'),
-        'system_prompt': data.get('system_prompt', 'Você é um assistente útil e amigável.')
+        'provider': data.get('provider', current_config.get('provider', 'openai')),
+        'api_key': data.get('api_key') or current_config.get('api_key', ''),  # Se não enviar, mantém a do .env
+        'model': data.get('model', current_config.get('model', 'gpt-4o-mini')),
+        'system_prompt': data.get('system_prompt', current_config.get('system_prompt', 'Você é um assistente útil e amigável.'))
     }
     
     # Atualiza handler
@@ -1065,10 +1180,59 @@ def set_ai_config():
         system_prompt=config['system_prompt']
     )
     
-    # Salva configuração
-    save_config(config)
+    # Salva configuração do usuário
+    save_config(config, user_id)
     
     return jsonify({"success": True, "message": "Configuração salva!"})
+
+@app.route('/api/ai/test', methods=['POST'])
+@require_api_auth
+def test_ai():
+    """Testa a IA sem enviar mensagem real (apenas retorna resposta)"""
+    try:
+        from web.utils.auth_helpers import get_current_user_id
+        
+        user_id = get_current_user_id()
+        if not user_id and AUTH_REQUIRED:
+            return jsonify({"success": False, "error": "Usuário não autenticado"}), 401
+        
+        data = request.get_json()
+        message = data.get('message', '').strip()
+        
+        if not message:
+            return jsonify({"success": False, "error": "Mensagem não fornecida"}), 400
+        
+        # Carrega configuração do usuário
+        config = load_config(user_id)
+        if not config.get('api_key'):
+            return jsonify({
+                "success": False,
+                "error": "IA não configurada. Configure a API Key primeiro."
+            }), 400
+        
+        # Usa um número de teste fictício
+        test_phone = "test_123456789"
+        
+        # Obtém resposta da IA (sem enviar mensagem real)
+        try:
+            response = ai.get_response(test_phone, message, tenant_id=None, instance_id=user_id)
+            
+            return jsonify({
+                "success": True,
+                "response": response,
+                "note": "Esta é uma resposta de teste. Nenhuma mensagem foi enviada."
+            })
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "error": f"Erro ao processar com IA: {str(e)}"
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 # ============================================
 # ROTAS - WEBHOOK (MENSAGENS)
@@ -1162,8 +1326,33 @@ def webhook():
             print(f"[!] Erro ao processar com fluxos: {e}")
             # Continua com IA como fallback
         
+        # Verifica se resposta automática está habilitada
+        AUTO_RESPOND = os.getenv('AUTO_RESPOND', 'false').lower() == 'true'
+        
+        if not AUTO_RESPOND:
+            # Modo de teste: apenas registra a mensagem, não responde
+            print(f"[📨] Mensagem recebida (MODO TESTE - sem resposta automática): {phone}: {message}")
+            return jsonify({
+                "success": True,
+                "processed_by": "test_mode",
+                "message": "Mensagem recebida mas resposta automática desabilitada",
+                "note": "Para habilitar respostas automáticas, defina AUTO_RESPOND=true no .env"
+            })
+        
         # Fallback: Processa com IA (se fluxos não processaram)
-        config = load_config()
+        # Busca user_id a partir do instance_id (webhook não tem sessão)
+        user_id = None
+        if instance_id:
+            # No modo simplificado, instance_id = user_id
+            user_id = instance_id
+        elif AUTH_REQUIRED:
+            # Tenta pegar da sessão se disponível
+            try:
+                user_id = session.get('user_id')
+            except:
+                pass
+        
+        config = load_config(user_id)
         if not config.get('api_key'):
             print("[!] IA não configurada. Configure no dashboard primeiro.")
             return jsonify({

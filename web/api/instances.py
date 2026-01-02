@@ -468,11 +468,46 @@ def get_instance_status(instance_id):
             response = requests.get(f"http://localhost:{port}/status", timeout=2)
             if response.status_code == 200:
                 server_status = response.json()
+                has_qr = server_status.get("hasQr", False)
+                actually_connected = server_status.get("actuallyConnected", False)
+                ready = server_status.get("ready", False)
+                
+                # Verifica se realmente está conectado
+                is_connected = False
+                if actually_connected:
+                    # Se actually_connected existe (não é False/None), está conectado
+                    is_connected = True
+                elif ready:
+                    # Se ready existe e não tem QR, também está conectado
+                    if isinstance(ready, dict) or ready is True:
+                        is_connected = True
+                
+                # Extrai número do telefone se estiver conectado
+                phone_number = None
+                if is_connected:
+                    # Tenta obter o número do telefone do objeto actually_connected ou ready
+                    if isinstance(actually_connected, dict) and 'user' in actually_connected:
+                        phone_number = actually_connected.get('user')
+                    elif isinstance(ready, dict) and 'user' in ready:
+                        phone_number = ready.get('user')
+                    
+                    # Formata o número para exibição
+                    if phone_number:
+                        # Remove @c.us se houver
+                        phone_number = phone_number.replace('@c.us', '').replace('@s.whatsapp.net', '')
+                        # Formata número brasileiro (se começar com 55)
+                        if phone_number.startswith('55') and len(phone_number) >= 12:
+                            formatted = f"+{phone_number[:2]} ({phone_number[2:4]}) {phone_number[4:9]}-{phone_number[9:]}"
+                            phone_number = formatted
+                        else:
+                            phone_number = f"+{phone_number}"
+                
                 return jsonify({
                     'success': True,
-                    'connected': server_status.get('ready', False),
-                    'has_qr': server_status.get('hasQr', False),
-                    'status': instance.get('status', 'disconnected')
+                    'connected': is_connected,
+                    'has_qr': has_qr,
+                    'status': instance.get('status', 'disconnected'),
+                    'phone_number': phone_number
                 }), 200
         except requests.exceptions.ConnectionError:
             return jsonify({

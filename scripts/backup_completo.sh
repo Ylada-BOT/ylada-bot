@@ -189,3 +189,4 @@ echo "   3. Ou siga: GUIA_RESTAURAR_BACKUP.md"
 echo ""
 echo "============================================"
 
+

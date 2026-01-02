@@ -186,3 +186,4 @@ echo "   - Você pode precisar escanear QR codes novamente"
 echo ""
 echo "============================================"
 
+

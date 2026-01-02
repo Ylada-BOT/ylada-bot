@@ -271,28 +271,19 @@
         }
         
         function initApp() {
-            const instanceId = {{ instance_id|default(1) }};
+            // No modelo simplificado, não precisa de instanceId
             let checkInterval;
             
             // Torna variáveis globais para as funções
-            window.instanceId = instanceId;
             window.checkInterval = null;
             
             async function loadInstance() {
             try {
-                const response = await fetch(`/api/instances/${instanceId}`);
-                const data = await response.json();
-                
-                if (data.success && data.instance) {
-                    document.getElementById('instance-name').textContent = data.instance.name || 'Meu WhatsApp';
-                    checkQR();
-                } else {
-                    console.error('Erro ao carregar instância:', data.error || 'Resposta inválida');
-                    document.getElementById('instance-name').textContent = 'Meu WhatsApp';
-                    checkQR(); // Tenta carregar QR mesmo assim
-                }
+                // No modelo simplificado, não precisa carregar instância separadamente
+                document.getElementById('instance-name').textContent = 'Meu WhatsApp';
+                checkQR(); // Carrega QR diretamente
             } catch (error) {
-                console.error('Erro ao carregar instância:', error);
+                console.error('Erro ao inicializar:', error);
                 document.getElementById('instance-name').textContent = 'Meu WhatsApp';
                 checkQR(); // Tenta carregar QR mesmo assim
             }
@@ -300,7 +291,7 @@
             
             async function checkQR() {
             try {
-                const response = await fetch(`/api/instances/${instanceId}/qr`);
+                const response = await fetch(`/api/qr`);
                 if (!response.ok) {
                     throw new Error(`Erro ${response.status}: ${response.statusText}`);
                 }
@@ -313,7 +304,30 @@
                 const instructions = document.getElementById('instructions');
                 const refreshBtn = document.getElementById('refresh-btn');
                 
-                if (data.success && data.qr) {
+                // Suporta dois formatos de resposta:
+                // 1. {success: true, qr: "...", ready: false}
+                // 2. {qr: "...", status: "waiting"} ou {status: "connected"}
+                
+                if (data.status === 'connected' || (data.success && data.ready)) {
+                    // Já está conectado
+                    statusDiv.className = 'status connected';
+                    statusDiv.textContent = '✅ WhatsApp conectado com sucesso!';
+                    qrContainer.innerHTML = '<div style="color: #10b981; font-size: 48px;">✅</div>';
+                    instructions.style.display = 'none';
+                    refreshBtn.style.display = 'none';
+                    
+                    if (checkInterval) {
+                        clearInterval(checkInterval);
+                    }
+                    
+                    // Redireciona após 2 segundos
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                    return;
+                }
+                
+                if ((data.success && data.qr) || data.qr) {
                     // Mostra QR Code
                     statusDiv.className = 'status waiting';
                     statusDiv.textContent = 'Escaneie o QR Code com seu WhatsApp';
@@ -397,23 +411,7 @@
                     if (!checkInterval) {
                         checkInterval = setInterval(checkStatus, 3000);
                     }
-                } else if (data.success && data.ready) {
-                    // Já está conectado
-                    statusDiv.className = 'status connected';
-                    statusDiv.textContent = '✅ WhatsApp conectado com sucesso!';
-                    qrContainer.innerHTML = '<div style="color: #10b981; font-size: 48px;">✅</div>';
-                    instructions.style.display = 'none';
-                    refreshBtn.style.display = 'none';
-                    
-                    if (checkInterval) {
-                        clearInterval(checkInterval);
-                    }
-                    
-                    // Redireciona após 2 segundos
-                    setTimeout(() => {
-                        window.location.href = `/instances/${instanceId}`;
-                    }, 2000);
-                } else if (data.success && !data.qr && !data.ready) {
+                } else if (data.status === 'generating' || (!data.qr && !data.ready)) {
                     // Ainda não tem QR code
                     statusDiv.className = 'status waiting';
                     statusDiv.textContent = 'Aguardando QR Code...';
@@ -421,7 +419,8 @@
                     instructions.style.display = 'none';
                     
                     // Tenta novamente em 3 segundos
-                    setTimeout(checkQR, 3000);
+                    // Se está gerando, aguarda mais tempo antes de tentar novamente
+                    setTimeout(checkQR, 5000);
                 } else {
                     // Erro ou servidor não está rodando
                     statusDiv.className = 'status error';
@@ -445,24 +444,24 @@
             }
             
             async function checkStatus() {
-            try {
-                const response = await fetch(`/api/instances/${instanceId}/status`);
-                const data = await response.json();
-                
-                if (data.success && data.connected) {
-                    // Conectado!
-                    document.getElementById('status').className = 'status connected';
-                    document.getElementById('status').textContent = '✅ WhatsApp conectado!';
-                    document.getElementById('qr-container').innerHTML = '<div style="color: #10b981; font-size: 48px;">✅</div>';
-                    document.getElementById('instructions').style.display = 'none';
-                    document.getElementById('refresh-btn').style.display = 'none';
+                try {
+                    const response = await fetch(`/api/whatsapp-status`);
+                    const data = await response.json();
                     
-                    if (checkInterval) {
-                        clearInterval(checkInterval);
-                    }
-                    
-                    setTimeout(() => {
-                        window.location.href = `/instances/${instanceId}`;
+                    if (data.connected || (data.success && data.connected)) {
+                        // Conectado!
+                        document.getElementById('status').className = 'status connected';
+                        document.getElementById('status').textContent = '✅ WhatsApp conectado!';
+                        document.getElementById('qr-container').innerHTML = '<div style="color: #10b981; font-size: 48px;">✅</div>';
+                        document.getElementById('instructions').style.display = 'none';
+                        document.getElementById('refresh-btn').style.display = 'none';
+                        
+                        if (checkInterval) {
+                            clearInterval(checkInterval);
+                        }
+                        
+                        setTimeout(() => {
+                            window.location.href = '/';
                     }, 2000);
                 } else {
                     // Ainda não conectado, recarrega QR
@@ -473,9 +472,8 @@
             }
             }
             
-            // Carrega instância e QR Code ao carregar a página
+            // Carrega QR Code ao carregar a página
             console.log('Página carregada, iniciando...');
-            console.log('Instance ID:', instanceId);
             loadInstance();
             
             // Também tenta carregar QR imediatamente após 1 segundo

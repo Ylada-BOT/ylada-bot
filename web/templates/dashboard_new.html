@@ -188,54 +188,82 @@
             resize: vertical;
         }
         
-        /* Chat de Teste */
+        /* Chat de Teste - Estilo WhatsApp */
         .test-chat-container {
-            background: white;
+            background: #e5ddd5;
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='whatsapp-pattern' x='0' y='0' width='100' height='100' patternUnits='userSpaceOnUse'%3E%3Ccircle cx='50' cy='50' r='1' fill='%23ffffff' opacity='0.1'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100' height='100' fill='url(%23whatsapp-pattern)'/%3E%3C/svg%3E");
             border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
-            border: 1px solid #e5e7eb;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             margin-top: 30px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 600px;
         }
         
         .test-chat-header {
+            background: #075e54;
+            color: white;
+            padding: 15px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #e5e7eb;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
         .test-chat-header h2 {
             margin: 0;
-            color: #333;
-            font-size: 20px;
+            font-size: 18px;
+            font-weight: 500;
         }
         
         .test-chat-badge {
-            background: #fef3c7;
-            color: #92400e;
-            padding: 4px 12px;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 10px;
             border-radius: 12px;
-            font-size: 12px;
+            font-size: 10px;
             font-weight: 600;
         }
         
         .test-chat-messages {
-            height: 400px;
+            flex: 1;
             overflow-y: auto;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 15px;
-            background: #f9fafb;
-            margin-bottom: 15px;
+            padding: 20px;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .test-chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .test-chat-messages::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .test-chat-messages::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.2);
+            border-radius: 3px;
         }
         
         .test-message {
-            margin-bottom: 15px;
             display: flex;
             flex-direction: column;
+            margin-bottom: 2px;
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         
         .test-message.user {
@@ -246,77 +274,153 @@
             align-items: flex-start;
         }
         
+        .test-message-label {
+            font-size: 11px;
+            color: #667781;
+            margin-bottom: 4px;
+            font-weight: 500;
+            padding: 0 8px;
+        }
+        
         .test-message-bubble {
-            max-width: 70%;
-            padding: 12px 16px;
-            border-radius: 12px;
+            max-width: 65%;
+            padding: 8px 12px;
+            border-radius: 7.5px;
             word-wrap: break-word;
+            line-height: 1.4;
+            position: relative;
+            white-space: pre-wrap;
+            font-size: 14.2px;
+            box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
         }
         
         .test-message.user .test-message-bubble {
-            background: #3b82f6;
-            color: white;
-            border-bottom-right-radius: 4px;
+            background: #dcf8c6;
+            color: #303030;
+            border-bottom-right-radius: 2px;
         }
         
         .test-message.ai .test-message-bubble {
-            background: white;
-            color: #333;
-            border: 1px solid #e5e7eb;
-            border-bottom-left-radius: 4px;
+            background: #ffffff;
+            color: #303030;
+            border-bottom-left-radius: 2px;
         }
         
-        .test-message-label {
+        .test-message-time {
             font-size: 11px;
-            color: #6b7280;
-            margin-bottom: 4px;
-            font-weight: 600;
+            color: #667781;
+            margin-top: 4px;
+            padding: 0 8px;
+        }
+        
+        .test-message.user .test-message-time {
+            text-align: right;
+        }
+        
+        .test-message.ai .test-message-time {
+            text-align: left;
         }
         
         .test-chat-input-container {
             display: flex;
-            gap: 10px;
+            padding: 8px 12px;
+            background: #f0f0f0;
+            border-top: 1px solid #e0e0e0;
+            gap: 8px;
+            align-items: center;
         }
         
         .test-chat-input {
             flex: 1;
-            padding: 12px 16px;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            font-size: 14px;
+            padding: 9px 16px;
+            border: none;
+            border-radius: 21px;
+            font-size: 15px;
+            background: white;
+            outline: none;
         }
         
         .test-chat-input:focus {
             outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
         
         .test-chat-send-btn {
-            padding: 12px 24px;
-            background: #3b82f6;
+            width: 42px;
+            height: 42px;
+            background: #25d366;
             color: white;
             border: none;
-            border-radius: 8px;
-            font-weight: 500;
+            border-radius: 50%;
             cursor: pointer;
-            transition: all 0.2s;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-size: 0;
+        }
+        
+        .test-chat-send-btn::before {
+            content: "➤";
+            font-size: 18px;
+            color: white;
         }
         
         .test-chat-send-btn:hover {
-            background: #2563eb;
+            background: #20ba5a;
+            transform: scale(1.05);
         }
         
         .test-chat-send-btn:disabled {
-            background: #9ca3af;
+            opacity: 0.5;
             cursor: not-allowed;
+            transform: none;
         }
         
         .test-chat-loading {
             text-align: center;
-            color: #6b7280;
+            color: #667781;
             padding: 20px;
             font-style: italic;
+            font-size: 13px;
+        }
+        
+        .test-chat-placeholder {
+            text-align: center;
+            color: #667781;
+            padding: 40px 20px;
+            font-size: 14px;
+        }
+        
+        .test-chat-placeholder p {
+            margin: 8px 0;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 0.4;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.2);
+            }
+        }
+        
+        @keyframes typingDot {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.7;
+            }
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
+        
+        .test-chat-typing {
+            margin-bottom: 8px;
         }
 {% endblock %}
 
@@ -471,11 +575,26 @@
         
         <div class="test-chat-messages" id="testChatMessages">
             <div class="test-chat-loading" id="testChatLoading" style="display: none;">
-                🤖 IA pensando...
+                <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <div style="width: 8px; height: 8px; background: #25d366; border-radius: 50%; animation: pulse 1.5s ease-in-out infinite;"></div>
+                    <div style="width: 8px; height: 8px; background: #25d366; border-radius: 50%; animation: pulse 1.5s ease-in-out infinite 0.2s;"></div>
+                    <div style="width: 8px; height: 8px; background: #25d366; border-radius: 50%; animation: pulse 1.5s ease-in-out infinite 0.4s;"></div>
+                </div>
             </div>
-            <div style="text-align: center; color: #9ca3af; padding: 40px;">
+            <div class="test-chat-typing" id="testChatTyping" style="display: none;">
+                <div class="test-message ai">
+                    <div class="test-message-bubble" style="padding: 8px 12px; background: #ffffff; border-bottom-left-radius: 2px;">
+                        <div style="display: flex; gap: 4px; align-items: center;">
+                            <div style="width: 8px; height: 8px; background: #667781; border-radius: 50%; animation: typingDot 1.4s ease-in-out infinite;"></div>
+                            <div style="width: 8px; height: 8px; background: #667781; border-radius: 50%; animation: typingDot 1.4s ease-in-out infinite 0.2s;"></div>
+                            <div style="width: 8px; height: 8px; background: #667781; border-radius: 50%; animation: typingDot 1.4s ease-in-out infinite 0.4s;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="test-chat-placeholder" id="testChatPlaceholder">
                 <p>💡 Digite uma mensagem abaixo para ver como a IA responderia</p>
-                <p style="font-size: 12px; margin-top: 10px;">As respostas aparecerão aqui sem enviar mensagem real</p>
+                <p style="font-size: 12px; margin-top: 8px; opacity: 0.8;">As respostas aparecerão aqui sem enviar mensagem real</p>
             </div>
         </div>
         
@@ -484,11 +603,11 @@
                 type="text" 
                 class="test-chat-input" 
                 id="testChatInput" 
-                placeholder="Digite uma mensagem para testar a IA..."
-                onkeypress="if(event.key === 'Enter') sendTestMessage()"
+                placeholder="Digite uma mensagem..."
+                onkeypress="handleChatInputKeyPress(event)"
+                oninput="handleChatInputTyping()"
             />
-            <button class="test-chat-send-btn" id="testChatSendBtn" onclick="sendTestMessage()">
-                Enviar
+            <button class="test-chat-send-btn" id="testChatSendBtn" onclick="sendTestMessage()" title="Enviar">
             </button>
         </div>
     </div>
@@ -642,11 +761,11 @@
                 
                 if (statusData.connected === true) {
                     // Conectado
-                    statusEl.textContent = '✓ Conectado';
-                    statusEl.className = 'status connected';
-                    connectBtn.style.display = 'none';
-                    updateBtn.style.display = 'inline-block';
-                    disconnectBtn.style.display = 'inline-block';
+                        statusEl.textContent = '✓ Conectado';
+                        statusEl.className = 'status connected';
+                        connectBtn.style.display = 'none';
+                        updateBtn.style.display = 'inline-block';
+                        disconnectBtn.style.display = 'inline-block';
                     
                     // Busca informações da instância para mostrar detalhes
                     try {
@@ -675,26 +794,26 @@
                         // Ignora erro ao buscar detalhes, mas mantém status conectado
                         console.warn('Erro ao buscar detalhes da instância:', e);
                     }
-                } else {
+                    } else {
                     // Desconectado
-                    statusEl.textContent = '✗ Desconectado';
-                    statusEl.className = 'status disconnected';
-                    connectBtn.style.display = 'inline-block';
+                        statusEl.textContent = '✗ Desconectado';
+                        statusEl.className = 'status disconnected';
+                        connectBtn.style.display = 'inline-block';
                     connectBtn.textContent = 'Conectar WhatsApp';
                     connectBtn.href = '/qr';
-                    updateBtn.style.display = 'none';
-                    disconnectBtn.style.display = 'none';
-                    
+                        updateBtn.style.display = 'none';
+                        disconnectBtn.style.display = 'none';
+                        
                     if (statusData.error) {
                         errorEl.textContent = statusData.error;
-                        errorEl.classList.remove('hidden');
+                            errorEl.classList.remove('hidden');
+                        }
                     }
-                }
             } catch (err) {
-                statusEl.textContent = '✗ Erro';
-                statusEl.className = 'status disconnected';
-                errorEl.textContent = 'Erro ao verificar status: ' + err.message;
-                errorEl.classList.remove('hidden');
+                    statusEl.textContent = '✗ Erro';
+                    statusEl.className = 'status disconnected';
+                    errorEl.textContent = 'Erro ao verificar status: ' + err.message;
+                    errorEl.classList.remove('hidden');
             }
         }
         
@@ -814,43 +933,127 @@
             loadMetrics();
         }, 30000);
         
+        // Variáveis para controle de digitação
+        let typingTimeout = null;
+        let isWaitingForTyping = false;
+        let pendingMessage = null;
+        
         // Chat de Teste da IA
         function addTestMessage(message, isUser = false) {
             const messagesContainer = document.getElementById('testChatMessages');
             const loading = document.getElementById('testChatLoading');
-            if (loading) loading.style.display = 'none';
+            const placeholder = document.getElementById('testChatPlaceholder');
+            const typing = document.getElementById('testChatTyping');
             
-            // Remove mensagem de placeholder se existir
-            const placeholder = messagesContainer.querySelector('div[style*="text-align: center"]');
-            if (placeholder) placeholder.remove();
+            if (loading) loading.style.display = 'none';
+            if (placeholder) placeholder.style.display = 'none';
+            if (typing) typing.style.display = 'none';
             
             const messageDiv = document.createElement('div');
             messageDiv.className = `test-message ${isUser ? 'user' : 'ai'}`;
             
             const label = document.createElement('div');
             label.className = 'test-message-label';
-            label.textContent = isUser ? 'Você' : 'IA (Carol - Portal Magra)';
+            label.textContent = isUser ? 'Você' : 'Carol - Portal Magra';
             
             const bubble = document.createElement('div');
             bubble.className = 'test-message-bubble';
-            bubble.textContent = message;
+            // Preserva quebras de linha do texto e formata melhor
+            bubble.style.whiteSpace = 'pre-wrap';
+            bubble.style.wordWrap = 'break-word';
+            // Formata o texto: preserva quebras de linha e adiciona espaçamento
+            const formattedMessage = message
+                .replace(/\n\n+/g, '\n\n')  // Remove múltiplas quebras de linha
+                .trim();
+            bubble.textContent = formattedMessage;
+            
+            const time = document.createElement('div');
+            time.className = 'test-message-time';
+            const now = new Date();
+            time.textContent = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
             
             messageDiv.appendChild(label);
             messageDiv.appendChild(bubble);
+            messageDiv.appendChild(time);
             messagesContainer.appendChild(messageDiv);
             
-            // Scroll para baixo
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            // Scroll para baixo suavemente
+            setTimeout(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }, 100);
+        }
+        
+        // Detecta quando o usuário está digitando
+        function handleChatInputTyping() {
+            const input = document.getElementById('testChatInput');
+            const typing = document.getElementById('testChatTyping');
+            const placeholder = document.getElementById('testChatPlaceholder');
+            const messagesContainer = document.getElementById('testChatMessages');
+            
+            // Limpa timeout anterior
+            if (typingTimeout) {
+                clearTimeout(typingTimeout);
+            }
+            
+            // Se o campo está vazio, esconde indicador de digitação
+            if (!input.value.trim()) {
+                if (typing) typing.style.display = 'none';
+                isWaitingForTyping = false;
+                pendingMessage = null;
+                return;
+            }
+            
+            // Mostra indicador de digitação
+            if (typing && !isWaitingForTyping) {
+                typing.style.display = 'block';
+                if (placeholder) placeholder.style.display = 'none';
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+            
+            // Aguarda 2 segundos após parar de digitar antes de processar
+            typingTimeout = setTimeout(() => {
+                if (input.value.trim() && !isWaitingForTyping) {
+                    isWaitingForTyping = true;
+                    pendingMessage = input.value.trim();
+                    // Esconde indicador de digitação e processa mensagem
+                    if (typing) typing.style.display = 'none';
+                    sendTestMessage();
+                }
+            }, 2000); // 2 segundos após parar de digitar
+        }
+        
+        // Trata tecla Enter (envia imediatamente)
+        function handleChatInputKeyPress(event) {
+            if (event.key === 'Enter') {
+                // Cancela o timeout de digitação
+                if (typingTimeout) {
+                    clearTimeout(typingTimeout);
+                    typingTimeout = null;
+                }
+                // Envia imediatamente
+                sendTestMessage();
+            }
         }
         
         async function sendTestMessage() {
             const input = document.getElementById('testChatInput');
             const sendBtn = document.getElementById('testChatSendBtn');
             const loading = document.getElementById('testChatLoading');
+            const typing = document.getElementById('testChatTyping');
             const messagesContainer = document.getElementById('testChatMessages');
             
-            const message = input.value.trim();
+            // Usa mensagem pendente ou pega do input
+            const message = pendingMessage || input.value.trim();
             if (!message) return;
+            
+            // Limpa estados
+            if (typingTimeout) {
+                clearTimeout(typingTimeout);
+                typingTimeout = null;
+            }
+            if (typing) typing.style.display = 'none';
+            isWaitingForTyping = false;
+            pendingMessage = null;
             
             // Desabilita input
             input.disabled = true;
@@ -870,8 +1073,18 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
+                    credentials: 'include',  // Inclui cookies de sessão
                     body: JSON.stringify({ message: message })
                 });
+                
+                if (!response.ok) {
+                    // Se não autorizado, tenta redirecionar para login
+                    if (response.status === 401) {
+                        addTestMessage('⚠️ Você precisa estar logado para testar a IA. Faça login primeiro.', false);
+                        return;
+                    }
+                    throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                }
                 
                 const data = await response.json();
                 

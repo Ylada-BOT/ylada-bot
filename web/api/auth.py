@@ -80,7 +80,7 @@ def register():
                 session['user_id'] = user.id
                 session['user_email'] = user.email
                 session['user_role'] = user.role.value
-                
+            
                 return jsonify({
                     'success': True,
                     'message': 'Usuário criado com sucesso',
@@ -159,7 +159,7 @@ def login():
                 session['user_id'] = user.id
                 session['user_email'] = user.email
                 session['user_role'] = user.role.value
-                
+            
                 return jsonify({
                     'success': True,
                     'token': token,

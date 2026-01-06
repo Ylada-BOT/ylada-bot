@@ -362,16 +362,16 @@
                                 // API moderna (qrcode npm package)
                                 console.log('Usando API moderna: QRCode.toCanvas');
                                 QRCode.toCanvas(qrElement, qrData, {
-                                    width: 256,
-                                    margin: 2
-                                }, function (error) {
-                                    if (error) {
-                                        console.error('Erro ao gerar QR Code:', error);
-                                        qrContainer.innerHTML = `<div style="color: #dc2626; padding: 20px;">Erro ao gerar QR Code: ${error.message}</div>`;
-                                    } else {
-                                        console.log('QR Code gerado com sucesso!');
-                                    }
-                                });
+                                width: 256,
+                                margin: 2
+                            }, function (error) {
+                                if (error) {
+                                    console.error('Erro ao gerar QR Code:', error);
+                                    qrContainer.innerHTML = `<div style="color: #dc2626; padding: 20px;">Erro ao gerar QR Code: ${error.message}</div>`;
+                                } else {
+                                    console.log('QR Code gerado com sucesso!');
+                                }
+                            });
                             } else if (typeof QRCode === 'function') {
                                 // API antiga (qrcode.js local)
                                 console.log('Usando API antiga: new QRCode()');
@@ -444,23 +444,23 @@
             }
             
             async function checkStatus() {
-                try {
+            try {
                     const response = await fetch(`/api/whatsapp-status`);
-                    const data = await response.json();
-                    
+                const data = await response.json();
+                
                     if (data.connected || (data.success && data.connected)) {
-                        // Conectado!
-                        document.getElementById('status').className = 'status connected';
-                        document.getElementById('status').textContent = '✅ WhatsApp conectado!';
-                        document.getElementById('qr-container').innerHTML = '<div style="color: #10b981; font-size: 48px;">✅</div>';
-                        document.getElementById('instructions').style.display = 'none';
-                        document.getElementById('refresh-btn').style.display = 'none';
-                        
-                        if (checkInterval) {
-                            clearInterval(checkInterval);
-                        }
-                        
-                        setTimeout(() => {
+                    // Conectado!
+                    document.getElementById('status').className = 'status connected';
+                    document.getElementById('status').textContent = '✅ WhatsApp conectado!';
+                    document.getElementById('qr-container').innerHTML = '<div style="color: #10b981; font-size: 48px;">✅</div>';
+                    document.getElementById('instructions').style.display = 'none';
+                    document.getElementById('refresh-btn').style.display = 'none';
+                    
+                    if (checkInterval) {
+                        clearInterval(checkInterval);
+                    }
+                    
+                    setTimeout(() => {
                             window.location.href = '/';
                     }, 2000);
                 } else {

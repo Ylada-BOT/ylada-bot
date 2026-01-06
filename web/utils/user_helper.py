@@ -129,3 +129,5 @@ def get_user_by_id_simple(user_id: int) -> Optional[Dict]:
     
     return None
 
+
+

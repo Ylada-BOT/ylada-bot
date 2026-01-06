@@ -43,7 +43,7 @@ app = Flask(__name__,
             template_folder=os.path.join(os.path.dirname(__file__), 'templates'),
             static_folder=os.path.join(os.path.dirname(__file__), 'static'),
             static_url_path='/static')
-CORS(app)
+CORS(app, supports_credentials=True)  # Permite envio de cookies
 
 # Handler global para erros não tratados - sempre retorna JSON para APIs
 from werkzeug.exceptions import HTTPException
@@ -262,6 +262,27 @@ except Exception as e:
 
 # IA Handler
 ai = AIHandler()
+
+# Carrega configuração inicial da IA do .env
+try:
+    initial_config = {
+        'provider': os.getenv('AI_PROVIDER', 'openai'),
+        'api_key': os.getenv('AI_API_KEY', ''),
+        'model': os.getenv('AI_MODEL', 'gpt-4o-mini'),
+        'system_prompt': os.getenv('AI_SYSTEM_PROMPT', 'Você é um assistente útil e amigável.')
+    }
+    if initial_config['api_key']:
+        ai.set_config(
+            provider=initial_config['provider'],
+            api_key=initial_config['api_key'],
+            model=initial_config['model'],
+            system_prompt=initial_config['system_prompt']
+        )
+        print(f"[✓] IA configurada com API Key do .env (Provider: {initial_config['provider']}, Model: {initial_config['model']})")
+    else:
+        print("[!] AI_API_KEY não encontrada no .env. Configure no dashboard.")
+except Exception as e:
+    print(f"[!] Erro ao configurar IA inicialmente: {e}")
 print("[✓] IA Handler inicializado")
 
 # Configuração (salva por usuário)
@@ -308,12 +329,15 @@ def load_config(user_id=None):
             pass
     
     # Aplica configuração na IA
-    ai.set_config(
-        provider=config['provider'],
-        api_key=config['api_key'],
-        model=config['model'],
-        system_prompt=config['system_prompt']
-    )
+    try:
+        ai.set_config(
+            provider=config['provider'],
+            api_key=config['api_key'],
+            model=config['model'],
+            system_prompt=config['system_prompt']
+        )
+    except Exception as e:
+        print(f"[!] Erro ao configurar IA: {e}")
     
     return config
 
@@ -433,7 +457,7 @@ def index():
     """Dashboard principal"""
     # Se autenticação está desabilitada, mostra dashboard direto
     if not AUTH_REQUIRED:
-        return render_template('dashboard_new.html')
+            return render_template('dashboard_new.html')
     
     # Se autenticação está habilitada, carrega config do usuário logado
     user_id = session.get('user_id')
@@ -767,7 +791,6 @@ def qr_code():
     return render_template('instances/connect.html')
 
 @app.route('/api/qr')
-@require_login
 def get_qr():
     """Obtém QR Code do WhatsApp - Modelo Simplificado"""
     try:
@@ -834,12 +857,6 @@ def get_qr():
                 "error": f"Erro ao conectar com servidor WhatsApp: {str(e)}",
                 "status": "error"
             }), 503
-        
-        return jsonify({
-            "status": "generating",
-            "message": "Aguardando geração do QR Code...",
-            "success": True
-        })
     except Exception as e:
         import traceback
         return jsonify({

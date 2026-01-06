@@ -52,7 +52,7 @@ class AIHandler:
         model = agent_config.get('model') if agent_config else self.model
         system_prompt = agent_config.get('system_prompt') if agent_config else self.system_prompt
         temperature = agent_config.get('temperature', 0.7) if agent_config else 0.7
-        max_tokens = agent_config.get('max_tokens', 1000) if agent_config else 1000
+        max_tokens = agent_config.get('max_tokens', 500) if agent_config else 500  # Reduzido para respostas mais rápidas
         
         if not api_key:
             return "⚠️ IA não configurada. Configure sua API Key no dashboard."
@@ -174,16 +174,19 @@ class AIHandler:
         try:
             import openai
             
-            client = openai.OpenAI(api_key=api_key)
+            client = openai.OpenAI(api_key=api_key, timeout=15.0)  # Timeout de 15 segundos
             
             response = client.chat.completions.create(
                 model=model,
                 messages=self.conversation_history[history_key],
                 temperature=temperature,
-                max_tokens=max_tokens
+                max_tokens=min(max_tokens, 500),  # Limita a 500 tokens para respostas mais rápidas
+                stream=False
             )
             
-            return response.choices[0].message.content.strip()
+            text = response.choices[0].message.content.strip()
+            # Formata o texto para melhor legibilidade (preserva quebras de linha)
+            return self._format_response(text)
             
         except ImportError:
             return "⚠️ Biblioteca 'openai' não instalada. Execute: pip install openai"
@@ -195,7 +198,7 @@ class AIHandler:
         try:
             from anthropic import Anthropic
             
-            client = Anthropic(api_key=api_key)
+            client = Anthropic(api_key=api_key, timeout=15.0)  # Timeout de 15 segundos
             
             # Converte formato OpenAI para Anthropic
             messages = []
@@ -209,17 +212,64 @@ class AIHandler:
             
             response = client.messages.create(
                 model=model,
-                max_tokens=max_tokens,
+                max_tokens=min(max_tokens, 500),  # Limita a 500 tokens para respostas mais rápidas
                 system=system_prompt,
                 messages=messages
             )
             
-            return response.content[0].text.strip()
+            text = response.content[0].text.strip()
+            # Formata o texto para melhor legibilidade
+            return self._format_response(text)
             
         except ImportError:
             return "⚠️ Biblioteca 'anthropic' não instalada. Execute: pip install anthropic"
         except Exception as e:
             return f"⚠️ Erro ao chamar Anthropic: {str(e)}"
+    
+    def _format_response(self, text: str) -> str:
+        """
+        Formata a resposta da IA para melhor legibilidade no WhatsApp
+        - Preserva quebras de linha existentes
+        - Adiciona quebras após pontos finais seguidos de espaço
+        - Garante espaçamento adequado entre parágrafos
+        """
+        if not text:
+            return text
+        
+        # Preserva quebras de linha existentes
+        lines = text.split('\n')
+        formatted_lines = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                formatted_lines.append('')  # Linha vazia para espaçamento
+                continue
+            
+            # Se a linha é muito longa, tenta quebrar após pontos
+            if len(line) > 80:
+                # Quebra após pontos finais seguidos de espaço
+                parts = line.split('. ')
+                if len(parts) > 1:
+                    formatted_parts = []
+                    for i, part in enumerate(parts):
+                        formatted_parts.append(part)
+                        if i < len(parts) - 1:
+                            formatted_parts.append('.')
+                    formatted_lines.append(' '.join(formatted_parts))
+                else:
+                    formatted_lines.append(line)
+            else:
+                formatted_lines.append(line)
+        
+        # Junta as linhas preservando quebras
+        result = '\n'.join(formatted_lines)
+        
+        # Remove múltiplas linhas vazias consecutivas (máximo 2)
+        while '\n\n\n' in result:
+            result = result.replace('\n\n\n', '\n\n')
+        
+        return result.strip()
     
     def clear_history(self, phone: Optional[str] = None):
         """Limpa histórico de conversas"""

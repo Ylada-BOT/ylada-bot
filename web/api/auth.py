@@ -800,3 +800,47 @@ def upload_photo():
         
     except Exception as e:
         return jsonify({'error': f'Erro ao fazer upload: {str(e)}'}), 500
+
+
+@bp.route('/reset-password', methods=['POST'])
+def reset_password():
+    """Endpoint temporário para resetar senha (apenas para portalmagra)"""
+    try:
+        data = request.get_json()
+        email = data.get('email', '').strip()
+        new_password = data.get('password', '').strip()
+        
+        if not email or not new_password:
+            return jsonify({'error': 'Email e senha são obrigatórios'}), 400
+        
+        # Apenas para portalmagra por segurança
+        if email.lower() != 'portalmagra@gmail.com':
+            return jsonify({'error': 'Este endpoint é apenas para portalmagra@gmail.com'}), 403
+        
+        if DB_AVAILABLE:
+            try:
+                from src.auth.authentication import hash_password
+                from src.models.user import User
+                db = SessionLocal()
+                try:
+                    user = db.query(User).filter(User.email == email.lower()).first()
+                    if not user:
+                        return jsonify({'error': 'Usuário não encontrado'}), 404
+                    
+                    # Atualiza senha com hash bcrypt
+                    user.password_hash = hash_password(new_password)
+                    db.commit()
+                    
+                    return jsonify({
+                        'success': True,
+                        'message': 'Senha atualizada com sucesso!'
+                    }), 200
+                finally:
+                    db.close()
+            except Exception as e:
+                return jsonify({'error': f'Erro ao atualizar senha: {str(e)}'}), 500
+        
+        return jsonify({'error': 'Banco de dados não disponível'}), 503
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

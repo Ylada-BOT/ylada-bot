@@ -461,8 +461,33 @@
                 const statusDiv = document.getElementById('status');
                 const qrContainer = document.getElementById('qr-container');
                 statusDiv.className = 'status error';
-                statusDiv.textContent = 'Erro ao buscar QR Code';
-                qrContainer.innerHTML = `<div style="color: #dc2626; padding: 20px;">Erro: ${error.message}<br><small>Tente recarregar a página (F5)</small></div>`;
+                
+                // Trata erro 503 especificamente
+                let errorMessage = 'Erro ao buscar QR Code';
+                let errorDetails = '';
+                
+                if (error.message && error.message.includes('503')) {
+                    errorMessage = 'Servidor WhatsApp não está disponível';
+                    errorDetails = `
+                        <div style="text-align: left; padding: 20px; background: #fee2e2; border-radius: 8px; margin-top: 20px;">
+                            <div style="font-weight: 600; margin-bottom: 10px; color: #991b1b;">Erro 503: Servidor WhatsApp não está disponível</div>
+                            <div style="color: #991b1b; margin-bottom: 12px;">
+                                O servidor Node.js do WhatsApp não está rodando ou não está acessível.
+                            </div>
+                            <div style="color: #92400e; margin-top: 12px; padding-top: 12px; border-top: 1px solid #fca5a5;">
+                                <strong>Em produção:</strong> Verifique se o serviço WhatsApp está ativo no Railway.
+                            </div>
+                            <div style="color: #92400e; margin-top: 8px;">
+                                <strong>Solução:</strong> Tente recarregar a página (F5) em alguns segundos.
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    errorDetails = `<div style="color: #dc2626; padding: 20px;">Erro: ${error.message || 'Erro desconhecido'}<br><small>Tente recarregar a página (F5)</small></div>`;
+                }
+                
+                statusDiv.textContent = errorMessage;
+                qrContainer.innerHTML = errorDetails;
                 
                 // Tenta novamente em 5 segundos
                 setTimeout(checkQR, 5000);

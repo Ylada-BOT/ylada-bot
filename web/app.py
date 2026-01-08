@@ -900,11 +900,13 @@ def get_qr():
             print(f"[!] Servidor WhatsApp não está acessível na porta {port}")
             if IS_PRODUCTION:
                 return jsonify({
-                    "error": f"Servidor WhatsApp não está acessível. Verifique se o serviço Node.js está rodando.",
+                    "error": "Servidor WhatsApp não está acessível. O serviço Node.js precisa estar rodando.",
                     "status": "error",
+                    "message": "Erro 503: Servidor WhatsApp não está disponível",
                     "hint": f"Em produção, o servidor WhatsApp precisa estar rodando como um serviço separado no Railway. Verifique se o serviço está ativo e acessível em {server_url}",
                     "port": port,
-                    "server_url": server_url
+                    "server_url": server_url,
+                    "solution": "Tente recarregar a página (F5) em alguns segundos ou verifique se o serviço WhatsApp está ativo no Railway."
                 }), 503
         
         # Busca QR Code do servidor Node.js
@@ -960,11 +962,13 @@ def get_qr():
             from config.settings import IS_PRODUCTION
             if IS_PRODUCTION:
                 return jsonify({
-                    "error": f"Servidor WhatsApp não está acessível. O serviço Node.js precisa estar rodando.",
+                    "error": "Servidor WhatsApp não está acessível. O serviço Node.js precisa estar rodando.",
                     "status": "error",
+                    "message": "Erro 503: Servidor WhatsApp não está disponível",
                     "port": port,
                     "hint": f"Em produção, o servidor WhatsApp precisa estar rodando como um serviço separado. Verifique se o serviço está ativo no Railway.",
-                    "server_url": server_url
+                    "server_url": server_url,
+                    "solution": "Tente recarregar a página (F5) em alguns segundos ou verifique se o serviço WhatsApp está ativo no Railway."
                 }), 503
             
             # Em desenvolvimento, tenta iniciar automaticamente
@@ -974,7 +978,7 @@ def get_qr():
                 time.sleep(3)
                 # Tenta novamente após iniciar
             try:
-                    response = requests.get(qr_url, timeout=5)
+                response = requests.get(qr_url, timeout=5)
                 if response.status_code == 200:
                     data = response.json()
                     if data.get('ready'):
@@ -986,7 +990,7 @@ def get_qr():
                             "status": "waiting",
                             "success": True
                         })
-                except Exception as retry_error:
+            except Exception as retry_error:
                     print(f"[!] Erro ao tentar novamente: {retry_error}")
             
             return jsonify({

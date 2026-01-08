@@ -135,14 +135,28 @@ def authenticate_user_simple(email: str, password: str) -> Optional[Dict]:
         return None
     
     email_lower = email.lower().strip()
+    print(f"[DEBUG AUTH] Buscando usuário com email: {email_lower}")
+    print(f"[DEBUG AUTH] Total de usuários no arquivo: {len(users)}")
     
     # Busca usuário por email
-    for user_data in users.values():
+    for user_id, user_data in users.items():
         user_email = user_data.get('email', '').lower().strip()
+        print(f"[DEBUG AUTH] Verificando usuário ID {user_id}: {user_email}")
+        
         if user_email == email_lower:
+            print(f"[DEBUG AUTH] Email encontrado! Verificando senha...")
             # Verifica senha
             password_hash = user_data.get('password_hash', '')
-            if password_hash and _verify_password(password, password_hash):
+            if not password_hash:
+                print(f"[!] Usuário {email} não tem hash de senha")
+                return None
+            
+            # Gera hash da senha fornecida para comparar
+            provided_hash = _hash_password(password)
+            print(f"[DEBUG AUTH] Hash fornecido: {provided_hash[:20]}...")
+            print(f"[DEBUG AUTH] Hash armazenado: {password_hash[:20]}...")
+            
+            if _verify_password(password, password_hash):
                 # Retorna sem password_hash
                 user_copy = user_data.copy()
                 if 'password_hash' in user_copy:
@@ -151,6 +165,7 @@ def authenticate_user_simple(email: str, password: str) -> Optional[Dict]:
                 return user_copy
             else:
                 print(f"[!] Senha incorreta para {email}")
+                print(f"[DEBUG AUTH] Hash não corresponde")
                 return None
     
     print(f"[!] Email não encontrado: {email}")

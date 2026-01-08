@@ -268,6 +268,10 @@ def login():
         email = data.get('email', '').strip()
         password = data.get('password', '').strip()
         
+        print(f"[DEBUG LOGIN] Tentando login para: {email}")
+        print(f"[DEBUG LOGIN] DB_AVAILABLE: {DB_AVAILABLE}")
+        print(f"[DEBUG LOGIN] SIMPLE_AUTH_AVAILABLE: {SIMPLE_AUTH_AVAILABLE}")
+        
         if not email or not password:
             return jsonify({'error': 'Email e senha são obrigatórios'}), 400
         
@@ -276,14 +280,20 @@ def login():
             try:
                 db = SessionLocal()
                 try:
+                    print(f"[DEBUG LOGIN] Tentando autenticar no banco de dados...")
                     user = authenticate_user(db, email, password)
                     
                     if not user:
+                        print(f"[DEBUG LOGIN] Usuário não encontrado no banco, tentando modo simplificado...")
                         # Se não encontrou no banco, tenta modo simplificado
                         if SIMPLE_AUTH_AVAILABLE:
                             user = authenticate_user_simple(email, password)
                             if not user:
-                                return jsonify({'error': 'Credenciais inválidas'}), 401
+                                print(f"[DEBUG LOGIN] Falha na autenticação simplificada também")
+                                return jsonify({
+                                    'error': 'Credenciais inválidas',
+                                    'hint': 'Verifique se o email e senha estão corretos. Email: ' + email
+                                }), 401
                             
                             # Cria token simplificado
                             token = create_token_simple(user['id'], user['email'], user['role'])
@@ -326,10 +336,15 @@ def login():
             except Exception as db_error:
                 # Se erro de conexão, usa modo simplificado como fallback
                 print(f"[!] Erro ao conectar com banco: {db_error}")
+                print(f"[DEBUG LOGIN] Usando modo simplificado como fallback...")
                 if SIMPLE_AUTH_AVAILABLE:
                     user = authenticate_user_simple(email, password)
                     if not user:
-                        return jsonify({'error': 'Credenciais inválidas'}), 401
+                        print(f"[DEBUG LOGIN] Falha na autenticação simplificada após erro de banco")
+                        return jsonify({
+                            'error': 'Credenciais inválidas',
+                            'hint': 'Verifique se o email e senha estão corretos. Email: ' + email
+                        }), 401
                     
                     token = create_token_simple(user['id'], user['email'], user['role'])
                     session['user_id'] = user['id']

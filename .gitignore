@@ -44,3 +44,4 @@ env.local.COMPLETO.txt
 ghp_*
 .env.local.bak*
 .env.local.SUPABASE
+data/ai_config_user_1.json

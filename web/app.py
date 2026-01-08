@@ -770,8 +770,10 @@ def instances_detail(instance_id):
     
     # Verifica se está conectado
     try:
+        from web.utils.instance_helper import get_whatsapp_server_url
         port = user_instance.get('port', 5001)
-        status_response = requests.get(f"http://localhost:{port}/status", timeout=1)
+        server_url = get_whatsapp_server_url(port)
+        status_response = requests.get(f"{server_url}/status", timeout=1)
         if status_response.status_code == 200:
             status_data = status_response.json()
             actually_connected = status_data.get("actuallyConnected", False)
@@ -811,7 +813,7 @@ def qr_code():
 def get_qr():
     """Obtém QR Code do WhatsApp - Modelo Simplificado"""
     try:
-        from web.utils.instance_helper import get_or_create_user_instance, ensure_whatsapp_server_running
+        from web.utils.instance_helper import get_or_create_user_instance, ensure_whatsapp_server_running, get_whatsapp_server_url
         from web.utils.auth_helpers import get_current_user_id as get_user_id
         import requests
         
@@ -825,6 +827,9 @@ def get_qr():
         
         print(f"[*] Usuário {user_id} solicitando QR code na porta {port}")
         
+        # Obtém URL do servidor WhatsApp
+        server_url = get_whatsapp_server_url(port)
+        
         # Garante que o servidor está rodando na porta correta
         server_started = ensure_whatsapp_server_running(port)
         if not server_started:
@@ -832,7 +837,7 @@ def get_qr():
         
         # Busca QR Code do servidor Node.js
         try:
-            response = requests.get(f"http://localhost:{port}/qr", timeout=10)
+            response = requests.get(f"{server_url}/qr", timeout=10)
             if response.status_code == 200:
                 data = response.json()
                 
@@ -875,7 +880,7 @@ def get_qr():
             time.sleep(2)
             # Tenta novamente
             try:
-                response = requests.get(f"http://localhost:{port}/qr", timeout=5)
+                response = requests.get(f"{server_url}/qr", timeout=5)
                 if response.status_code == 200:
                     data = response.json()
                     if data.get('ready'):
@@ -918,7 +923,7 @@ def get_qr():
 def get_conversations():
     """Obtém lista de conversas do WhatsApp - Modelo Simplificado"""
     try:
-        from web.utils.instance_helper import get_or_create_user_instance
+        from web.utils.instance_helper import get_or_create_user_instance, get_whatsapp_server_url
         from web.utils.auth_helpers import get_current_user_id
         import requests
         
@@ -926,12 +931,13 @@ def get_conversations():
         user_id = get_current_user_id() or 1
         instance = get_or_create_user_instance(user_id)
         whatsapp_port = instance.get('port', 5001)
+        server_url = get_whatsapp_server_url(whatsapp_port)
         
         # Parâmetros opcionais
         only_individuals = request.args.get('only_individuals', 'false').lower() == 'true'
         limit = request.args.get('limit', type=int)
         
-        response = requests.get(f"http://localhost:{whatsapp_port}/chats", timeout=10)
+        response = requests.get(f"{server_url}/chats", timeout=10)
         
         if response.status_code == 200:
             data = response.json()
@@ -973,7 +979,7 @@ def get_conversations():
 def get_conversation_messages(chat_id):
     """Obtém mensagens de uma conversa específica - Modelo Simplificado"""
     try:
-        from web.utils.instance_helper import get_or_create_user_instance
+        from web.utils.instance_helper import get_or_create_user_instance, get_whatsapp_server_url
         from web.utils.auth_helpers import get_current_user_id
         import requests
         
@@ -981,10 +987,11 @@ def get_conversation_messages(chat_id):
         user_id = get_current_user_id() or 1
         instance = get_or_create_user_instance(user_id)
         whatsapp_port = instance.get('port', 5001)
+        server_url = get_whatsapp_server_url(whatsapp_port)
         
         limit = request.args.get('limit', 50, type=int)
         response = requests.get(
-            f"http://localhost:{whatsapp_port}/chats/{chat_id}/messages",
+            f"{server_url}/chats/{chat_id}/messages",
             params={"limit": limit},
             timeout=10
         )
@@ -1066,7 +1073,7 @@ def check_active_flow():
 def whatsapp_status():
     """Status da conexão WhatsApp (modo simplificado: usa instância do usuário)"""
     try:
-        from web.utils.instance_helper import get_or_create_user_instance
+        from web.utils.instance_helper import get_or_create_user_instance, get_whatsapp_server_url
         from web.utils.auth_helpers import get_current_user_id
         import requests
         
@@ -1074,10 +1081,11 @@ def whatsapp_status():
         user_id = get_current_user_id() or 1
         instance = get_or_create_user_instance(user_id)
         whatsapp_port = instance.get('port', 5001)
+        server_url = get_whatsapp_server_url(whatsapp_port)
         
         # Verifica status do servidor Node.js da instância do usuário
         try:
-            status_response = requests.get(f"http://localhost:{whatsapp_port}/status", timeout=3)
+            status_response = requests.get(f"{server_url}/status", timeout=3)
             if status_response.status_code == 200:
                 status_data = status_response.json()
                 has_qr = status_data.get("hasQr", False)
@@ -1165,12 +1173,14 @@ def whatsapp_disconnect():
         return jsonify({"success": False, "error": "WhatsApp não inicializado"}), 400
     
     try:
+        from web.utils.instance_helper import get_whatsapp_server_url
         import requests
         whatsapp_port = whatsapp.port if hasattr(whatsapp, 'port') else 5001
+        server_url = get_whatsapp_server_url(whatsapp_port)
         
         # Chama endpoint de desconexão do servidor Node.js
         try:
-            response = requests.post(f"http://localhost:{whatsapp_port}/disconnect", timeout=5)
+            response = requests.post(f"{server_url}/disconnect", timeout=5)
             if response.status_code == 200:
                 data = response.json()
                 return jsonify({

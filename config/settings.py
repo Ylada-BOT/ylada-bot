@@ -43,6 +43,14 @@ USE_REDIS = os.getenv('USE_REDIS', 'false').lower() == 'true'
 
 # WhatsApp
 WHATSAPP_SERVER_PORT = int(os.getenv('WHATSAPP_SERVER_PORT', 5001))
+# URL do servidor WhatsApp (localhost em dev, URL externa em produção)
+WHATSAPP_SERVER_URL = os.getenv('WHATSAPP_SERVER_URL', f'http://localhost:{WHATSAPP_SERVER_PORT}')
+# Detecta se está em produção (Railway, Vercel, Render, etc)
+IS_PRODUCTION = os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('VERCEL') or os.getenv('RENDER')
+if IS_PRODUCTION and not os.getenv('WHATSAPP_SERVER_URL'):
+    # Em produção, assume que o servidor está na mesma URL base
+    APP_URL = os.getenv('APP_URL', 'http://localhost:5002')
+    WHATSAPP_SERVER_URL = APP_URL.replace(':5002', f':{WHATSAPP_SERVER_PORT}') if ':5002' in APP_URL else f'{APP_URL}:{WHATSAPP_SERVER_PORT}'
 WHATSAPP_WEBHOOK_URL = os.getenv(
     'WHATSAPP_WEBHOOK_URL',
     f'http://localhost:5002/webhook'

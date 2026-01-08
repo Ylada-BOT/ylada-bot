@@ -15,26 +15,47 @@ USERS_FILE = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'users.
 def _load_users():
     """Carrega usuários do arquivo"""
     if not os.path.exists(USERS_FILE):
+        print(f"[!] Arquivo de usuários não encontrado: {USERS_FILE}")
         return {}
     
     try:
         with open(USERS_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except json.JSONDecodeError:
+            users = json.load(f)
+            print(f"[✓] Usuários carregados: {len(users)} usuário(s)")
+            return users
+    except json.JSONDecodeError as e:
+        print(f"[!] Erro ao decodificar JSON: {e}")
         return {}
     except Exception as e:
         print(f"[!] Erro ao carregar usuários: {e}")
+        import traceback
+        print(f"[!] Traceback: {traceback.format_exc()}")
         return {}
 
 
 def _save_users(users_data):
     """Salva usuários no arquivo"""
-    os.makedirs(os.path.dirname(USERS_FILE), exist_ok=True)
     try:
+        os.makedirs(os.path.dirname(USERS_FILE), exist_ok=True)
+        # Garante que o diretório tem permissões corretas
+        os.chmod(os.path.dirname(USERS_FILE), 0o755)
+        
+        # Salva arquivo
         with open(USERS_FILE, 'w', encoding='utf-8') as f:
             json.dump(users_data, f, indent=2, ensure_ascii=False)
+        
+        # Garante permissões de leitura/escrita
+        try:
+            os.chmod(USERS_FILE, 0o644)
+        except:
+            pass
+        
+        print(f"[✓] Usuários salvos em {USERS_FILE}")
+        print(f"[✓] Total de usuários: {len(users_data)}")
     except Exception as e:
         print(f"[!] Erro ao salvar usuários: {e}")
+        import traceback
+        print(f"[!] Traceback: {traceback.format_exc()}")
 
 
 def _hash_password(password: str) -> str:
@@ -86,7 +107,13 @@ def register_user_simple(email: str, password: str, name: str) -> Optional[Dict]
     users[str(user_id)] = user
     _save_users(users)
     
-    print(f"[✓] Usuário criado: {name} ({email}) - ID: {user_id}")
+    # Verifica se foi salvo corretamente
+    saved_users = _load_users()
+    if str(user_id) not in saved_users:
+        print(f"[!] AVISO: Usuário não foi salvo corretamente!")
+    else:
+        print(f"[✓] Usuário criado e verificado: {name} ({email}) - ID: {user_id}")
+        print(f"[✓] Hash da senha: {user['password_hash'][:20]}...")
     
     # Retorna sem password_hash
     user_copy = user.copy()

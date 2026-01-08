@@ -127,34 +127,85 @@ def register():
         
         # Tenta usar banco de dados se disponível
         if DB_AVAILABLE:
-            db = SessionLocal()
             try:
-                user = register_user(db, email, password, name, UserRole.USER)
+                db = SessionLocal()
+                try:
+                    user = register_user(db, email, password, name, UserRole.USER)
+                    
+                    if not user:
+                        # Se não criou no banco, tenta modo simplificado
+                        if SIMPLE_AUTH_AVAILABLE:
+                            user = register_user_simple(email, password, name)
+                            if not user:
+                                return jsonify({'error': 'Email já cadastrado'}), 400
+                            
+                            token = create_token_simple(user['id'], user['email'], user['role'])
+                            session['user_id'] = user['id']
+                            session['user_email'] = user['email']
+                            session['user_role'] = user['role']
+                            
+                            return jsonify({
+                                'success': True,
+                                'message': 'Usuário criado com sucesso',
+                                'token': token,
+                                'user': {
+                                    'id': user['id'],
+                                    'email': user['email'],
+                                    'name': user['name'],
+                                    'role': user['role']
+                                }
+                            }), 201
+                        return jsonify({'error': 'Email já cadastrado'}), 400
+                    
+                    # Cria token
+                    token = create_token(user.id, user.email, user.role.value)
+                    
+                    # Salva na sessão
+                    session['user_id'] = user.id
+                    session['user_email'] = user.email
+                    session['user_role'] = user.role.value
                 
-                if not user:
-                    return jsonify({'error': 'Email já cadastrado'}), 400
-                
-                # Cria token
-                token = create_token(user.id, user.email, user.role.value)
-                
-                # Salva na sessão
-                session['user_id'] = user.id
-                session['user_email'] = user.email
-                session['user_role'] = user.role.value
-            
-                return jsonify({
-                    'success': True,
-                    'message': 'Usuário criado com sucesso',
-                    'token': token,
-                    'user': {
-                        'id': user.id,
-                        'email': user.email,
-                        'name': user.name,
-                        'role': user.role.value
-                    }
-                }), 201
-            finally:
-                db.close()
+                    return jsonify({
+                        'success': True,
+                        'message': 'Usuário criado com sucesso',
+                        'token': token,
+                        'user': {
+                            'id': user.id,
+                            'email': user.email,
+                            'name': user.name,
+                            'role': user.role.value
+                        }
+                    }), 201
+                finally:
+                    db.close()
+            except Exception as db_error:
+                # Se erro de conexão, usa modo simplificado como fallback
+                print(f"[!] Erro ao conectar com banco: {db_error}")
+                if SIMPLE_AUTH_AVAILABLE:
+                    user = register_user_simple(email, password, name)
+                    if not user:
+                        return jsonify({'error': 'Email já cadastrado'}), 400
+                    
+                    token = create_token_simple(user['id'], user['email'], user['role'])
+                    session['user_id'] = user['id']
+                    session['user_email'] = user['email']
+                    session['user_role'] = user['role']
+                    
+                    return jsonify({
+                        'success': True,
+                        'message': 'Usuário criado com sucesso (modo simplificado)',
+                        'token': token,
+                        'user': {
+                            'id': user['id'],
+                            'email': user['email'],
+                            'name': user['name'],
+                            'role': user['role']
+                        }
+                    }), 201
+                else:
+                    return jsonify({
+                        'error': f'Erro de conexão com banco de dados: {str(db_error)}'
+                    }), 503
         
         # Modo simplificado (arquivo JSON)
         elif SIMPLE_AUTH_AVAILABLE:

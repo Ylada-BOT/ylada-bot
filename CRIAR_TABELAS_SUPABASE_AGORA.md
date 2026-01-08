@@ -1,14 +1,61 @@
+# 📊 CRIAR TABELAS NO SUPABASE - PASSO A PASSO
+
+**Data:** 2025-01-27  
+**Objetivo:** Criar todas as tabelas necessárias no Supabase
+
+---
+
+## 🚀 MÉTODO RÁPIDO (5 minutos)
+
+### Passo 1: Acessar SQL Editor
+
+1. **Acesse:** https://supabase.com
+2. **Faça login** no seu projeto
+3. **No menu lateral esquerdo**, clique em **"SQL Editor"** (ícone de código `</>`)
+4. **Clique em "New query"** (Nova consulta)
+
+### Passo 2: Copiar Script SQL
+
+1. **Abra o arquivo:** `scripts/create_tables_supabase.sql`
+2. **Selecione TODO o conteúdo** (Ctrl+A / Cmd+A)
+3. **Copie** (Ctrl+C / Cmd+C)
+
+### Passo 3: Colar e Executar
+
+1. **Cole o script** no SQL Editor do Supabase
+2. **Clique em "Run"** (ou pressione Ctrl+Enter / Cmd+Enter)
+3. **Aguarde alguns segundos**
+4. **Deve aparecer:** "Success. No rows returned" ou lista de tabelas
+
+### Passo 4: Verificar Tabelas Criadas
+
+1. **No menu lateral**, clique em **"Table Editor"** (ícone de tabela)
+2. **Você deve ver 10 tabelas:**
+   - ✅ users
+   - ✅ plans
+   - ✅ tenants
+   - ✅ subscriptions
+   - ✅ instances
+   - ✅ flows
+   - ✅ conversations
+   - ✅ messages
+   - ✅ leads
+   - ✅ notifications
+
+---
+
+## 📋 SCRIPT SQL COMPLETO
+
+Se você não encontrar o arquivo, aqui está o script completo:
+
+```sql
 -- ============================================
 -- SCRIPT DE CRIAÇÃO DE TABELAS - SUPABASE
 -- BOT by YLADA
 -- Execute este script completo no SQL Editor do Supabase
 -- ============================================
 
--- ============================================
--- PARTE 1: TABELAS BASE (sem dependências)
--- ============================================
-
--- Tabela: users (Usuários/Revendedores)
+-- PARTE 1: TABELAS BASE
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -22,7 +69,6 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
--- Tabela: plans (Planos de Assinatura)
 CREATE TABLE IF NOT EXISTS plans (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL,
@@ -37,11 +83,7 @@ CREATE TABLE IF NOT EXISTS plans (
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- ============================================
--- PARTE 2: TABELAS QUE DEPENDEM DE users e plans
--- ============================================
-
--- Tabela: tenants (Clientes Finais - Multi-tenant)
+-- PARTE 2: TABELAS DEPENDENTES
 CREATE TABLE IF NOT EXISTS tenants (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -54,9 +96,7 @@ CREATE TABLE IF NOT EXISTS tenants (
 );
 
 CREATE INDEX IF NOT EXISTS idx_tenants_user_id ON tenants(user_id);
-CREATE INDEX IF NOT EXISTS idx_tenants_subdomain ON tenants(subdomain);
 
--- Tabela: subscriptions (Assinaturas)
 CREATE TABLE IF NOT EXISTS subscriptions (
     id SERIAL PRIMARY KEY,
     tenant_id INTEGER UNIQUE NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -74,11 +114,6 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 
 CREATE INDEX IF NOT EXISTS idx_subscriptions_tenant_id ON subscriptions(tenant_id);
 
--- ============================================
--- PARTE 3: TABELAS QUE DEPENDEM DE tenants
--- ============================================
-
--- Tabela: instances (Instâncias WhatsApp)
 CREATE TABLE IF NOT EXISTS instances (
     id SERIAL PRIMARY KEY,
     tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -98,7 +133,6 @@ CREATE TABLE IF NOT EXISTS instances (
 
 CREATE INDEX IF NOT EXISTS idx_instances_tenant_id ON instances(tenant_id);
 
--- Tabela: flows (Fluxos de Automação)
 CREATE TABLE IF NOT EXISTS flows (
     id SERIAL PRIMARY KEY,
     tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -120,7 +154,6 @@ CREATE TABLE IF NOT EXISTS flows (
 CREATE INDEX IF NOT EXISTS idx_flows_tenant_id ON flows(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_flows_status ON flows(status);
 
--- Tabela: leads (Leads Capturados)
 CREATE TABLE IF NOT EXISTS leads (
     id SERIAL PRIMARY KEY,
     tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -144,9 +177,7 @@ CREATE TABLE IF NOT EXISTS leads (
 CREATE INDEX IF NOT EXISTS idx_leads_tenant_id ON leads(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_leads_phone ON leads(phone);
 CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
-CREATE INDEX IF NOT EXISTS idx_leads_created_at ON leads(created_at);
 
--- Tabela: notifications (Notificações)
 CREATE TABLE IF NOT EXISTS notifications (
     id SERIAL PRIMARY KEY,
     tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -168,13 +199,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 CREATE INDEX IF NOT EXISTS idx_notifications_tenant_id ON notifications(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status);
-CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
 
--- ============================================
--- PARTE 4: TABELAS QUE DEPENDEM DE instances e flows
--- ============================================
-
--- Tabela: conversations (Conversas)
 CREATE TABLE IF NOT EXISTS conversations (
     id SERIAL PRIMARY KEY,
     tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -194,9 +219,7 @@ CREATE TABLE IF NOT EXISTS conversations (
 CREATE INDEX IF NOT EXISTS idx_conversations_tenant_id ON conversations(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_instance_id ON conversations(instance_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_phone ON conversations(phone);
-CREATE INDEX IF NOT EXISTS idx_conversations_status ON conversations(status);
 
--- Tabela: messages (Mensagens)
 CREATE TABLE IF NOT EXISTS messages (
     id SERIAL PRIMARY KEY,
     conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
@@ -216,31 +239,8 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_messages_flow_id ON messages(flow_id);
-CREATE INDEX IF NOT EXISTS idx_messages_whatsapp_id ON messages(whatsapp_id);
-CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);
 
--- ============================================
--- PARTE 5: ATUALIZAR FOREIGN KEYS DEPENDENTES
--- ============================================
-
--- Adicionar foreign key para conversations em notifications (se não existir)
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.table_constraints 
-        WHERE constraint_name = 'notifications_related_conversation_id_fkey'
-    ) THEN
-        ALTER TABLE notifications 
-        ADD CONSTRAINT notifications_related_conversation_id_fkey 
-        FOREIGN KEY (related_conversation_id) REFERENCES conversations(id);
-    END IF;
-END $$;
-
--- ============================================
--- PARTE 6: DADOS INICIAIS
--- ============================================
-
--- Inserir planos padrão
+-- PARTE 3: DADOS INICIAIS
 INSERT INTO plans (name, description, price, max_instances, max_flows, max_messages_month, features, is_active)
 VALUES 
     ('Grátis', 'Plano Grátis', 0.00, 1, 3, 1000, '["basic_ai", "basic_flows"]'::jsonb, true),
@@ -249,13 +249,54 @@ VALUES
     ('Enterprise', 'Plano Enterprise', 499.90, -1, -1, -1, '["all", "white_label", "priority_support", "custom_integrations"]'::jsonb, true)
 ON CONFLICT (name) DO NOTHING;
 
--- ============================================
--- FIM DO SCRIPT
--- ============================================
-
--- Verificação: Listar todas as tabelas criadas
+-- Verificação
 SELECT table_name 
 FROM information_schema.tables 
 WHERE table_schema = 'public' 
 AND table_type = 'BASE TABLE'
 ORDER BY table_name;
+```
+
+---
+
+## ✅ VERIFICAÇÃO
+
+Após executar, você deve ver:
+
+1. **Mensagem de sucesso** no SQL Editor
+2. **Lista de 10 tabelas** no final do resultado
+3. **No Table Editor**, todas as tabelas aparecem
+
+---
+
+## 🚨 SE DER ERRO
+
+### Erro: "relation already exists"
+- ✅ **Tudo OK!** As tabelas já existem
+- Você pode continuar usando
+
+### Erro: "permission denied"
+- Verifique se você tem permissão de administrador
+- Verifique se está no projeto correto
+
+### Erro: "syntax error"
+- Verifique se copiou o script completo
+- Verifique se não há caracteres estranhos
+
+---
+
+## 🎯 APÓS CRIAR TABELAS
+
+1. **Teste a conexão:**
+   - A aplicação deve conseguir conectar ao banco
+   - Login deve funcionar com banco de dados
+
+2. **Crie um usuário:**
+   - Acesse: https://yladabot.com/register
+   - Cadastre seu usuário
+   - Agora será salvo no banco de dados!
+
+---
+
+**Última atualização:** 2025-01-27
+

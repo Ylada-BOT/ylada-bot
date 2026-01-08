@@ -828,6 +828,7 @@ def get_qr():
         print(f"[*] Usuário {user_id} solicitando QR code na porta {port}")
         
         # Obtém URL do servidor WhatsApp
+        from config.settings import IS_PRODUCTION
         server_url = get_whatsapp_server_url(port)
         
         # Garante que o servidor está rodando na porta correta
@@ -836,8 +837,17 @@ def get_qr():
             print(f"[!] Falha ao iniciar servidor na porta {port}")
         
         # Busca QR Code do servidor Node.js
+        # Em produção, passa porta como parâmetro para o servidor gerenciar
+        base_url = server_url.rstrip('/')
+        if IS_PRODUCTION:
+            # Em produção, passa porta como parâmetro
+            qr_url = f"{base_url}/qr?port={port}"
+        else:
+            # Em desenvolvimento, usa localhost com porta
+            qr_url = f"{base_url}/qr"
+        
         try:
-            response = requests.get(f"{server_url}/qr", timeout=10)
+            response = requests.get(qr_url, timeout=10)
             if response.status_code == 200:
                 data = response.json()
                 

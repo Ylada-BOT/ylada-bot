@@ -190,3 +190,11 @@ sudo apt-get install postgresql-client
 **Última atualização:** 2024-12-23
 
 
+
+
+
+
+
+
+
+

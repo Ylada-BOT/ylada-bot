@@ -44,4 +44,17 @@ env.local.COMPLETO.txt
 ghp_*
 .env.local.bak*
 .env.local.SUPABASE
+
+# Configurações sensíveis
+data/ai_config_*.json
+data/users.json
+data/user_instances.json
+.wwebjs_auth_*/
+
+# Chaves e secrets
+CHAVES_GERADAS_RAILWAY.md
+*.key
+*.secret
+.env.local
+.env.production
 data/ai_config_user_1.json

@@ -122,9 +122,21 @@ def get_whatsapp_server_url(port=None):
     if port is None:
         port = WHATSAPP_SERVER_PORT
     
-    # Se está em produção e WHATSAPP_SERVER_URL está configurado, usa ele
+    # Se está em produção e WHATSAPP_SERVER_URL está configurado
     if IS_PRODUCTION and WHATSAPP_SERVER_URL and 'localhost' not in WHATSAPP_SERVER_URL:
-        return WHATSAPP_SERVER_URL
+        # Em produção, cada porta precisa de um serviço separado
+        # Ou usar o mesmo serviço com roteamento interno
+        # Por enquanto, usa a URL base e passa porta como parâmetro
+        base_url = WHATSAPP_SERVER_URL.rstrip('/')
+        # Remove porta da URL se existir
+        if ':' in base_url.split('//')[-1].split('/')[0]:
+            # Extrai apenas o domínio sem porta
+            parts = base_url.split('//')
+            domain = parts[-1].split('/')[0]
+            if ':' in domain:
+                domain = domain.split(':')[0]
+            base_url = f"{parts[0]}//{domain}"
+        return base_url
     
     # Caso contrário, usa localhost (desenvolvimento)
     return f"http://localhost:{port}"

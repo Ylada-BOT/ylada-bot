@@ -104,3 +104,10 @@ data/
 
 **Agora você pode ter múltiplas contas, cada uma com seu próprio System Prompt!** 🎉
 
+
+
+
+
+
+
+

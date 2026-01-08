@@ -11,5 +11,18 @@
     "messages_received": 0,
     "created_at": "2026-01-02T17:21:00.717231",
     "session_dir": "data/sessions/user_1"
+  },
+  "2": {
+    "id": 2,
+    "user_id": 2,
+    "name": "Meu WhatsApp",
+    "status": "disconnected",
+    "port": 5002,
+    "phone_number": null,
+    "agent_id": null,
+    "messages_sent": 0,
+    "messages_received": 0,
+    "created_at": "2026-01-08T09:49:49.343275",
+    "session_dir": "data/sessions/user_2"
   }
 }

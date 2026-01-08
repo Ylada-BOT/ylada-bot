@@ -3,7 +3,8 @@ const qrcode = require('qrcode-terminal');
 const express = require('express');
 const axios = require('axios');
 const app = express();
-const port = 5001;
+// Aceita porta via variável de ambiente ou argumento, padrão 5001
+const port = process.env.PORT || process.argv[2] || 5001;
 
 app.use(express.json());
 
@@ -56,15 +57,20 @@ function initClient() {
         console.log('✅ Usando Chrome do sistema');
     }
 
+    // Usa clientId único baseado na porta para separar sessões
+    const clientId = `ylada_bot_${port}`;
+    const authPath = `.wwebjs_auth_${port}`;
+    const cachePath = `.wwebjs_cache_${port}`;
+    
     client = new Client({
         authStrategy: new LocalAuth({
-            clientId: 'ylada_bot',
-            dataPath: '.wwebjs_auth' // Mantém sessão persistente
+            clientId: clientId,
+            dataPath: authPath // Mantém sessão persistente por porta
         }),
         puppeteer: puppeteerOptions,
         webVersionCache: {
             type: 'local',
-            path: '.wwebjs_cache' // Cache da versão web
+            path: cachePath // Cache da versão web por porta
         }
     });
 
@@ -412,6 +418,8 @@ app.get('/chats/:chatId/messages', async (req, res) => {
 // Inicia servidor
 app.listen(port, () => {
     console.log(`\n🚀 Servidor WhatsApp Web.js rodando em http://localhost:${port}`);
+    console.log(`📱 Client ID: ylada_bot_${port}`);
+    console.log(`📁 Sessão: .wwebjs_auth_${port}`);
     console.log('Aguardando conexão...\n');
     initClient();
 });

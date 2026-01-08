@@ -107,3 +107,10 @@ AUTH_REQUIRED = os.getenv('AUTH_REQUIRED', 'false').lower() == 'true'
 
 **Agora você pode ter múltiplas contas, cada uma com seu próprio System Prompt!** 🎉
 
+
+
+
+
+
+
+

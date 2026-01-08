@@ -214,6 +214,22 @@ def register():
             if not user:
                 return jsonify({'error': 'Email já cadastrado'}), 400
             
+            # Verifica se usuário foi salvo corretamente antes de criar token
+            import json
+            import os
+            users_file = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'users.json')
+            if os.path.exists(users_file):
+                try:
+                    with open(users_file, 'r', encoding='utf-8') as f:
+                        saved_users = json.load(f)
+                        if str(user['id']) not in saved_users:
+                            return jsonify({
+                                'error': 'Erro ao salvar usuário',
+                                'hint': 'Tente novamente ou verifique permissões do servidor'
+                            }), 500
+                except Exception as e:
+                    print(f"[!] Erro ao verificar salvamento: {e}")
+            
             # Cria token
             token = create_token_simple(user['id'], user['email'], user['role'])
             

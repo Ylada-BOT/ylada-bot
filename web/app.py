@@ -9,6 +9,7 @@ from flask_cors import CORS
 import sys
 import os
 import json
+import time
 
 # Carrega variáveis de ambiente do .env
 try:
@@ -248,6 +249,14 @@ try:
 except Exception as e:
     print(f"[!] Rotas de agentes não disponíveis: {e}")
 
+# Importa rotas de diagnóstico
+try:
+    from web.api.diagnostic import diagnostic_bp
+    app.register_blueprint(diagnostic_bp)
+    print("[✓] Rotas de diagnóstico registradas")
+except Exception as e:
+    print(f"[!] Rotas de diagnóstico não disponíveis: {e}")
+
 # ============================================
 # INICIALIZAÇÃO
 # ============================================
@@ -430,6 +439,14 @@ load_flows_on_startup()
 # ============================================
 # ROTAS - AUTENTICAÇÃO (PÁGINAS)
 # ============================================
+
+@app.route('/favicon.ico')
+def favicon():
+    """Retorna favicon (evita erro 404)"""
+    # Retorna 204 No Content (sem erro, apenas sem conteúdo)
+    # Isso evita o erro 404 no console
+    from flask import Response
+    return Response(status=204)
 
 @app.route('/login')
 def login_page():
@@ -794,7 +811,7 @@ def qr_code():
 def get_qr():
     """Obtém QR Code do WhatsApp - Modelo Simplificado"""
     try:
-        from web.utils.instance_helper import get_or_create_user_instance
+        from web.utils.instance_helper import get_or_create_user_instance, ensure_whatsapp_server_running
         from web.utils.auth_helpers import get_current_user_id as get_user_id
         import requests
         
@@ -805,6 +822,13 @@ def get_qr():
             user_id = 1  # Fallback para desenvolvimento
         instance = get_or_create_user_instance(user_id)
         port = instance.get('port', 5001)
+        
+        print(f"[*] Usuário {user_id} solicitando QR code na porta {port}")
+        
+        # Garante que o servidor está rodando na porta correta
+        server_started = ensure_whatsapp_server_running(port)
+        if not server_started:
+            print(f"[!] Falha ao iniciar servidor na porta {port}")
         
         # Busca QR Code do servidor Node.js
         try:
@@ -843,9 +867,33 @@ def get_qr():
                 })
                 
         except requests.exceptions.ConnectionError:
+            error_msg = f"Servidor WhatsApp não está rodando na porta {port}."
+            print(f"[!] {error_msg}")
+            print(f"[*] Tentando iniciar servidor automaticamente...")
+            # Tenta iniciar novamente
+            ensure_whatsapp_server_running(port)
+            time.sleep(2)
+            # Tenta novamente
+            try:
+                response = requests.get(f"http://localhost:{port}/qr", timeout=5)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get('ready'):
+                        return jsonify({"status": "connected"})
+                    qr_data = data.get('qr')
+                    if qr_data:
+                        return jsonify({
+                            "qr": qr_data, 
+                            "status": "waiting",
+                            "success": True
+                        })
+            except:
+                pass
             return jsonify({
-                "error": f"Servidor WhatsApp não está rodando na porta {port}. Inicie o servidor primeiro.",
-                "status": "error"
+                "error": error_msg + " Tente recarregar a página em alguns segundos.",
+                "status": "error",
+                "port": port,
+                "hint": f"Verifique se o servidor Node.js está rodando na porta {port}"
             }), 503
         except requests.exceptions.Timeout:
             return jsonify({

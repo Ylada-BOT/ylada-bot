@@ -39,6 +39,7 @@ def list_users():
     """Lista todos os usuários (apenas admin)"""
     try:
         users_list = []
+        admin_user = None
         
         # Tenta usar banco de dados primeiro
         try:
@@ -48,7 +49,7 @@ def list_users():
             try:
                 db_users = db.query(User).order_by(User.created_at.desc()).all()
                 for user in db_users:
-                    users_list.append({
+                    user_data = {
                         'id': user.id,
                         'email': user.email,
                         'name': user.name,
@@ -57,7 +58,14 @@ def list_users():
                         'created_at': user.created_at.isoformat() if user.created_at else None,
                         'phone': user.phone,
                         'photo_url': user.photo_url
-                    })
+                    }
+                    
+                    # Atualiza nome do administrador se for o email correto
+                    if user.email == 'faulaandre@gmail.com':
+                        user_data['name'] = 'André Paula'
+                        admin_user = user_data
+                    else:
+                        users_list.append(user_data)
             finally:
                 db.close()
         except Exception as db_error:
@@ -66,7 +74,7 @@ def list_users():
             from web.utils.user_helper import _load_users
             users_data = _load_users()
             for user_id, user_data in users_data.items():
-                users_list.append({
+                user_info = {
                     'id': user_data.get('id', int(user_id)),
                     'email': user_data.get('email', ''),
                     'name': user_data.get('name', ''),
@@ -75,7 +83,18 @@ def list_users():
                     'created_at': user_data.get('created_at', ''),
                     'phone': user_data.get('phone'),
                     'photo_url': user_data.get('photo_url')
-                })
+                }
+                
+                # Atualiza nome do administrador se for o email correto
+                if user_info['email'] == 'faulaandre@gmail.com':
+                    user_info['name'] = 'André Paula'
+                    admin_user = user_info
+                else:
+                    users_list.append(user_info)
+        
+        # Coloca o administrador no início da lista
+        if admin_user:
+            users_list.insert(0, admin_user)
         
         return jsonify({
             'success': True,

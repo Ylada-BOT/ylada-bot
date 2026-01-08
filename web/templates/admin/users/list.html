@@ -75,6 +75,25 @@
         border-bottom: none;
     }
     
+    .admin-row {
+        background: #fef3c7 !important;
+        border-left: 4px solid #f59e0b;
+    }
+    
+    .admin-row:hover {
+        background: #fde68a !important;
+    }
+    
+    .separator-row {
+        background: #f3f4f6;
+    }
+    
+    .separator-row td {
+        padding: 8px 12px !important;
+        border-top: 2px solid #e5e7eb;
+        border-bottom: 2px solid #e5e7eb;
+    }
+    
     .role-badge {
         display: inline-block;
         padding: 4px 12px;
@@ -160,6 +179,10 @@
             const data = await response.json();
             
             if (data.success && data.users && data.users.length > 0) {
+                // Separa administrador dos outros usuários
+                const adminUsers = data.users.filter(user => user.role === 'admin' || user.email === 'faulaandre@gmail.com');
+                const regularUsers = data.users.filter(user => user.role !== 'admin' && user.email !== 'faulaandre@gmail.com');
+                
                 let html = `
                     <table class="users-table">
                         <thead>
@@ -175,7 +198,39 @@
                         <tbody>
                 `;
                 
-                data.users.forEach(user => {
+                // Renderiza administrador primeiro (fixado no topo)
+                adminUsers.forEach(user => {
+                    const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR') : '-';
+                    const roleClass = user.role || 'user';
+                    const statusClass = user.is_active ? 'active' : 'inactive';
+                    const statusText = user.is_active ? 'Ativo' : 'Inativo';
+                    const displayName = user.email === 'faulaandre@gmail.com' ? 'André Paula' : (user.name || '-');
+                    
+                    html += `
+                        <tr class="admin-row">
+                            <td>#${user.id}</td>
+                            <td><strong>${displayName}</strong></td>
+                            <td>${user.email || '-'}</td>
+                            <td><span class="role-badge ${roleClass}">${roleClass.toUpperCase()}</span></td>
+                            <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                            <td>${createdDate}</td>
+                        </tr>
+                    `;
+                });
+                
+                // Adiciona separador visual se houver outros usuários
+                if (adminUsers.length > 0 && regularUsers.length > 0) {
+                    html += `
+                        <tr class="separator-row">
+                            <td colspan="6" style="padding: 8px; background: #f3f4f6; border-top: 2px solid #e5e7eb; border-bottom: 2px solid #e5e7eb;">
+                                <span style="color: #6b7280; font-size: 12px; font-weight: 600;">OUTROS USUÁRIOS</span>
+                            </td>
+                        </tr>
+                    `;
+                }
+                
+                // Renderiza outros usuários
+                regularUsers.forEach(user => {
                     const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR') : '-';
                     const roleClass = user.role || 'user';
                     const statusClass = user.is_active ? 'active' : 'inactive';

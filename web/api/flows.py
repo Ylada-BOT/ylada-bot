@@ -433,13 +433,16 @@ def get_templates():
     """Retorna templates de fluxos prontos"""
     templates = [
         {
+            'id': 'boas-vindas',
             'name': 'Boas-vindas',
-            'description': 'Fluxo de boas-vindas simples',
+            'description': 'Responde automaticamente a cumprimentos com mensagem personalizada',
+            'category': 'atendimento',
             'flow_data': {
                 'name': 'Boas-vindas',
+                'description': 'Fluxo de boas-vindas automático',
                 'trigger': {
                     'type': 'keyword',
-                    'keywords': ['oi', 'olá', 'bom dia', 'boa tarde', 'boa noite']
+                    'keywords': ['oi', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'e aí', 'opa']
                 },
                 'steps': [
                     {
@@ -457,10 +460,13 @@ def get_templates():
             }
         },
         {
+            'id': 'atendimento-ia',
             'name': 'Atendimento com IA',
-            'description': 'Responde automaticamente com IA',
+            'description': 'Responde todas as mensagens automaticamente usando Inteligência Artificial',
+            'category': 'atendimento',
             'flow_data': {
                 'name': 'Atendimento com IA',
+                'description': 'Responde automaticamente todas as mensagens com IA',
                 'trigger': {
                     'type': 'always'
                 },
@@ -472,22 +478,114 @@ def get_templates():
             }
         },
         {
-            'name': 'Informações de Produto',
-            'description': 'Fornece informações sobre produtos',
+            'id': 'captacao-lead',
+            'name': 'Captação de Lead',
+            'description': 'Captura leads quando detecta interesse em produtos ou serviços',
+            'category': 'vendas',
             'flow_data': {
-                'name': 'Informações de Produto',
+                'name': 'Captação de Lead',
+                'description': 'Captura leads automaticamente quando detecta interesse',
                 'trigger': {
                     'type': 'keyword',
-                    'keywords': ['produto', 'preço', 'valor', 'quanto custa', 'informação']
+                    'keywords': ['quero', 'interessado', 'preço', 'valor', 'quanto custa', 'tenho interesse', 'gostaria']
                 },
                 'steps': [
                     {
                         'type': 'send_message',
-                        'message': 'Vou buscar informações para você!'
+                        'message': 'Ótimo! Fico feliz com seu interesse! 😊\n\nPara te ajudar melhor, pode me passar:\n• Seu nome\n• Seu email\n• Como prefere ser contatado?'
+                    },
+                    {
+                        'type': 'wait',
+                        'duration': 5
+                    },
+                    {
+                        'type': 'ai_response'
+                    }
+                ]
+            }
+        },
+        {
+            'id': 'informacoes-produto',
+            'name': 'Informações de Produto',
+            'description': 'Fornece informações sobre produtos quando solicitado',
+            'category': 'vendas',
+            'flow_data': {
+                'name': 'Informações de Produto',
+                'description': 'Fornece informações sobre produtos',
+                'trigger': {
+                    'type': 'keyword',
+                    'keywords': ['produto', 'preço', 'valor', 'quanto custa', 'informação', 'detalhes', 'especificações']
+                },
+                'steps': [
+                    {
+                        'type': 'send_message',
+                        'message': 'Vou buscar as informações para você! 📋'
                     },
                     {
                         'type': 'wait',
                         'duration': 2
+                    },
+                    {
+                        'type': 'ai_response'
+                    }
+                ]
+            }
+        },
+        {
+            'id': 'faq-automatico',
+            'name': 'FAQ Automático',
+            'description': 'Responde perguntas frequentes automaticamente',
+            'category': 'atendimento',
+            'flow_data': {
+                'name': 'FAQ Automático',
+                'description': 'Responde perguntas frequentes',
+                'trigger': {
+                    'type': 'keyword',
+                    'keywords': ['como funciona', 'como faço', 'dúvida', 'pergunta', 'preciso saber', 'quero saber']
+                },
+                'steps': [
+                    {
+                        'type': 'send_message',
+                        'message': 'Vou te ajudar com sua dúvida! Deixe-me buscar a informação...'
+                    },
+                    {
+                        'type': 'wait',
+                        'duration': 2
+                    },
+                    {
+                        'type': 'ai_response'
+                    }
+                ]
+            }
+        },
+        {
+            'id': 'agendamento-basico',
+            'name': 'Agendamento Básico',
+            'description': 'Coleta informações para agendamento de reunião ou consulta',
+            'category': 'agendamento',
+            'flow_data': {
+                'name': 'Agendamento Básico',
+                'description': 'Coleta informações para agendamento',
+                'trigger': {
+                    'type': 'keyword',
+                    'keywords': ['agendar', 'marcar', 'horário', 'consulta', 'reunião', 'atendimento']
+                },
+                'steps': [
+                    {
+                        'type': 'send_message',
+                        'message': 'Perfeito! Vou te ajudar a agendar! 📅\n\nQual dia e horário você prefere?'
+                    },
+                    {
+                        'type': 'wait',
+                        'duration': 5
+                    },
+                    {
+                        'type': 'send_message',
+                        'message': 'Ótimo! E qual seu nome completo e telefone para contato?'
+                    },
+                    {
+                        'type': 'wait',
+                        'duration': 5
                     },
                     {
                         'type': 'ai_response'
@@ -501,3 +599,98 @@ def get_templates():
         'success': True,
         'templates': templates
     }), 200
+
+
+@bp.route('/templates/<template_id>/create', methods=['POST'])
+def create_from_template(template_id):
+    """Cria um fluxo a partir de um template"""
+    try:
+        from src.database.db import SessionLocal
+        from src.models.flow import Flow, FlowStatus
+        from web.utils.auth_helpers import get_current_tenant_id, get_current_user_id
+        
+        # Obtém dados do request
+        data = request.get_json() or {}
+        instance_id = data.get('instance_id')  # Opcional
+        
+        # Busca template
+        templates_response = get_templates()
+        templates_data = templates_response[0].get_json()
+        templates = templates_data.get('templates', [])
+        
+        template = None
+        for t in templates:
+            if t.get('id') == template_id:
+                template = t
+                break
+        
+        if not template:
+            return jsonify({'error': 'Template não encontrado'}), 404
+        
+        # Obtém tenant_id
+        try:
+            tenant_id = get_current_tenant_id()
+        except:
+            tenant_id = 1  # Fallback para desenvolvimento
+        
+        db = SessionLocal()
+        try:
+            # Verifica se instance_id é válido (se fornecido)
+            if instance_id:
+                from src.models.instance import Instance
+                instance = db.query(Instance).filter(
+                    Instance.id == instance_id,
+                    Instance.tenant_id == tenant_id
+                ).first()
+                if not instance:
+                    return jsonify({'error': 'Instance não encontrada ou não pertence ao tenant'}), 404
+            
+            # Cria fluxo a partir do template
+            flow_data = template['flow_data'].copy()
+            flow_name = data.get('name') or flow_data.get('name', template['name'])
+            
+            # Extrai trigger keywords se existir
+            trigger_keywords = []
+            if 'trigger' in flow_data and flow_data['trigger'].get('type') == 'keyword':
+                trigger_keywords = flow_data['trigger'].get('keywords', [])
+            
+            flow = Flow(
+                tenant_id=tenant_id,
+                instance_id=instance_id,
+                name=flow_name,
+                description=template.get('description', ''),
+                flow_data=flow_data,
+                status=FlowStatus.ACTIVE,
+                trigger_keywords=trigger_keywords,
+                is_template=False
+            )
+            
+            db.add(flow)
+            db.commit()
+            db.refresh(flow)
+            
+            # Carrega no motor de fluxos
+            from src.flows.flow_engine import flow_engine
+            flow_engine.load_flow(flow.id, flow_data)
+            
+            return jsonify({
+                'success': True,
+                'message': f'Fluxo "{flow_name}" criado com sucesso a partir do template!',
+                'flow_id': flow.id,
+                'flow': {
+                    'id': flow.id,
+                    'name': flow.name,
+                    'status': flow.status.value
+                }
+            }), 201
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        import traceback
+        logger.error(f"Erro ao criar fluxo do template: {e}")
+        return jsonify({
+            'error': str(e),
+            'traceback': traceback.format_exc() if app.debug else None
+        }), 500

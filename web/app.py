@@ -476,6 +476,11 @@ def index():
     if not AUTH_REQUIRED:
             return render_template('dashboard_new.html')
     
+    # Se usuário é admin, redireciona para área administrativa
+    user_role = session.get('user_role', 'user')
+    if user_role == 'admin':
+        return redirect(url_for('admin_dashboard'))
+    
     # Se autenticação está habilitada, carrega config do usuário logado
     user_id = session.get('user_id')
     if user_id:
@@ -1539,8 +1544,9 @@ if __name__ == '__main__':
     print("  3. IA responde automaticamente")
     print("\n" + "="*50 + "\n")
     
-    # Tenta iniciar servidor WhatsApp automaticamente
-    if whatsapp:
+    # Tenta iniciar servidor WhatsApp automaticamente (apenas em desenvolvimento)
+    from config.settings import IS_PRODUCTION
+    if whatsapp and not IS_PRODUCTION:
         try:
             print("[*] Iniciando servidor WhatsApp...")
             if whatsapp.start_server():
@@ -1550,6 +1556,8 @@ if __name__ == '__main__':
         except Exception as e:
             print(f"[!] Erro ao iniciar servidor WhatsApp: {e}")
             print("[!] Você pode iniciar manualmente com: node whatsapp_server.js")
+    elif IS_PRODUCTION:
+        print("[*] Modo produção: Servidor WhatsApp deve ser iniciado como serviço separado no Railway")
     
     # Inicia worker de mensagens (aguarda um pouco para garantir que tudo está pronto)
     import time

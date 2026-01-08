@@ -9,7 +9,7 @@
 </div>
 
 <div class="admin-card">
-    <p style="color: #6b7280;">Lista de usuários do sistema</p>
+    <p style="color: #6b7280; margin-bottom: 20px;">Lista de usuários do sistema</p>
     <div id="usersList" class="loading">Carregando usuários...</div>
 </div>
 
@@ -28,6 +28,13 @@
         text-decoration: none;
         border-radius: 8px;
         font-weight: 500;
+        transition: all 0.3s;
+    }
+    
+    .btn:hover {
+        background: #b91c1c;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
     }
     
     .admin-card {
@@ -36,7 +43,192 @@
         padding: 25px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     }
+    
+    .users-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+    
+    .users-table th {
+        background: #f9fafb;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        color: #374151;
+        border-bottom: 2px solid #e5e7eb;
+        font-size: 14px;
+    }
+    
+    .users-table td {
+        padding: 12px;
+        border-bottom: 1px solid #e5e7eb;
+        color: #6b7280;
+        font-size: 14px;
+    }
+    
+    .users-table tr:hover {
+        background: #f9fafb;
+    }
+    
+    .users-table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .role-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    
+    .role-badge.admin {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .role-badge.user {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+    
+    .role-badge.reseller {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    
+    .status-badge.active {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .status-badge.inactive {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .loading {
+        text-align: center;
+        padding: 40px;
+        color: #6b7280;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: #9ca3af;
+    }
+    
+    .empty-state-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+    }
+    
+    .refresh-btn {
+        margin-top: 20px;
+        padding: 8px 16px;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+    }
+    
+    .refresh-btn:hover {
+        background: #2563eb;
+    }
 </style>
+
+<script>
+    async function loadUsers() {
+        const usersListDiv = document.getElementById('usersList');
+        usersListDiv.innerHTML = '<div class="loading">Carregando usuários...</div>';
+        
+        try {
+            const response = await fetch('/api/admin/users');
+            const data = await response.json();
+            
+            if (data.success && data.users && data.users.length > 0) {
+                let html = `
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nome</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Data de Criação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                data.users.forEach(user => {
+                    const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR') : '-';
+                    const roleClass = user.role || 'user';
+                    const statusClass = user.is_active ? 'active' : 'inactive';
+                    const statusText = user.is_active ? 'Ativo' : 'Inativo';
+                    
+                    html += `
+                        <tr>
+                            <td>#${user.id}</td>
+                            <td><strong>${user.name || '-'}</strong></td>
+                            <td>${user.email || '-'}</td>
+                            <td><span class="role-badge ${roleClass}">${roleClass.toUpperCase()}</span></td>
+                            <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                            <td>${createdDate}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                        </tbody>
+                    </table>
+                    <div style="margin-top: 20px; text-align: right; color: #6b7280; font-size: 14px;">
+                        Total: <strong>${data.total || data.users.length}</strong> usuário(s)
+                    </div>
+                    <button class="refresh-btn" onclick="loadUsers()">🔄 Atualizar Lista</button>
+                `;
+                
+                usersListDiv.innerHTML = html;
+            } else {
+                usersListDiv.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">👤</div>
+                        <p>Nenhum usuário encontrado</p>
+                        <button class="refresh-btn" onclick="loadUsers()">🔄 Atualizar</button>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            usersListDiv.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">⚠️</div>
+                    <p>Erro ao carregar usuários: ${error.message}</p>
+                    <button class="refresh-btn" onclick="loadUsers()">🔄 Tentar Novamente</button>
+                </div>
+            `;
+        }
+    }
+    
+    // Carrega usuários ao carregar a página
+    document.addEventListener('DOMContentLoaded', loadUsers);
+    
+    // Atualiza a cada 10 segundos
+    setInterval(loadUsers, 10000);
+</script>
 {% endblock %}
 
 

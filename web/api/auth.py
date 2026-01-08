@@ -118,9 +118,9 @@ def register():
     try:
         data = request.get_json()
         
-        email = data.get('email')
-        password = data.get('password')
-        name = data.get('name')
+        email = data.get('email', '').strip()
+        password = data.get('password', '').strip()
+        name = data.get('name', '').strip()
         
         if not email or not password or not name:
             return jsonify({'error': 'Email, senha e nome são obrigatórios'}), 400
@@ -249,8 +249,8 @@ def login():
     try:
         data = request.get_json()
         
-        email = data.get('email')
-        password = data.get('password')
+        email = data.get('email', '').strip()
+        password = data.get('password', '').strip()
         
         if not email or not password:
             return jsonify({'error': 'Email e senha são obrigatórios'}), 400

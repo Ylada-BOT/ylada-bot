@@ -424,8 +424,34 @@
                 } else {
                     // Erro ou servidor não está rodando
                     statusDiv.className = 'status error';
-                    statusDiv.textContent = data.error || 'Servidor WhatsApp não está rodando';
-                    qrContainer.innerHTML = `<div class="loading">${data.error || 'Inicie o servidor WhatsApp primeiro'}</div>`;
+                    const errorMessage = data.error || 'Servidor WhatsApp não está rodando';
+                    const errorHint = data.hint || '';
+                    const errorPort = data.port || '';
+                    const errorServerUrl = data.server_url || '';
+                    
+                    statusDiv.textContent = errorMessage;
+                    
+                    let errorDetails = `<div style="text-align: left; padding: 20px; background: #fee2e2; border-radius: 8px; margin-top: 20px;">`;
+                    errorDetails += `<div style="font-weight: 600; margin-bottom: 10px; color: #991b1b;">Erro ao buscar QR Code</div>`;
+                    errorDetails += `<div style="color: #991b1b; margin-bottom: 8px;">${errorMessage}</div>`;
+                    
+                    if (errorHint) {
+                        errorDetails += `<div style="color: #92400e; margin-top: 12px; padding-top: 12px; border-top: 1px solid #fca5a5;">`;
+                        errorDetails += `<strong>💡 Dica:</strong><br>${errorHint}`;
+                        errorDetails += `</div>`;
+                    }
+                    
+                    if (errorPort) {
+                        errorDetails += `<div style="color: #6b7280; margin-top: 8px; font-size: 12px;">Porta: ${errorPort}</div>`;
+                    }
+                    
+                    if (errorServerUrl) {
+                        errorDetails += `<div style="color: #6b7280; margin-top: 4px; font-size: 12px;">URL do servidor: ${errorServerUrl}</div>`;
+                    }
+                    
+                    errorDetails += `</div>`;
+                    
+                    qrContainer.innerHTML = errorDetails;
                     instructions.style.display = 'none';
                     refreshBtn.style.display = 'inline-block';
                     console.error('Erro na resposta:', data);

@@ -288,12 +288,75 @@ def login():
                         # Se não encontrou no banco, tenta modo simplificado
                         if SIMPLE_AUTH_AVAILABLE:
                             user = authenticate_user_simple(email, password)
+                            if user:
+                                # Se encontrou no arquivo JSON, cria no banco para sincronizar
+                                print(f"[DEBUG LOGIN] Usuário encontrado no arquivo JSON, criando no banco...")
+                                try:
+                                    from src.auth.authentication import register_user
+                                    from src.models.user import UserRole
+                                    # Tenta criar no banco (pode falhar se já existir, mas não importa)
+                                    try:
+                                        new_user = register_user(
+                                            db, 
+                                            email=user['email'],
+                                            password=password,  # Precisa da senha original
+                                            name=user['name'],
+                                            role=UserRole[user['role'].upper()] if user['role'].upper() in ['ADMIN', 'RESELLER', 'USER'] else UserRole.USER
+                                        )
+                                        print(f"[✓] Usuário sincronizado do JSON para o banco")
+                                    except Exception as create_error:
+                                        # Se falhar (ex: usuário já existe), continua com autenticação do JSON
+                                        print(f"[!] Não foi possível criar no banco (pode já existir): {create_error}")
+                                except Exception as sync_error:
+                                    print(f"[!] Erro ao sincronizar usuário: {sync_error}")
+                                
+                                # Continua com autenticação do JSON
+                                token = create_token_simple(user['id'], user['email'], user['role'])
+                                session['user_id'] = user['id']
+                                session['user_email'] = user['email']
+                                session['user_role'] = user['role']
+                                
+                                return jsonify({
+                                    'success': True,
+                                    'token': token,
+                                    'user': {
+                                        'id': user['id'],
+                                        'email': user['email'],
+                                        'name': user['name'],
+                                        'role': user['role']
+                                    }
+                                }), 200
+                            
                             if not user:
                                 print(f"[DEBUG LOGIN] Falha na autenticação simplificada também")
-                                return jsonify({
-                                    'error': 'Credenciais inválidas',
-                                    'hint': 'Verifique se o email e senha estão corretos. Email: ' + email
-                                }), 401
+                                # Em produção, se o arquivo JSON não existe, tenta criar no banco
+                                import os
+                                from config.settings import IS_PRODUCTION
+                                if IS_PRODUCTION:
+                                    print(f"[DEBUG LOGIN] Em produção, tentando criar usuário no banco...")
+                                    try:
+                                        from src.auth.authentication import register_user
+                                        from src.models.user import UserRole
+                                        # Tenta criar no banco
+                                        new_user = register_user(
+                                            db,
+                                            email=email,
+                                            password=password,
+                                            name=email.split('@')[0].upper(),
+                                            role=UserRole.USER
+                                        )
+                                        if new_user:
+                                            print(f"[✓] Usuário criado no banco em produção")
+                                            # Autentica o usuário recém-criado
+                                            user = authenticate_user(db, email, password)
+                                    except Exception as create_error:
+                                        print(f"[!] Erro ao criar usuário no banco: {create_error}")
+                                
+                                if not user:
+                                    return jsonify({
+                                        'error': 'Credenciais inválidas',
+                                        'hint': 'Verifique se o email e senha estão corretos. Email: ' + email
+                                    }), 401
                             
                             # Cria token simplificado
                             token = create_token_simple(user['id'], user['email'], user['role'])

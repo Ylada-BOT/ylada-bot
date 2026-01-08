@@ -23,7 +23,7 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     name = Column(String(255), nullable=False)
-    phone = Column(String(20), nullable=True)  # Telefone do usuário
+    phone = Column(String(30), nullable=True)  # Telefone do usuário (formato internacional)
     photo_url = Column(String(500), nullable=True)  # URL da foto de perfil
     role = Column(Enum(UserRole), default=UserRole.USER, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)

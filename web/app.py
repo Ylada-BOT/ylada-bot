@@ -532,7 +532,7 @@ def dashboard():
     """Dashboard principal (rota alternativa)"""
     # Se autenticação está desabilitada, mostra dashboard direto
     if not AUTH_REQUIRED:
-        return render_template('dashboard_new.html')
+            return render_template('dashboard_new.html')
     
     # Se usuário é admin, redireciona para área administrativa
     user_role = session.get('user_role', 'user')
@@ -973,19 +973,19 @@ def get_qr():
             if server_started:
                 time.sleep(3)
                 # Tenta novamente após iniciar
-                try:
+            try:
                     response = requests.get(qr_url, timeout=5)
-                    if response.status_code == 200:
-                        data = response.json()
-                        if data.get('ready'):
-                            return jsonify({"status": "connected"})
-                        qr_data = data.get('qr')
-                        if qr_data:
-                            return jsonify({
-                                "qr": qr_data, 
-                                "status": "waiting",
-                                "success": True
-                            })
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get('ready'):
+                        return jsonify({"status": "connected"})
+                    qr_data = data.get('qr')
+                    if qr_data:
+                        return jsonify({
+                            "qr": qr_data, 
+                            "status": "waiting",
+                            "success": True
+                        })
                 except Exception as retry_error:
                     print(f"[!] Erro ao tentar novamente: {retry_error}")
             

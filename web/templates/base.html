@@ -54,6 +54,7 @@
             padding: 25px 20px;
             border-bottom: 1px solid #e5e7eb;
             display: flex;
+            flex-direction: column;
             align-items: center;
             gap: 12px;
             background: transparent;
@@ -351,9 +352,8 @@
             <div class="sidebar-logo">
                 <img src="/static/assets/logo_transparent.png" alt="YLADA BOT">
             </div>
-            <div>
-                <div class="sidebar-title">BOT by YLADA</div>
-                <div class="sidebar-subtitle">Automação WhatsApp</div>
+            <div id="sidebarUserName" style="margin-top: 8px; font-size: 14px; font-weight: 500; color: #1f2937; text-align: center; width: 100%;">
+                Carregando...
             </div>
         </div>
         
@@ -411,6 +411,7 @@
                     <div style="flex: 1; min-width: 0;">
                         <div id="userName" style="font-size: 13px; font-weight: 500; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Usuário</div>
                         <div id="userEmail" style="font-size: 11px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
+                        <div id="userPhone" style="font-size: 11px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; display: none;">📱 -</div>
                     </div>
                 </div>
             </div>
@@ -480,9 +481,18 @@
                 const response = await fetch('/api/auth/me');
                 if (response.ok) {
                     const user = await response.json();
+                    
+                    // Atualiza nome no header do sidebar
+                    const sidebarUserName = document.getElementById('sidebarUserName');
+                    if (sidebarUserName) {
+                        sidebarUserName.textContent = user.name || 'Usuário';
+                    }
+                    
+                    // Atualiza informações no footer
                     const userInfo = document.getElementById('userInfo');
                     const userName = document.getElementById('userName');
                     const userEmail = document.getElementById('userEmail');
+                    const userPhone = document.getElementById('userPhone');
                     const userAvatar = document.getElementById('userAvatar');
                     const userAvatarImg = document.getElementById('userAvatarImg');
                     const userAvatarInitial = document.getElementById('userAvatarInitial');
@@ -490,6 +500,17 @@
                     if (userInfo && userName && userEmail) {
                         userName.textContent = user.name || 'Usuário';
                         userEmail.textContent = user.email || '-';
+                        
+                        // Atualiza telefone se disponível
+                        if (userPhone) {
+                            if (user.phone) {
+                                userPhone.textContent = `📱 ${user.phone}`;
+                                userPhone.style.display = 'block';
+                            } else {
+                                userPhone.style.display = 'none';
+                            }
+                        }
+                        
                         userInfo.style.display = 'block';
                         
                         // Atualiza avatar

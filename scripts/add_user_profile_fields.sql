@@ -13,7 +13,7 @@ BEGIN
         AND table_name = 'users' 
         AND column_name = 'phone'
     ) THEN
-        ALTER TABLE public.users ADD COLUMN phone VARCHAR(20);
+        ALTER TABLE public.users ADD COLUMN phone VARCHAR(30);
         RAISE NOTICE 'Coluna phone adicionada com sucesso';
     ELSE
         RAISE NOTICE 'Coluna phone já existe';

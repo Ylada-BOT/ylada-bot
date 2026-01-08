@@ -530,7 +530,16 @@ def profile():
                 finally:
                     db.close()
             except Exception as db_error:
-                return jsonify({'error': f'Erro ao atualizar perfil: {str(db_error)}'}), 500
+                error_msg = str(db_error)
+                # Verifica se é erro de coluna não encontrada
+                if 'column' in error_msg.lower() and 'does not exist' in error_msg.lower():
+                    return jsonify({
+                        'error': 'Colunas de perfil não encontradas no banco de dados',
+                        'details': 'As colunas phone e photo_url não existem na tabela users. Execute o script SQL: scripts/add_user_profile_fields.sql no Supabase.',
+                        'hint': 'Acesse o Supabase > SQL Editor > Execute o script add_user_profile_fields.sql',
+                        'original_error': error_msg
+                    }), 500
+                return jsonify({'error': f'Erro ao atualizar perfil: {error_msg}'}), 500
         
         # Modo simplificado (arquivo JSON)
         if SIMPLE_AUTH_AVAILABLE:
@@ -663,7 +672,16 @@ def upload_photo():
                     db.close()
             except Exception as db_error:
                 file_path.unlink()
-                return jsonify({'error': f'Erro ao atualizar perfil: {str(db_error)}'}), 500
+                error_msg = str(db_error)
+                # Verifica se é erro de coluna não encontrada
+                if 'column' in error_msg.lower() and 'does not exist' in error_msg.lower():
+                    return jsonify({
+                        'error': 'Colunas de perfil não encontradas no banco de dados',
+                        'details': 'As colunas phone e photo_url não existem na tabela users. Execute o script SQL: scripts/add_user_profile_fields.sql no Supabase.',
+                        'hint': 'Acesse o Supabase > SQL Editor > Execute o script add_user_profile_fields.sql',
+                        'original_error': error_msg
+                    }), 500
+                return jsonify({'error': f'Erro ao atualizar perfil: {error_msg}'}), 500
         elif SIMPLE_AUTH_AVAILABLE:
             import json
             from pathlib import Path

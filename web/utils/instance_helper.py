@@ -41,11 +41,26 @@ def get_or_create_user_instance(user_id=None):
     # Verifica se usuário já tem instância
     user_key = str(user_id)
     if user_key in user_instances:
-        return user_instances[user_key]
+        instance = user_instances[user_key]
+        # Em produção, força porta 5001 (único serviço Node.js)
+        from config.settings import IS_PRODUCTION
+        if IS_PRODUCTION and instance.get('port', 5001) != 5001:
+            instance['port'] = 5001
+            instance['updated_at'] = datetime.now().isoformat()
+            # Salva atualização
+            user_instances[user_key] = instance
+            with open(instances_file, 'w', encoding='utf-8') as f:
+                json.dump(user_instances, f, indent=2, ensure_ascii=False)
+        return instance
     
     # Cria nova instância para o usuário
-    # Calcula porta baseada no user_id (5001, 5002, 5003...)
-    base_port = 5001 + (user_id - 1)
+    # Em produção: todos usam porta 5001 (único serviço Node.js)
+    # Em desenvolvimento: cada usuário tem sua porta (5001, 5002, 5003...)
+    from config.settings import IS_PRODUCTION
+    if IS_PRODUCTION:
+        base_port = 5001  # Todos usam a mesma porta em produção
+    else:
+        base_port = 5001 + (user_id - 1)  # Desenvolvimento: portas diferentes
     
     new_instance = {
         'id': user_id,  # ID da instância = ID do usuário (simplificado)
@@ -115,7 +130,7 @@ def get_whatsapp_server_url(port=None):
         port: Porta do servidor (opcional, usa padrão se não fornecido)
         
     Returns:
-        str: URL do servidor WhatsApp
+        str: URL do servidor WhatsApp (sempre com protocolo)
     """
     from config.settings import WHATSAPP_SERVER_URL, WHATSAPP_SERVER_PORT, IS_PRODUCTION
     
@@ -124,19 +139,38 @@ def get_whatsapp_server_url(port=None):
     
     # Se está em produção e WHATSAPP_SERVER_URL está configurado
     if IS_PRODUCTION and WHATSAPP_SERVER_URL and 'localhost' not in WHATSAPP_SERVER_URL:
-        # Em produção, cada porta precisa de um serviço separado
-        # Ou usar o mesmo serviço com roteamento interno
-        # Por enquanto, usa a URL base e passa porta como parâmetro
-        base_url = WHATSAPP_SERVER_URL.rstrip('/')
-        # Remove porta da URL se existir
-        if ':' in base_url.split('//')[-1].split('/')[0]:
-            # Extrai apenas o domínio sem porta
-            parts = base_url.split('//')
-            domain = parts[-1].split('/')[0]
-            if ':' in domain:
-                domain = domain.split(':')[0]
-            base_url = f"{parts[0]}//{domain}"
-        return base_url
+        # Garante que a URL tenha protocolo
+        base_url = WHATSAPP_SERVER_URL.strip().rstrip('/')
+        
+        # Se não começar com http:// ou https://, adiciona https://
+        if not base_url.startswith('http://') and not base_url.startswith('https://'):
+            base_url = f"https://{base_url}"
+        
+        # Remove porta da URL se existir (para usar a porta padrão do Railway)
+        # Extrai apenas o domínio sem porta
+        if base_url.startswith('http://'):
+            protocol = 'http://'
+            domain_part = base_url[7:]
+        elif base_url.startswith('https://'):
+            protocol = 'https://'
+            domain_part = base_url[8:]
+        else:
+            protocol = 'https://'
+            domain_part = base_url
+        
+        # Remove porta se existir no domínio
+        if ':' in domain_part.split('/')[0]:
+            domain = domain_part.split(':')[0]
+            path = '/' + '/'.join(domain_part.split('/')[1:]) if '/' in domain_part else ''
+            base_url = f"{protocol}{domain}{path}"
+        else:
+            # Garante que não tenha path duplicado
+            if '/' in domain_part and not domain_part.startswith('/'):
+                base_url = f"{protocol}{domain_part}"
+            else:
+                base_url = f"{protocol}{domain_part.lstrip('/')}"
+        
+        return base_url.rstrip('/')
     
     # Caso contrário, usa localhost (desenvolvimento)
     return f"http://localhost:{port}"

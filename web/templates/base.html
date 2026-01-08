@@ -181,6 +181,28 @@
             flex-shrink: 0;
         }
         
+        .logout-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: #dc2626;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+        
+        .logout-btn:hover {
+            background: #b91c1c;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+        }
+        
         .sidebar-footer-text {
             font-size: 11px;
             color: #9ca3af;
@@ -392,6 +414,10 @@
                     </div>
                 </div>
             </div>
+            <a href="/logout" class="logout-btn" onclick="return confirm('Tem certeza que deseja sair?')" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; background: #dc2626; color: white; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 500; transition: all 0.3s; margin-bottom: 10px;">
+                <span style="font-size: 16px;">🚪</span>
+                <span>Sair</span>
+            </a>
             <div class="sidebar-footer-text">© 2024 YLADA</div>
         </div>
     </div>

@@ -900,10 +900,11 @@ def get_qr():
             print(f"[!] Servidor WhatsApp não está acessível na porta {port}")
             if IS_PRODUCTION:
                 return jsonify({
-                    "error": f"Servidor WhatsApp não está rodando na porta {port}. Crie um serviço Node.js no Railway com PORT={port}.",
+                    "error": f"Servidor WhatsApp não está acessível. Verifique se o serviço Node.js está rodando.",
                     "status": "error",
-                    "hint": f"Em produção, cada porta precisa de um serviço Node.js separado. Crie um serviço 'whatsapp-server-{port}' com PORT={port}",
-                    "port": port
+                    "hint": f"Em produção, o servidor WhatsApp precisa estar rodando como um serviço separado no Railway. Verifique se o serviço está ativo e acessível em {server_url}",
+                    "port": port,
+                    "server_url": server_url
                 }), 503
         
         # Busca QR Code do servidor Node.js
@@ -954,31 +955,46 @@ def get_qr():
         except requests.exceptions.ConnectionError:
             error_msg = f"Servidor WhatsApp não está rodando na porta {port}."
             print(f"[!] {error_msg}")
+            
+            # Em produção, não tenta iniciar automaticamente
+            from config.settings import IS_PRODUCTION
+            if IS_PRODUCTION:
+                return jsonify({
+                    "error": f"Servidor WhatsApp não está acessível. O serviço Node.js precisa estar rodando.",
+                    "status": "error",
+                    "port": port,
+                    "hint": f"Em produção, o servidor WhatsApp precisa estar rodando como um serviço separado. Verifique se o serviço está ativo no Railway.",
+                    "server_url": server_url
+                }), 503
+            
+            # Em desenvolvimento, tenta iniciar automaticamente
             print(f"[*] Tentando iniciar servidor automaticamente...")
-            # Tenta iniciar novamente
-            ensure_whatsapp_server_running(port)
-            time.sleep(2)
-            # Tenta novamente
-            try:
-                response = requests.get(f"{server_url}/qr", timeout=5)
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get('ready'):
-                        return jsonify({"status": "connected"})
-                    qr_data = data.get('qr')
-                    if qr_data:
-                        return jsonify({
-                            "qr": qr_data, 
-                            "status": "waiting",
-                            "success": True
-                        })
-            except:
-                pass
+            server_started = ensure_whatsapp_server_running(port)
+            if server_started:
+                time.sleep(3)
+                # Tenta novamente após iniciar
+                try:
+                    response = requests.get(qr_url, timeout=5)
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get('ready'):
+                            return jsonify({"status": "connected"})
+                        qr_data = data.get('qr')
+                        if qr_data:
+                            return jsonify({
+                                "qr": qr_data, 
+                                "status": "waiting",
+                                "success": True
+                            })
+                except Exception as retry_error:
+                    print(f"[!] Erro ao tentar novamente: {retry_error}")
+            
             return jsonify({
                 "error": error_msg + " Tente recarregar a página em alguns segundos.",
                 "status": "error",
                 "port": port,
-                "hint": f"Verifique se o servidor Node.js está rodando na porta {port}"
+                "hint": f"Verifique se o servidor Node.js está rodando. Execute: node whatsapp_server.js",
+                "server_url": server_url
             }), 503
         except requests.exceptions.Timeout:
             return jsonify({

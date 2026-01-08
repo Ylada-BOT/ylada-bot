@@ -9,9 +9,11 @@ DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'users' AND column_name = 'phone'
+        WHERE table_schema = 'public' 
+        AND table_name = 'users' 
+        AND column_name = 'phone'
     ) THEN
-        ALTER TABLE users ADD COLUMN phone VARCHAR(20);
+        ALTER TABLE public.users ADD COLUMN phone VARCHAR(20);
         RAISE NOTICE 'Coluna phone adicionada com sucesso';
     ELSE
         RAISE NOTICE 'Coluna phone já existe';
@@ -23,18 +25,21 @@ DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'users' AND column_name = 'photo_url'
+        WHERE table_schema = 'public' 
+        AND table_name = 'users' 
+        AND column_name = 'photo_url'
     ) THEN
-        ALTER TABLE users ADD COLUMN photo_url VARCHAR(500);
+        ALTER TABLE public.users ADD COLUMN photo_url VARCHAR(500);
         RAISE NOTICE 'Coluna photo_url adicionada com sucesso';
     ELSE
         RAISE NOTICE 'Coluna photo_url já existe';
     END IF;
 END $$;
 
--- Verificação: Lista colunas da tabela users
+-- Verificação: Lista colunas da tabela users no schema public
 SELECT column_name, data_type, is_nullable
 FROM information_schema.columns
-WHERE table_name = 'users'
+WHERE table_schema = 'public' 
+AND table_name = 'users'
 ORDER BY ordinal_position;
 

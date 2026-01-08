@@ -61,6 +61,64 @@ def create_token_simple(user_id: int, email: str, role: str) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
+@bp.route('/setup', methods=['POST'])
+def setup_first_user():
+    """Cria primeiro usuário do sistema (apenas se não houver usuários)"""
+    try:
+        data = request.get_json()
+        
+        email = data.get('email')
+        password = data.get('password')
+        name = data.get('name', 'Admin')
+        
+        if not email or not password:
+            return jsonify({'error': 'Email e senha são obrigatórios'}), 400
+        
+        # Verifica se já existe usuário
+        if SIMPLE_AUTH_AVAILABLE:
+            users = _load_users()
+            if users:
+                return jsonify({'error': 'Sistema já possui usuários. Use /register para criar novos.'}), 400
+            
+            # Cria primeiro usuário
+            user = register_user_simple(email, password, name)
+            if user:
+                token = create_token_simple(user['id'], user['email'], user['role'])
+                session['user_id'] = user['id']
+                session['user_email'] = user['email']
+                session['user_role'] = user['role']
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Primeiro usuário criado com sucesso!',
+                    'token': token,
+                    'user': user
+                }), 201
+        
+        return jsonify({'error': 'Sistema de autenticação não disponível'}), 503
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def _load_users():
+    """Carrega usuários do arquivo (helper interno)"""
+    if not SIMPLE_AUTH_AVAILABLE:
+        return {}
+    try:
+        from web.utils.user_helper import authenticate_user_simple
+        # Tenta carregar arquivo diretamente
+        import json
+        import os
+        users_file = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'users.json')
+        if os.path.exists(users_file):
+            with open(users_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except:
+        pass
+    return {}
+
+
 @bp.route('/register', methods=['POST'])
 def register():
     """Registra novo usuário"""

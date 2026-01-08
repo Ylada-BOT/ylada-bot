@@ -76,7 +76,18 @@ def setup_first_user():
         
         # Verifica se já existe usuário
         if SIMPLE_AUTH_AVAILABLE:
-            users = _load_users()
+            # Carrega usuários do arquivo
+            import json
+            import os
+            users_file = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'users.json')
+            users = {}
+            if os.path.exists(users_file):
+                try:
+                    with open(users_file, 'r', encoding='utf-8') as f:
+                        users = json.load(f)
+                except:
+                    users = {}
+            
             if users:
                 return jsonify({'error': 'Sistema já possui usuários. Use /register para criar novos.'}), 400
             
@@ -99,24 +110,6 @@ def setup_first_user():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-
-def _load_users():
-    """Carrega usuários do arquivo (helper interno)"""
-    if not SIMPLE_AUTH_AVAILABLE:
-        return {}
-    try:
-        from web.utils.user_helper import authenticate_user_simple
-        # Tenta carregar arquivo diretamente
-        import json
-        import os
-        users_file = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'users.json')
-        if os.path.exists(users_file):
-            with open(users_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-    except:
-        pass
-    return {}
 
 
 @bp.route('/register', methods=['POST'])

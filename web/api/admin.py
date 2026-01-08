@@ -38,13 +38,56 @@ def list_organizations():
 def list_users():
     """Lista todos os usuários (apenas admin)"""
     try:
-        # TODO: Implementar listagem de usuários
+        users_list = []
+        
+        # Tenta usar banco de dados primeiro
+        try:
+            from src.database.db import SessionLocal
+            from src.models.user import User
+            db = SessionLocal()
+            try:
+                db_users = db.query(User).order_by(User.created_at.desc()).all()
+                for user in db_users:
+                    users_list.append({
+                        'id': user.id,
+                        'email': user.email,
+                        'name': user.name,
+                        'role': user.role.value if hasattr(user.role, 'value') else str(user.role),
+                        'is_active': user.is_active,
+                        'created_at': user.created_at.isoformat() if user.created_at else None,
+                        'phone': user.phone,
+                        'photo_url': user.photo_url
+                    })
+            finally:
+                db.close()
+        except Exception as db_error:
+            # Se banco não disponível, usa modo simplificado
+            print(f"[!] Erro ao buscar usuários do banco: {db_error}")
+            from web.utils.user_helper import _load_users
+            users_data = _load_users()
+            for user_id, user_data in users_data.items():
+                users_list.append({
+                    'id': user_data.get('id', int(user_id)),
+                    'email': user_data.get('email', ''),
+                    'name': user_data.get('name', ''),
+                    'role': user_data.get('role', 'user'),
+                    'is_active': user_data.get('is_active', True),
+                    'created_at': user_data.get('created_at', ''),
+                    'phone': user_data.get('phone'),
+                    'photo_url': user_data.get('photo_url')
+                })
+        
         return jsonify({
             'success': True,
-            'users': []
+            'users': users_list,
+            'total': len(users_list)
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        return jsonify({
+            'error': str(e),
+            'traceback': traceback.format_exc() if request.args.get('debug') == 'true' else None
+        }), 500
 
 @bp.route('/stats', methods=['GET'])
 @require_admin_api

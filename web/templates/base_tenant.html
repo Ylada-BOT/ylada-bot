@@ -4,6 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}BOT by YLADA{% endblock %}</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Automação com WhatsApp e Inteligência Artificial">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="YLADA BOT">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="stylesheet" href="/static/css/logo-fix.css">
     <style>
         * {
             margin: 0;
@@ -41,20 +55,28 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            background: #f9fafb;
+            background: transparent;
         }
         
         .sidebar-logo {
-            width: 40px;
+            width: auto;
             height: 40px;
-            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-            border-radius: 10px;
+            background: transparent;
+            border-radius: 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
-            font-weight: bold;
-            color: white;
+            overflow: visible;
+            padding: 0;
+        }
+        
+        .sidebar-logo img {
+            height: 100%;
+            width: auto;
+            max-width: 120px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+            background: transparent;
         }
         
         .sidebar-title {
@@ -213,7 +235,9 @@
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <div class="sidebar-logo">B</div>
+            <div class="sidebar-logo">
+                <img src="/static/assets/logo_transparent.png" alt="YLADA BOT">
+            </div>
             <div>
                 <div class="sidebar-title">BOT by YLADA</div>
                 <div class="sidebar-subtitle">Meu Bot</div>
@@ -313,6 +337,22 @@
             }
         });
     </script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/service-worker.js')
+                    .then((registration) => {
+                        console.log('✅ Service Worker registrado com sucesso:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.log('❌ Falha ao registrar Service Worker:', error);
+                    });
+            });
+        }
+    </script>
+    
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>

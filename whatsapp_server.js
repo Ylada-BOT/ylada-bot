@@ -11,6 +11,11 @@ app.use(express.json());
 let client = null;
 let qrCodeData = null;
 let isReady = false;
+let reconnectAttempts = 0;
+let maxReconnectAttempts = 10; // Máximo de tentativas de reconexão
+let reconnectDelay = 30000; // 30 segundos entre tentativas
+let isReconnecting = false;
+let healthCheckInterval = null;
 
 // Inicializa cliente
 function initClient() {
@@ -88,9 +93,12 @@ function initClient() {
     });
 
     client.on('ready', () => {
-        console.log('\n✅ WhatsApp conectado com sucesso!');
+        const timestamp = new Date().toISOString();
+        console.log(`\n[${timestamp}] ✅ WhatsApp conectado com sucesso!`);
         isReady = true;
         qrCodeData = null;
+        reconnectAttempts = 0; // Reset contador de tentativas
+        isReconnecting = false;
     });
 
     client.on('authenticated', () => {
@@ -103,9 +111,15 @@ function initClient() {
     });
 
     client.on('disconnected', (reason) => {
-        console.log('⚠️ Desconectado:', reason);
+        const timestamp = new Date().toISOString();
+        console.log(`\n[${timestamp}] ⚠️ WhatsApp desconectado. Motivo: ${reason}`);
         isReady = false;
         qrCodeData = null;
+        
+        // Tenta reconectar automaticamente (exceto se foi logout manual)
+        if (reason !== 'LOGOUT' && !isReconnecting) {
+            attemptReconnect();
+        }
     });
 
     client.on('loading_screen', (percent, message) => {
@@ -123,7 +137,19 @@ function initClient() {
 
     // Listener para erros
     client.on('error', (error) => {
-        console.error('❌ Erro no cliente WhatsApp:', error);
+        const timestamp = new Date().toISOString();
+        console.error(`[${timestamp}] ❌ Erro no cliente WhatsApp:`, error.message || error);
+        
+        // Se o erro indica desconexão, tenta reconectar
+        if (error.message && (
+            error.message.includes('disconnected') || 
+            error.message.includes('Connection closed') ||
+            error.message.includes('Session closed')
+        )) {
+            if (!isReconnecting && !isReady) {
+                attemptReconnect();
+            }
+        }
     });
 
     // Listener para mensagens recebidas
@@ -161,6 +187,79 @@ function initClient() {
     });
 
     client.initialize();
+}
+
+// Função para tentar reconectar automaticamente
+function attemptReconnect() {
+    if (isReconnecting) {
+        return; // Já está tentando reconectar
+    }
+    
+    if (reconnectAttempts >= maxReconnectAttempts) {
+        const timestamp = new Date().toISOString();
+        console.error(`\n[${timestamp}] ❌ Máximo de tentativas de reconexão atingido (${maxReconnectAttempts}).`);
+        console.error(`[${timestamp}] ⚠️ Por favor, verifique manualmente ou reinicie o servidor.`);
+        isReconnecting = false;
+        return;
+    }
+    
+    isReconnecting = true;
+    reconnectAttempts++;
+    const timestamp = new Date().toISOString();
+    const delaySeconds = reconnectDelay / 1000;
+    
+    console.log(`\n[${timestamp}] 🔄 Tentativa de reconexão ${reconnectAttempts}/${maxReconnectAttempts} em ${delaySeconds} segundos...`);
+    
+    setTimeout(() => {
+        if (!isReady) {
+            console.log(`[${new Date().toISOString()}] 🔄 Reconectando...`);
+            try {
+                // Destroi cliente antigo se existir
+                if (client) {
+                    client.destroy().catch(() => {});
+                }
+                // Cria novo cliente
+                initClient();
+            } catch (error) {
+                const timestamp = new Date().toISOString();
+                console.error(`[${timestamp}] ❌ Erro ao tentar reconectar:`, error.message);
+                isReconnecting = false;
+                // Tenta novamente após delay
+                setTimeout(() => {
+                    isReconnecting = false;
+                    attemptReconnect();
+                }, reconnectDelay);
+            }
+        } else {
+            isReconnecting = false;
+        }
+    }, reconnectDelay);
+}
+
+// Health check periódico (verifica a cada 2 minutos se está conectado)
+function startHealthCheck() {
+    if (healthCheckInterval) {
+        clearInterval(healthCheckInterval);
+    }
+    
+    healthCheckInterval = setInterval(() => {
+        const timestamp = new Date().toISOString();
+        
+        // Verifica se deveria estar conectado mas não está
+        if (!isReady && !qrCodeData && !isReconnecting) {
+            console.log(`\n[${timestamp}] ⚠️ Health Check: WhatsApp não está conectado. Tentando reconectar...`);
+            attemptReconnect();
+        } else if (isReady) {
+            // Verifica se realmente está conectado (teste mais rigoroso)
+            if (client && client.info) {
+                // Está OK
+            } else {
+                console.log(`\n[${timestamp}] ⚠️ Health Check: Cliente marcado como pronto mas sem info. Reconectando...`);
+                isReady = false;
+                attemptReconnect();
+            }
+        }
+    }, 120000); // Verifica a cada 2 minutos
 }
 
 // Rota raiz
@@ -245,7 +344,13 @@ app.get('/status', (req, res) => {
         ready: actuallyReady || isReady, 
         hasQr: !!qrCodeData,
         actuallyConnected: actuallyReady,
-        clientInitialized: !!client
+        clientInitialized: !!client,
+        reconnectInfo: {
+            attempts: reconnectAttempts,
+            maxAttempts: maxReconnectAttempts,
+            isReconnecting: isReconnecting,
+            autoReconnectEnabled: true
+        }
     });
 });
 
@@ -437,10 +542,30 @@ app.get('/chats/:chatId/messages', async (req, res) => {
 
 // Inicia servidor
 app.listen(port, () => {
-    console.log(`\n🚀 Servidor WhatsApp Web.js rodando em http://localhost:${port}`);
-    console.log(`📱 Client ID: ylada_bot_${port}`);
-    console.log(`📁 Sessão: .wwebjs_auth_${port}`);
-    console.log('Aguardando conexão...\n');
+    const timestamp = new Date().toISOString();
+    console.log(`\n[${timestamp}] 🚀 Servidor WhatsApp Web.js rodando em http://localhost:${port}`);
+    console.log(`[${timestamp}] 📱 Client ID: ylada_bot_${port}`);
+    console.log(`[${timestamp}] 📁 Sessão: .wwebjs_auth_${port}`);
+    console.log(`[${timestamp}] 🔄 Auto-reconexão: ATIVADA (máx ${maxReconnectAttempts} tentativas)`);
+    console.log(`[${timestamp}] 💚 Health Check: ATIVADO (verifica a cada 2 minutos)`);
+    console.log(`[${timestamp}] Aguardando conexão...\n`);
+    
+    // Inicia cliente
     initClient();
+    
+    // Inicia health check
+    startHealthCheck();
+    
+    // Cleanup ao encerrar
+    process.on('SIGINT', () => {
+        console.log('\n⚠️ Encerrando servidor...');
+        if (healthCheckInterval) {
+            clearInterval(healthCheckInterval);
+        }
+        if (client) {
+            client.destroy();
+        }
+        process.exit(0);
+    });
 });
 

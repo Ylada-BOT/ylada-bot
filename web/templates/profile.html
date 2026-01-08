@@ -1,0 +1,408 @@
+{% extends "base.html" %}
+
+{% block title %}Meu Perfil - BOT by YLADA{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .profile-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .profile-header {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+        border: 1px solid #e5e7eb;
+    }
+    
+    .profile-avatar-section {
+        display: flex;
+        align-items: center;
+        gap: 25px;
+        margin-bottom: 30px;
+    }
+    
+    .profile-avatar {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 4px solid #3b82f6;
+        background: #f3f4f6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 48px;
+        color: #6b7280;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .profile-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .profile-avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        font-weight: bold;
+        font-size: 48px;
+    }
+    
+    .avatar-upload-btn {
+        margin-top: 15px;
+    }
+    
+    .avatar-upload-btn input[type="file"] {
+        display: none;
+    }
+    
+    .profile-info {
+        flex: 1;
+    }
+    
+    .profile-name {
+        font-size: 28px;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 8px;
+    }
+    
+    .profile-email {
+        font-size: 16px;
+        color: #6b7280;
+        margin-bottom: 5px;
+    }
+    
+    .profile-phone {
+        font-size: 16px;
+        color: #6b7280;
+    }
+    
+    .profile-form {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+        border: 1px solid #e5e7eb;
+    }
+    
+    .form-group {
+        margin-bottom: 25px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: #333;
+        font-weight: 500;
+        font-size: 14px;
+    }
+    
+    .form-group input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: all 0.2s ease;
+    }
+    
+    .form-group input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .btn {
+        display: inline-block;
+        padding: 12px 24px;
+        background: #3b82f6;
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 500;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 14px;
+    }
+    
+    .btn:hover {
+        background: #2563eb;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+    
+    .btn-secondary {
+        background: #6b7280;
+    }
+    
+    .btn-secondary:hover {
+        background: #4b5563;
+    }
+    
+    .alert {
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-size: 14px;
+    }
+    
+    .alert-success {
+        background: #f0fdf4;
+        border: 1px solid #86efac;
+        color: #166534;
+    }
+    
+    .alert-error {
+        background: #fef2f2;
+        border: 1px solid #fca5a5;
+        color: #991b1b;
+    }
+    
+    .hidden {
+        display: none;
+    }
+    
+    .loading {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <div class="profile-header">
+        <div class="profile-avatar-section">
+            <div>
+                <div class="profile-avatar" id="profileAvatar">
+                    <div class="profile-avatar-placeholder" id="avatarPlaceholder">
+                        {{ user.name[0].upper() if user else 'U' }}
+                    </div>
+                    <img id="avatarImage" src="" alt="Foto de perfil" style="display: none;">
+                </div>
+                <label class="btn btn-secondary avatar-upload-btn" style="margin-top: 15px; cursor: pointer;">
+                    <input type="file" id="photoInput" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp">
+                    📷 Alterar Foto
+                </label>
+            </div>
+            <div class="profile-info">
+                <div class="profile-name" id="profileName">Carregando...</div>
+                <div class="profile-email" id="profileEmail">-</div>
+                <div class="profile-phone" id="profilePhone">-</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="profile-form">
+        <h2 style="margin-bottom: 25px; color: #1f2937;">Editar Perfil</h2>
+        
+        <div id="alertContainer"></div>
+        
+        <form id="profileForm" onsubmit="saveProfile(event)">
+            <div class="form-group">
+                <label for="name">Nome Completo</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="phone">Telefone</label>
+                <input type="tel" id="phone" name="phone" placeholder="(11) 99999-9999">
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" disabled style="background: #f3f4f6; cursor: not-allowed;">
+                <small style="color: #6b7280; font-size: 12px; margin-top: 5px; display: block;">O email não pode ser alterado</small>
+            </div>
+            
+            <div style="display: flex; gap: 15px; margin-top: 30px;">
+                <button type="submit" class="btn" id="saveBtn">Salvar Alterações</button>
+                <a href="/" class="btn btn-secondary" style="text-decoration: none;">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let currentUser = null;
+    
+    // Carrega dados do perfil
+    async function loadProfile() {
+        try {
+            const response = await fetch('/api/auth/me');
+            const data = await response.json();
+            
+            if (response.ok) {
+                currentUser = data;
+                updateProfileDisplay(data);
+            } else {
+                showAlert('Erro ao carregar perfil: ' + (data.error || 'Erro desconhecido'), 'error');
+            }
+        } catch (error) {
+            showAlert('Erro ao carregar perfil: ' + error.message, 'error');
+        }
+    }
+    
+    // Atualiza exibição do perfil
+    function updateProfileDisplay(user) {
+        document.getElementById('profileName').textContent = user.name || 'Sem nome';
+        document.getElementById('profileEmail').textContent = user.email || '-';
+        document.getElementById('profilePhone').textContent = user.phone || 'Não informado';
+        
+        document.getElementById('name').value = user.name || '';
+        document.getElementById('phone').value = user.phone || '';
+        document.getElementById('email').value = user.email || '';
+        
+        // Atualiza avatar
+        const avatarImage = document.getElementById('avatarImage');
+        const avatarPlaceholder = document.getElementById('avatarPlaceholder');
+        
+        if (user.photo_url) {
+            avatarImage.src = user.photo_url;
+            avatarImage.style.display = 'block';
+            avatarPlaceholder.style.display = 'none';
+        } else {
+            avatarImage.style.display = 'none';
+            avatarPlaceholder.style.display = 'flex';
+            avatarPlaceholder.textContent = (user.name || 'U')[0].toUpperCase();
+        }
+    }
+    
+    // Salva perfil
+    async function saveProfile(event) {
+        event.preventDefault();
+        
+        const saveBtn = document.getElementById('saveBtn');
+        const form = document.getElementById('profileForm');
+        
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Salvando...';
+        form.classList.add('loading');
+        
+        try {
+            const formData = {
+                name: document.getElementById('name').value.trim(),
+                phone: document.getElementById('phone').value.trim()
+            };
+            
+            const response = await fetch('/api/auth/profile', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                showAlert('Perfil atualizado com sucesso!', 'success');
+                updateProfileDisplay(data.user);
+            } else {
+                showAlert('Erro ao salvar: ' + (data.error || 'Erro desconhecido'), 'error');
+            }
+        } catch (error) {
+            showAlert('Erro ao salvar perfil: ' + error.message, 'error');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Salvar Alterações';
+            form.classList.remove('loading');
+        }
+    }
+    
+    // Upload de foto
+    document.getElementById('photoInput').addEventListener('change', async function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // Valida tipo de arquivo
+        const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            showAlert('Tipo de arquivo não permitido. Use PNG, JPG, GIF ou WEBP.', 'error');
+            return;
+        }
+        
+        // Valida tamanho (10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            showAlert('Arquivo muito grande. Máximo: 10MB', 'error');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('photo', file);
+        
+        const uploadBtn = e.target.parentElement;
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = 'Enviando...';
+        
+        try {
+            const response = await fetch('/api/auth/profile/upload-photo', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                showAlert('Foto enviada com sucesso!', 'success');
+                
+                // Atualiza avatar
+                const avatarImage = document.getElementById('avatarImage');
+                const avatarPlaceholder = document.getElementById('avatarPlaceholder');
+                
+                avatarImage.src = data.photo_url;
+                avatarImage.style.display = 'block';
+                avatarPlaceholder.style.display = 'none';
+                
+                // Atualiza dados do usuário
+                if (currentUser) {
+                    currentUser.photo_url = data.photo_url;
+                }
+            } else {
+                showAlert('Erro ao enviar foto: ' + (data.error || 'Erro desconhecido'), 'error');
+            }
+        } catch (error) {
+            showAlert('Erro ao enviar foto: ' + error.message, 'error');
+        } finally {
+            uploadBtn.disabled = false;
+            uploadBtn.innerHTML = '📷 Alterar Foto';
+            e.target.value = ''; // Limpa input
+        }
+    });
+    
+    // Mostra alerta
+    function showAlert(message, type = 'success') {
+        const container = document.getElementById('alertContainer');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type}`;
+        alert.textContent = message;
+        
+        container.innerHTML = '';
+        container.appendChild(alert);
+        
+        // Remove após 5 segundos
+        setTimeout(() => {
+            alert.remove();
+        }, 5000);
+    }
+    
+    // Carrega perfil ao iniciar
+    loadProfile();
+</script>
+{% endblock %}
+

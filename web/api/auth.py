@@ -354,6 +354,7 @@ def login():
         # Modo simplificado (arquivo JSON)
         elif SIMPLE_AUTH_AVAILABLE:
             try:
+                print(f"[DEBUG] Tentando autenticar: {email}")
                 user = authenticate_user_simple(email, password)
                 
                 if not user:
@@ -361,21 +362,31 @@ def login():
                     import json
                     import os
                     users_file = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'users.json')
+                    print(f"[DEBUG] Arquivo de usuários: {users_file}")
+                    print(f"[DEBUG] Arquivo existe: {os.path.exists(users_file)}")
+                    
                     if os.path.exists(users_file):
                         with open(users_file, 'r', encoding='utf-8') as f:
                             users = json.load(f)
+                            print(f"[DEBUG] Total de usuários no arquivo: {len(users)}")
                             # Verifica se email existe
                             email_found = False
                             for u in users.values():
-                                if u.get('email', '').lower() == email.lower():
+                                user_email = u.get('email', '').lower().strip()
+                                if user_email == email.lower().strip():
                                     email_found = True
+                                    print(f"[DEBUG] Email encontrado: {user_email}")
+                                    print(f"[DEBUG] Role do usuário: {u.get('role')}")
                                     break
                             
                             if not email_found:
+                                print(f"[DEBUG] Email não encontrado no arquivo")
                                 return jsonify({
                                     'error': 'Email não encontrado',
                                     'debug': 'Verifique se o usuário foi criado corretamente'
                                 }), 401
+                    else:
+                        print(f"[DEBUG] Arquivo de usuários não existe!")
                     
                     return jsonify({
                         'error': 'Credenciais inválidas',
@@ -438,6 +449,8 @@ def get_current_user():
                     'id': user.id,
                     'email': user.email,
                     'name': user.name,
+                    'phone': user.phone or '',
+                    'photo_url': user.photo_url or '',
                     'role': user.role.value,
                     'is_active': user.is_active
                 }), 200
@@ -457,8 +470,237 @@ def get_current_user():
             'id': user['id'],
             'email': user['email'],
             'name': user['name'],
+            'phone': user.get('phone', ''),
+            'photo_url': user.get('photo_url', ''),
             'role': user['role'],
             'is_active': user.get('is_active', True)
         }), 200
     
     return jsonify({'error': 'Sistema de autenticação não disponível'}), 503
+
+
+@bp.route('/profile', methods=['GET', 'PUT'])
+def profile():
+    """Obtém ou atualiza perfil do usuário"""
+    user_id = session.get('user_id')
+    
+    if not user_id:
+        return jsonify({'error': 'Usuário não autenticado'}), 401
+    
+    if request.method == 'GET':
+        # Retorna dados do perfil (mesma lógica de /me)
+        return get_current_user()
+    
+    # PUT - Atualiza perfil
+    try:
+        data = request.get_json()
+        
+        # Tenta usar banco de dados se disponível
+        if DB_AVAILABLE:
+            try:
+                db = SessionLocal()
+                try:
+                    user = get_user_by_id(db, user_id)
+                    
+                    if not user:
+                        return jsonify({'error': 'Usuário não encontrado'}), 404
+                    
+                    # Atualiza campos permitidos
+                    if 'name' in data:
+                        user.name = data['name'].strip()
+                    if 'phone' in data:
+                        user.phone = data['phone'].strip() if data['phone'] else None
+                    if 'photo_url' in data:
+                        user.photo_url = data['photo_url'].strip() if data['photo_url'] else None
+                    
+                    db.commit()
+                    db.refresh(user)
+                    
+                    return jsonify({
+                        'success': True,
+                        'user': {
+                            'id': user.id,
+                            'email': user.email,
+                            'name': user.name,
+                            'phone': user.phone or '',
+                            'photo_url': user.photo_url or '',
+                            'role': user.role.value
+                        }
+                    }), 200
+                finally:
+                    db.close()
+            except Exception as db_error:
+                return jsonify({'error': f'Erro ao atualizar perfil: {str(db_error)}'}), 500
+        
+        # Modo simplificado (arquivo JSON)
+        if SIMPLE_AUTH_AVAILABLE:
+            import json
+            import os
+            from pathlib import Path
+            
+            users_file = Path(__file__).resolve().parent.parent.parent / 'data' / 'users.json'
+            users_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Carrega usuários
+            users = []
+            if users_file.exists():
+                try:
+                    with open(users_file, 'r', encoding='utf-8') as f:
+                        users = json.load(f)
+                except:
+                    users = []
+            
+            # Busca e atualiza usuário
+            user = None
+            for u in users:
+                if u.get('id') == user_id:
+                    user = u
+                    break
+            
+            if not user:
+                return jsonify({'error': 'Usuário não encontrado'}), 404
+            
+            # Atualiza campos
+            if 'name' in data:
+                user['name'] = data['name'].strip()
+            if 'phone' in data:
+                user['phone'] = data['phone'].strip() if data.get('phone') else ''
+            if 'photo_url' in data:
+                user['photo_url'] = data['photo_url'].strip() if data.get('photo_url') else ''
+            
+            # Salva
+            with open(users_file, 'w', encoding='utf-8') as f:
+                json.dump(users, f, indent=2, ensure_ascii=False)
+            
+            return jsonify({
+                'success': True,
+                'user': {
+                    'id': user['id'],
+                    'email': user['email'],
+                    'name': user['name'],
+                    'phone': user.get('phone', ''),
+                    'photo_url': user.get('photo_url', ''),
+                    'role': user['role']
+                }
+            }), 200
+        
+        return jsonify({'error': 'Sistema de autenticação não disponível'}), 503
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/profile/upload-photo', methods=['POST'])
+def upload_photo():
+    """Faz upload da foto de perfil"""
+    user_id = session.get('user_id')
+    
+    if not user_id:
+        return jsonify({'error': 'Usuário não autenticado'}), 401
+    
+    try:
+        from flask import current_app
+        from werkzeug.utils import secure_filename
+        from pathlib import Path
+        import uuid
+        from config.settings import UPLOAD_FOLDER, MAX_UPLOAD_SIZE
+        
+        # Verifica se arquivo foi enviado
+        if 'photo' not in request.files:
+            return jsonify({'error': 'Nenhum arquivo enviado'}), 400
+        
+        file = request.files['photo']
+        
+        if file.filename == '':
+            return jsonify({'error': 'Nenhum arquivo selecionado'}), 400
+        
+        # Valida tipo de arquivo
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+        filename = secure_filename(file.filename)
+        if '.' not in filename:
+            return jsonify({'error': 'Arquivo sem extensão'}), 400
+        
+        ext = filename.rsplit('.', 1)[1].lower()
+        if ext not in allowed_extensions:
+            return jsonify({'error': f'Tipo de arquivo não permitido. Use: {", ".join(allowed_extensions)}'}), 400
+        
+        # Verifica tamanho
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)
+        
+        if file_size > MAX_UPLOAD_SIZE:
+            return jsonify({'error': f'Arquivo muito grande. Máximo: {MAX_UPLOAD_SIZE // 1024 // 1024}MB'}), 400
+        
+        # Cria diretório de uploads se não existir
+        upload_dir = Path(UPLOAD_FOLDER) / 'profiles'
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Gera nome único para o arquivo
+        unique_filename = f"{user_id}_{uuid.uuid4().hex[:8]}.{ext}"
+        file_path = upload_dir / unique_filename
+        
+        # Salva arquivo
+        file.save(str(file_path))
+        
+        # Gera URL relativa (ajusta caminho baseado na estrutura)
+        # O arquivo será servido via rota /static/uploads/<path:filename>
+        photo_url = f"/static/uploads/profiles/{unique_filename}"
+        
+        # Atualiza photo_url no banco/arquivo
+        if DB_AVAILABLE:
+            try:
+                db = SessionLocal()
+                try:
+                    user = get_user_by_id(db, user_id)
+                    if user:
+                        user.photo_url = photo_url
+                        db.commit()
+                    else:
+                        file_path.unlink()
+                        return jsonify({'error': 'Usuário não encontrado'}), 404
+                finally:
+                    db.close()
+            except Exception as db_error:
+                file_path.unlink()
+                return jsonify({'error': f'Erro ao atualizar perfil: {str(db_error)}'}), 500
+        elif SIMPLE_AUTH_AVAILABLE:
+            import json
+            from pathlib import Path
+            
+            users_file = Path(__file__).resolve().parent.parent.parent / 'data' / 'users.json'
+            users_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            users = []
+            if users_file.exists():
+                try:
+                    with open(users_file, 'r', encoding='utf-8') as f:
+                        users = json.load(f)
+                except:
+                    users = []
+            
+            user = None
+            for u in users:
+                if u.get('id') == user_id:
+                    user = u
+                    break
+            
+            if user:
+                user['photo_url'] = photo_url
+                with open(users_file, 'w', encoding='utf-8') as f:
+                    json.dump(users, f, indent=2, ensure_ascii=False)
+            else:
+                file_path.unlink()
+                return jsonify({'error': 'Usuário não encontrado'}), 404
+        else:
+            file_path.unlink()
+            return jsonify({'error': 'Sistema de autenticação não disponível'}), 503
+        
+        return jsonify({
+            'success': True,
+            'photo_url': photo_url,
+            'message': 'Foto enviada com sucesso'
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': f'Erro ao fazer upload: {str(e)}'}), 500

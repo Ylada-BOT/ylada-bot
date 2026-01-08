@@ -448,6 +448,32 @@ def favicon():
     from flask import Response
     return Response(status=204)
 
+@app.route('/static/manifest.json')
+def manifest():
+    """Retorna manifest.json para PWA"""
+    from flask import send_from_directory
+    return send_from_directory(
+        os.path.join(os.path.dirname(__file__), 'static'),
+        'manifest.json',
+        mimetype='application/manifest+json'
+    )
+
+@app.route('/static/uploads/<path:filename>')
+def serve_upload(filename):
+    """Serve arquivos de upload (fotos de perfil, etc)"""
+    from flask import send_from_directory
+    from pathlib import Path
+    from config.settings import UPLOAD_FOLDER
+    
+    # Remove 'profiles/' do caminho se estiver presente
+    if filename.startswith('profiles/'):
+        filename = filename.replace('profiles/', '')
+        upload_dir = Path(UPLOAD_FOLDER) / 'profiles'
+    else:
+        upload_dir = Path(UPLOAD_FOLDER)
+    
+    return send_from_directory(str(upload_dir), filename)
+
 @app.route('/login')
 def login_page():
     """Página de login"""
@@ -464,17 +490,49 @@ def logout():
     session.clear()
     return redirect(url_for('login_page'))
 
+@app.route('/profile')
+@require_login
+def profile_page():
+    """Página de perfil do usuário"""
+    return render_template('profile.html')
+
 # ============================================
 # ROTAS - DASHBOARD
 # ============================================
 
 @app.route('/')
-@require_login
 def index():
-    """Dashboard principal"""
+    """Página inicial (landing page) ou Dashboard se logado"""
     # Se autenticação está desabilitada, mostra dashboard direto
     if not AUTH_REQUIRED:
-            return render_template('dashboard_new.html')
+        return render_template('dashboard_new.html')
+    
+    # Se usuário não está logado, mostra landing page
+    if 'user_id' not in session:
+        return render_template('landing.html')
+    
+    # Se usuário está logado, redireciona para dashboard
+    user_role = session.get('user_role', 'user')
+    if user_role == 'admin':
+        return redirect(url_for('admin_dashboard'))
+    
+    # Carrega config do usuário logado
+    user_id = session.get('user_id')
+    if user_id:
+        try:
+            load_config(user_id)
+        except:
+            pass
+    
+    return render_template('dashboard_new.html')
+
+@app.route('/dashboard')
+@require_login
+def dashboard():
+    """Dashboard principal (rota alternativa)"""
+    # Se autenticação está desabilitada, mostra dashboard direto
+    if not AUTH_REQUIRED:
+        return render_template('dashboard_new.html')
     
     # Se usuário é admin, redireciona para área administrativa
     user_role = session.get('user_role', 'user')

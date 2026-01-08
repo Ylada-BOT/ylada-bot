@@ -1,0 +1,12 @@
+/* Fix para garantir que logo não tenha fundo branco */
+.sidebar-logo,
+.sidebar-logo img {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.sidebar-logo img {
+    mix-blend-mode: normal;
+    image-rendering: -webkit-optimize-contrast;
+}
+

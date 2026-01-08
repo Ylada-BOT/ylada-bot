@@ -839,7 +839,14 @@ def get_qr():
         # Garante que o servidor está rodando na porta correta
         server_started = ensure_whatsapp_server_running(port)
         if not server_started:
-            print(f"[!] Falha ao iniciar servidor na porta {port}")
+            print(f"[!] Servidor WhatsApp não está acessível na porta {port}")
+            if IS_PRODUCTION:
+                return jsonify({
+                    "error": f"Servidor WhatsApp não está rodando na porta {port}. Crie um serviço Node.js no Railway com PORT={port}.",
+                    "status": "error",
+                    "hint": f"Em produção, cada porta precisa de um serviço Node.js separado. Crie um serviço 'whatsapp-server-{port}' com PORT={port}",
+                    "port": port
+                }), 503
         
         # Busca QR Code do servidor Node.js
         # Em produção, cada porta precisa de um serviço Node.js separado

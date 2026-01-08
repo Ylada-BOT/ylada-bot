@@ -158,12 +158,18 @@ def ensure_whatsapp_server_running(port):
     if IS_PRODUCTION:
         server_url = get_whatsapp_server_url(port)
         try:
-            response = requests.get(f"{server_url}/health", timeout=2)
+            # Tenta health check primeiro
+            health_url = f"{server_url}/health" if '/health' not in server_url else server_url
+            response = requests.get(health_url, timeout=3)
             if response.status_code == 200:
                 print(f"[✓] Servidor WhatsApp está rodando em {server_url}")
                 return True
-        except:
-            print(f"[!] Servidor WhatsApp não está acessível em {server_url}")
+        except requests.exceptions.ConnectionError:
+            print(f"[!] Servidor WhatsApp não está acessível em {server_url} (porta {port})")
+            print(f"[!] Em produção, cada porta precisa de um serviço Node.js separado no Railway")
+            return False
+        except Exception as e:
+            print(f"[!] Erro ao verificar servidor WhatsApp: {e}")
             return False
     
     # Verifica se já está rodando

@@ -257,6 +257,14 @@ try:
 except Exception as e:
     print(f"[!] Rotas de diagnóstico não disponíveis: {e}")
 
+# Importa rotas de configuração do WhatsApp
+try:
+    from web.api.whatsapp_config import bp as whatsapp_config_bp
+    app.register_blueprint(whatsapp_config_bp)
+    print("[✓] Rotas de configuração do WhatsApp registradas")
+except Exception as e:
+    print(f"[!] Rotas de configuração do WhatsApp não disponíveis: {e}")
+
 # ============================================
 # INICIALIZAÇÃO
 # ============================================
@@ -495,6 +503,11 @@ def logout():
 def profile_page():
     """Página de perfil do usuário"""
     return render_template('profile.html')
+
+@app.route('/whatsapp-logo-setup')
+def whatsapp_logo_setup():
+    """Página para configurar logo no WhatsApp"""
+    return render_template('whatsapp_logo_setup.html')
 
 # ============================================
 # ROTAS - DASHBOARD
@@ -836,7 +849,8 @@ def instances_detail(instance_id):
         from web.utils.instance_helper import get_whatsapp_server_url
         port = user_instance.get('port', 5001)
         server_url = get_whatsapp_server_url(port)
-        status_response = requests.get(f"{server_url}/status", timeout=1)
+        # IMPORTANTE: Passa user_id para verificar status do usuário correto
+        status_response = requests.get(f"{server_url}/status?user_id={user_id}", timeout=1)
         if status_response.status_code == 200:
             status_data = status_response.json()
             actually_connected = status_data.get("actuallyConnected", False)
@@ -910,14 +924,9 @@ def get_qr():
                 }), 503
         
         # Busca QR Code do servidor Node.js
-        # Em produção, cada porta precisa de um serviço Node.js separado
+        # Passa user_id para separar sessões por usuário
         base_url = server_url.rstrip('/')
-        if IS_PRODUCTION and port != 5001:
-            # Em produção, tenta usar porta na URL (assumindo serviço separado)
-            # Se o servidor não suportar, retorna erro claro
-            qr_url = f"{base_url}/qr?port={port}"
-        else:
-            qr_url = f"{base_url}/qr"
+        qr_url = f"{base_url}/qr?user_id={user_id}"
         
         try:
             response = requests.get(qr_url, timeout=10)
@@ -1033,11 +1042,64 @@ def get_conversations():
         whatsapp_port = instance.get('port', 5001)
         server_url = get_whatsapp_server_url(whatsapp_port)
         
+        # PRIMEIRO: Verifica se o servidor está acessível (health check)
+        try:
+            health_response = requests.get(f"{server_url}/health", timeout=5)
+            if health_response.status_code != 200:
+                return jsonify({
+                    "success": False, 
+                    "error": f"Servidor WhatsApp não está respondendo (status {health_response.status_code})",
+                    "details": "O servidor WhatsApp está online mas não está funcionando corretamente. Verifique os logs do servidor."
+                }), 503
+        except requests.exceptions.ConnectionError:
+            return jsonify({
+                "success": False,
+                "error": "Servidor WhatsApp não está acessível",
+                "details": f"Não foi possível conectar ao servidor em {server_url}. Verifique se o serviço WhatsApp está rodando no Railway."
+            }), 503
+        except requests.exceptions.Timeout:
+            return jsonify({
+                "success": False,
+                "error": "Timeout ao conectar ao servidor WhatsApp",
+                "details": "O servidor WhatsApp demorou muito para responder. Pode estar sobrecarregado ou offline."
+            }), 503
+        
+        # SEGUNDO: Verifica se o WhatsApp está conectado
+        try:
+            status_response = requests.get(f"{server_url}/status?user_id={user_id}", timeout=5)
+            if status_response.status_code == 200:
+                status_data = status_response.json()
+                actually_connected = status_data.get("actuallyConnected", False)
+                ready = status_data.get("ready", False)
+                has_qr = status_data.get("hasQr", False)
+                
+                # Verifica se realmente está conectado
+                is_connected = False
+                if actually_connected:
+                    is_connected = True
+                elif ready and not has_qr:
+                    is_connected = True
+                
+                if not is_connected:
+                    return jsonify({
+                        "success": False,
+                        "error": "WhatsApp não está conectado",
+                        "details": "Conecte o WhatsApp primeiro escaneando o QR Code na página 'Conectar WhatsApp'.",
+                        "has_qr": has_qr,
+                        "needs_qr": has_qr
+                    }), 400
+        except requests.exceptions.RequestException:
+            # Se não conseguir verificar status, continua tentando buscar conversas
+            # (pode ser que o endpoint /status não exista em versões antigas)
+            pass
+        
+        # TERCEIRO: Busca as conversas
         # Parâmetros opcionais
         only_individuals = request.args.get('only_individuals', 'false').lower() == 'true'
         limit = request.args.get('limit', type=int)
         
-        response = requests.get(f"{server_url}/chats", timeout=10)
+        # IMPORTANTE: Passa user_id para separar conversas por usuário
+        response = requests.get(f"{server_url}/chats", params={"user_id": user_id}, timeout=10)
         
         if response.status_code == 200:
             data = response.json()
@@ -1066,13 +1128,49 @@ def get_conversations():
                 "chats": chats,
                 "total": len(chats)
             })
+        elif response.status_code == 400:
+            # Servidor retornou 400 - provavelmente cliente não conectado
+            error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else {}
+            error_msg = error_data.get('error', 'Cliente WhatsApp não conectado')
+            return jsonify({
+                "success": False,
+                "error": error_msg,
+                "details": "Escaneie o QR Code na página 'Conectar WhatsApp' para conectar sua conta."
+            }), 400
         else:
-            return jsonify({"success": False, "error": "Erro ao buscar conversas"}), 500
+            return jsonify({
+                "success": False, 
+                "error": f"Erro ao buscar conversas (status {response.status_code})",
+                "details": "O servidor WhatsApp retornou um erro. Verifique os logs do servidor."
+            }), 500
             
+    except requests.exceptions.ConnectionError as e:
+        return jsonify({
+            "success": False, 
+            "error": "Servidor WhatsApp não está acessível",
+            "details": f"Não foi possível conectar ao servidor. Verifique se o serviço WhatsApp está rodando e se a variável WHATSAPP_SERVER_URL está configurada corretamente no Railway."
+        }), 503
+    except requests.exceptions.Timeout as e:
+        return jsonify({
+            "success": False,
+            "error": "Timeout ao conectar ao servidor WhatsApp",
+            "details": "O servidor demorou muito para responder. Pode estar sobrecarregado."
+        }), 503
     except requests.exceptions.RequestException as e:
-        return jsonify({"success": False, "error": f"Servidor WhatsApp não está respondendo: {str(e)}"}), 503
+        return jsonify({
+            "success": False, 
+            "error": f"Erro ao comunicar com servidor WhatsApp: {str(e)}",
+            "details": "Verifique se o servidor WhatsApp está rodando e acessível."
+        }), 503
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        import traceback
+        print(f"[!] Erro inesperado em get_conversations: {e}")
+        print(traceback.format_exc())
+        return jsonify({
+            "success": False, 
+            "error": str(e),
+            "details": "Erro interno do servidor. Verifique os logs para mais detalhes."
+        }), 500
 
 @app.route('/api/conversations/<chat_id>/messages')
 @require_api_auth
@@ -1090,9 +1188,10 @@ def get_conversation_messages(chat_id):
         server_url = get_whatsapp_server_url(whatsapp_port)
         
         limit = request.args.get('limit', 50, type=int)
+        # IMPORTANTE: Passa user_id para separar mensagens por usuário
         response = requests.get(
             f"{server_url}/chats/{chat_id}/messages",
-            params={"limit": limit},
+            params={"limit": limit, "user_id": user_id},
             timeout=10
         )
         
@@ -1185,7 +1284,7 @@ def whatsapp_status():
         
         # Verifica status do servidor Node.js da instância do usuário
         try:
-            status_response = requests.get(f"{server_url}/status", timeout=3)
+            status_response = requests.get(f"{server_url}/status?user_id={user_id}", timeout=3)
             if status_response.status_code == 200:
                 status_data = status_response.json()
                 has_qr = status_data.get("hasQr", False)
@@ -1269,18 +1368,21 @@ def whatsapp_status():
 @require_api_auth
 def whatsapp_disconnect():
     """Desconecta o WhatsApp"""
-    if not whatsapp:
-        return jsonify({"success": False, "error": "WhatsApp não inicializado"}), 400
-    
     try:
-        from web.utils.instance_helper import get_whatsapp_server_url
+        from web.utils.instance_helper import get_or_create_user_instance, get_whatsapp_server_url
+        from web.utils.auth_helpers import get_current_user_id
         import requests
-        whatsapp_port = whatsapp.port if hasattr(whatsapp, 'port') else 5001
+        
+        # Obtém instância do usuário atual
+        user_id = get_current_user_id() or 1
+        instance = get_or_create_user_instance(user_id)
+        whatsapp_port = instance.get('port', 5001)
         server_url = get_whatsapp_server_url(whatsapp_port)
         
         # Chama endpoint de desconexão do servidor Node.js
+        # IMPORTANTE: Passa user_id para desconectar o WhatsApp do usuário correto
         try:
-            response = requests.post(f"{server_url}/disconnect", timeout=5)
+            response = requests.post(f"{server_url}/disconnect", json={"user_id": user_id}, timeout=5)
             if response.status_code == 200:
                 data = response.json()
                 return jsonify({

@@ -837,13 +837,13 @@ def get_qr():
             print(f"[!] Falha ao iniciar servidor na porta {port}")
         
         # Busca QR Code do servidor Node.js
-        # Em produção, passa porta como parâmetro para o servidor gerenciar
+        # Em produção, cada porta precisa de um serviço Node.js separado
         base_url = server_url.rstrip('/')
-        if IS_PRODUCTION:
-            # Em produção, passa porta como parâmetro
+        if IS_PRODUCTION and port != 5001:
+            # Em produção, tenta usar porta na URL (assumindo serviço separado)
+            # Se o servidor não suportar, retorna erro claro
             qr_url = f"{base_url}/qr?port={port}"
         else:
-            # Em desenvolvimento, usa localhost com porta
             qr_url = f"{base_url}/qr"
         
         try:

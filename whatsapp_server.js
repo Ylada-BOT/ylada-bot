@@ -186,7 +186,27 @@ app.get('/health', (req, res) => {
 });
 
 app.get('/qr', (req, res) => {
-    res.json({ qr: qrCodeData, ready: isReady });
+    // Verifica se foi solicitada uma porta específica
+    const requestedPort = req.query.port ? parseInt(req.query.port) : port;
+    
+    // Se a porta solicitada é diferente da atual, retorna erro claro
+    if (requestedPort != port) {
+        return res.status(503).json({ 
+            error: `Servidor na porta ${port} não pode atender porta ${requestedPort}.`,
+            hint: `Cada porta precisa de um serviço Node.js separado no Railway. Crie um serviço com PORT=${requestedPort}`,
+            currentPort: port,
+            requestedPort: requestedPort
+        });
+    }
+    
+    // Usa a instância atual
+    if (isReady) {
+        return res.json({ ready: true, qr: null });
+    }
+    if (qrCodeData) {
+        return res.json({ ready: false, qr: qrCodeData, hasQr: true });
+    }
+    return res.json({ ready: false, qr: null, hasQr: false });
 });
 
 app.post('/send', async (req, res) => {

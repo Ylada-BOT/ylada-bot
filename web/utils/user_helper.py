@@ -103,16 +103,30 @@ def authenticate_user_simple(email: str, password: str) -> Optional[Dict]:
     """
     users = _load_users()
     
+    if not users:
+        print(f"[!] Nenhum usuário encontrado no arquivo")
+        return None
+    
+    email_lower = email.lower().strip()
+    
     # Busca usuário por email
     for user_data in users.values():
-        if user_data.get('email', '').lower() == email.lower():
+        user_email = user_data.get('email', '').lower().strip()
+        if user_email == email_lower:
             # Verifica senha
-            if _verify_password(password, user_data.get('password_hash', '')):
+            password_hash = user_data.get('password_hash', '')
+            if password_hash and _verify_password(password, password_hash):
                 # Retorna sem password_hash
                 user_copy = user_data.copy()
-                del user_copy['password_hash']
+                if 'password_hash' in user_copy:
+                    del user_copy['password_hash']
+                print(f"[✓] Usuário autenticado: {email}")
                 return user_copy
+            else:
+                print(f"[!] Senha incorreta para {email}")
+                return None
     
+    print(f"[!] Email não encontrado: {email}")
     return None
 
 
@@ -128,6 +142,11 @@ def get_user_by_id_simple(user_id: int) -> Optional[Dict]:
         return user_copy
     
     return None
+
+
+
+
+
 
 
 

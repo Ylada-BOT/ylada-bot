@@ -337,10 +337,40 @@ def login():
         
         # Modo simplificado (arquivo JSON)
         elif SIMPLE_AUTH_AVAILABLE:
-            user = authenticate_user_simple(email, password)
-            
-            if not user:
-                return jsonify({'error': 'Credenciais inválidas'}), 401
+            try:
+                user = authenticate_user_simple(email, password)
+                
+                if not user:
+                    # Debug: verifica se usuário existe
+                    import json
+                    import os
+                    users_file = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'users.json')
+                    if os.path.exists(users_file):
+                        with open(users_file, 'r', encoding='utf-8') as f:
+                            users = json.load(f)
+                            # Verifica se email existe
+                            email_found = False
+                            for u in users.values():
+                                if u.get('email', '').lower() == email.lower():
+                                    email_found = True
+                                    break
+                            
+                            if not email_found:
+                                return jsonify({
+                                    'error': 'Email não encontrado',
+                                    'debug': 'Verifique se o usuário foi criado corretamente'
+                                }), 401
+                    
+                    return jsonify({
+                        'error': 'Credenciais inválidas',
+                        'hint': 'Verifique se a senha está correta'
+                    }), 401
+            except Exception as auth_error:
+                print(f"[!] Erro na autenticação: {auth_error}")
+                return jsonify({
+                    'error': 'Erro ao autenticar',
+                    'details': str(auth_error) if app.debug else None
+                }), 500
             
             # Cria token
             token = create_token_simple(user['id'], user['email'], user['role'])

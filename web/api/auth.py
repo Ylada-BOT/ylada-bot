@@ -7,6 +7,7 @@ import jwt
 from datetime import datetime, timedelta
 
 # Tenta importar banco de dados, mas não falha se não estiver configurado
+DB_AVAILABLE = False
 try:
     from sqlalchemy.orm import Session
     from src.database.db import SessionLocal
@@ -14,7 +15,16 @@ try:
         register_user, authenticate_user, create_token, get_user_by_id
     )
     from src.models.user import UserRole
-    DB_AVAILABLE = True
+    # Testa conexão antes de marcar como disponível
+    try:
+        db = SessionLocal()
+        db.close()
+        DB_AVAILABLE = True
+        print("[✓] Banco de dados disponível")
+    except Exception as db_error:
+        DB_AVAILABLE = False
+        print(f"[!] Banco de dados não disponível (erro de conexão): {db_error}")
+        print("[!] Sistema funcionará em modo simplificado (arquivo JSON)")
 except Exception as e:
     # Modo desenvolvimento sem banco de dados
     DB_AVAILABLE = False
@@ -145,33 +155,83 @@ def login():
         
         # Tenta usar banco de dados se disponível
         if DB_AVAILABLE:
-            db = SessionLocal()
             try:
-                user = authenticate_user(db, email, password)
+                db = SessionLocal()
+                try:
+                    user = authenticate_user(db, email, password)
+                    
+                    if not user:
+                        # Se não encontrou no banco, tenta modo simplificado
+                        if SIMPLE_AUTH_AVAILABLE:
+                            user = authenticate_user_simple(email, password)
+                            if not user:
+                                return jsonify({'error': 'Credenciais inválidas'}), 401
+                            
+                            # Cria token simplificado
+                            token = create_token_simple(user['id'], user['email'], user['role'])
+                            session['user_id'] = user['id']
+                            session['user_email'] = user['email']
+                            session['user_role'] = user['role']
+                            
+                            return jsonify({
+                                'success': True,
+                                'token': token,
+                                'user': {
+                                    'id': user['id'],
+                                    'email': user['email'],
+                                    'name': user['name'],
+                                    'role': user['role']
+                                }
+                            }), 200
+                        return jsonify({'error': 'Credenciais inválidas'}), 401
+                    
+                    # Cria token
+                    token = create_token(user.id, user.email, user.role.value)
+                    
+                    # Salva na sessão
+                    session['user_id'] = user.id
+                    session['user_email'] = user.email
+                    session['user_role'] = user.role.value
                 
-                if not user:
-                    return jsonify({'error': 'Credenciais inválidas'}), 401
-                
-                # Cria token
-                token = create_token(user.id, user.email, user.role.value)
-                
-                # Salva na sessão
-                session['user_id'] = user.id
-                session['user_email'] = user.email
-                session['user_role'] = user.role.value
-            
-                return jsonify({
-                    'success': True,
-                    'token': token,
-                    'user': {
-                        'id': user.id,
-                        'email': user.email,
-                        'name': user.name,
-                        'role': user.role.value
-                    }
-                }), 200
-            finally:
-                db.close()
+                    return jsonify({
+                        'success': True,
+                        'token': token,
+                        'user': {
+                            'id': user.id,
+                            'email': user.email,
+                            'name': user.name,
+                            'role': user.role.value
+                        }
+                    }), 200
+                finally:
+                    db.close()
+            except Exception as db_error:
+                # Se erro de conexão, usa modo simplificado como fallback
+                print(f"[!] Erro ao conectar com banco: {db_error}")
+                if SIMPLE_AUTH_AVAILABLE:
+                    user = authenticate_user_simple(email, password)
+                    if not user:
+                        return jsonify({'error': 'Credenciais inválidas'}), 401
+                    
+                    token = create_token_simple(user['id'], user['email'], user['role'])
+                    session['user_id'] = user['id']
+                    session['user_email'] = user['email']
+                    session['user_role'] = user['role']
+                    
+                    return jsonify({
+                        'success': True,
+                        'token': token,
+                        'user': {
+                            'id': user['id'],
+                            'email': user['email'],
+                            'name': user['name'],
+                            'role': user['role']
+                        }
+                    }), 200
+                else:
+                    return jsonify({
+                        'error': f'Erro de conexão com banco de dados: {str(db_error)}'
+                    }), 503
         
         # Modo simplificado (arquivo JSON)
         elif SIMPLE_AUTH_AVAILABLE:

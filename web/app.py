@@ -1568,6 +1568,8 @@ if __name__ == '__main__':
         print(f"[!] Erro ao iniciar worker de mensagens: {e}")
     
     # Inicia Flask
+    # Em produção, Railway define PORT automaticamente via variável de ambiente
     port = int(os.getenv('PORT', 5002))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    from config.settings import IS_PRODUCTION
+    app.run(host='0.0.0.0', port=port, debug=not IS_PRODUCTION)
 

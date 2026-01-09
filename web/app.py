@@ -1368,13 +1368,16 @@ def whatsapp_status():
                 connected = is_connected
                 
                 # Extrai número do telefone se estiver conectado
-                phone_number = None
-                if connected:
-                    # Tenta obter o número do telefone do objeto actually_connected ou ready
+                # Primeiro tenta usar phone_number do servidor Node.js (já formatado)
+                phone_number = server_status.get('phone_number')
+                if not phone_number and connected:
+                    # Fallback: tenta obter o número do telefone do objeto actually_connected ou ready
                     if isinstance(actually_connected, dict) and 'user' in actually_connected:
                         phone_number = actually_connected.get('user')
                     elif isinstance(ready, dict) and 'user' in ready:
                         phone_number = ready.get('user')
+                    elif server_status.get('clientInfo') and server_status['clientInfo'].get('wid'):
+                        phone_number = server_status['clientInfo']['wid']
                     
                     # Formata o número para exibição (adiciona formatação brasileira se necessário)
                     if phone_number:

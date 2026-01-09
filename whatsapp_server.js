@@ -463,11 +463,26 @@ app.get('/status', async (req, res) => {
         }
     }
     
+    // Extrai e formata número do telefone se disponível
+    let phoneNumber = null;
+    if (clientInfo && clientInfo.wid) {
+        phoneNumber = clientInfo.wid;
+        // Remove @c.us ou @s.whatsapp.net se houver
+        phoneNumber = phoneNumber.replace('@c.us', '').replace('@s.whatsapp.net', '');
+        // Formata número brasileiro (se começar com 55)
+        if (phoneNumber.startsWith('55') && phoneNumber.length >= 12) {
+            phoneNumber = `+${phoneNumber.substring(0, 2)} (${phoneNumber.substring(2, 4)}) ${phoneNumber.substring(4, 9)}-${phoneNumber.substring(9)}`;
+        } else {
+            phoneNumber = `+${phoneNumber}`;
+        }
+    }
+    
     res.json({ 
         ready: actuallyReady || clientData.isReady, 
         hasQr: !!clientData.qrCodeData,
         actuallyConnected: actuallyReady,
         clientInitialized: !!clientData.client,
+        phone_number: phoneNumber, // Adiciona número formatado
         clientInfo: clientInfo ? {
             wid: clientInfo.wid,
             pushname: clientInfo.pushname,

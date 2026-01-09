@@ -747,6 +747,7 @@
         }
         
         // Verifica status do WhatsApp (modo simplificado: usa API direta)
+        let lastStatus = null; // Armazena último status para evitar piscar
         async function checkStatus() {
             const statusEl = document.getElementById('whatsappStatus');
             const errorEl = document.getElementById('whatsappError');
@@ -756,9 +757,15 @@
             const connectionInfo = document.getElementById('whatsappConnectionInfo');
             const connectedInstanceInfo = document.getElementById('connectedInstanceInfo');
             
-            statusEl.textContent = '⏳ Verificando...';
+            // Só mostra "Verificando..." se não estiver conectado (evita piscar)
+            if (lastStatus !== 'connected') {
+                statusEl.textContent = '⏳ Verificando...';
+            }
             errorEl.classList.add('hidden');
-            connectionInfo.style.display = 'none';
+            // NÃO esconde connectionInfo se já estiver conectado (evita piscar)
+            if (lastStatus !== 'connected') {
+                connectionInfo.style.display = 'none';
+            }
             
             try {
                 // Usa API simplificada que já busca a instância do usuário
@@ -783,13 +790,14 @@
                 
                 if (statusData.connected === true) {
                     // Conectado
-                        statusEl.textContent = '✓ Conectado';
-                        statusEl.className = 'status connected';
-                        connectBtn.style.display = 'none';
-                        updateBtn.style.display = 'inline-block';
-                        disconnectBtn.style.display = 'inline-block';
+                    lastStatus = 'connected';
+                    statusEl.textContent = '✓ Conectado';
+                    statusEl.className = 'status connected';
+                    connectBtn.style.display = 'none';
+                    updateBtn.style.display = 'inline-block';
+                    disconnectBtn.style.display = 'inline-block';
                     
-                    // Busca informações da instância para mostrar detalhes
+                    // Busca informações da instância para mostrar detalhes (só atualiza se mudou)
                     try {
                         const instancesResponse = await fetch('/api/instances');
                         const instancesData = await instancesResponse.json();
@@ -797,25 +805,31 @@
                             const instance = instancesData.instances[0];
                             
                             // Mostra informações - prioriza número do telefone sobre nome
-                            const displayName = statusData.phone_number || instance.phone_number || instance.name || 'Meu WhatsApp';
-                            let infoHtml = '<div style="font-weight: 600; margin-bottom: 10px; color: #166534;">📱 WhatsApp Conectado:</div>';
-                            infoHtml += `
-                                <div style="margin-top: 10px; padding: 12px; background: white; border-radius: 8px; border-left: 4px solid #10b981; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                            const phoneNumber = statusData.phone_number || instance.phone_number;
+                            const displayName = phoneNumber || instance.name || 'Meu WhatsApp';
+                            
+                            // Só atualiza HTML se mudou (evita piscar)
+                            const newInfoHtml = '<div style="font-weight: 600; margin-bottom: 10px; color: #166534;">📱 WhatsApp Conectado:</div>' +
+                                `<div style="margin-top: 10px; padding: 12px; background: white; border-radius: 8px; border-left: 4px solid #10b981; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                                     <div style="font-weight: 600; color: #166534; margin-bottom: 6px; font-size: 14px;">${displayName}</div>
-                                    ${(statusData.phone_number || instance.phone_number) && displayName !== (statusData.phone_number || instance.phone_number) ? `<div style="color: #166534; font-size: 12px; line-height: 1.6; margin-top: 4px;">📞 <strong>Número:</strong> ${statusData.phone_number || instance.phone_number}</div>` : ''}
-                                <div style="margin-top: 8px;">
-                                    <a href="/instances/${instance.id}" class="btn" style="font-size: 12px; padding: 6px 12px; text-decoration: none; display: inline-block; margin-right: 8px;">Ver Detalhes</a>
-                                </div>
-                                </div>
-                            `;
-                            connectedInstanceInfo.innerHTML = infoHtml;
+                                    ${phoneNumber && displayName !== phoneNumber ? `<div style="color: #166534; font-size: 12px; line-height: 1.6; margin-top: 4px;">📞 <strong>Número:</strong> ${phoneNumber}</div>` : ''}
+                                    <div style="margin-top: 8px;">
+                                        <a href="/instances/${instance.id}" class="btn" style="font-size: 12px; padding: 6px 12px; text-decoration: none; display: inline-block; margin-right: 8px;">Ver Detalhes</a>
+                                    </div>
+                                </div>`;
+                            
+                            // Só atualiza se o conteúdo mudou
+                            if (connectedInstanceInfo.innerHTML !== newInfoHtml) {
+                                connectedInstanceInfo.innerHTML = newInfoHtml;
+                            }
                             connectionInfo.style.display = 'block';
                         }
                     } catch (e) {
                         // Ignora erro ao buscar detalhes, mas mantém status conectado
                         console.warn('Erro ao buscar detalhes da instância:', e);
                     }
-                    } else {
+                } else {
+                    lastStatus = 'disconnected';
                     // Desconectado
                         statusEl.textContent = '✗ Desconectado';
                         statusEl.className = 'status disconnected';
@@ -968,35 +982,35 @@
         loadAIConfig();
         loadUserHeaderInfo(); // Carrega informações do usuário
         
-        // Verifica status imediatamente e depois a cada 3 segundos
+        // Verifica status imediatamente e depois com intervalo maior para evitar piscar
         checkStatus();
-        // Atualiza status com intervalo maior para evitar rate limiting
+        // Atualiza status com intervalo maior para evitar rate limiting e piscar
         let updateCount = 0;
         let statusInterval;
-        let retryDelay = 10000; // Começa com 10 segundos
+        let retryDelay = 30000; // Começa com 30 segundos (aumentado para evitar piscar)
         
         function scheduleStatusCheck() {
             statusInterval = setInterval(() => {
                 checkStatus().catch(error => {
                     // Se der erro 429 (Too Many Requests), aumenta o delay
                     if (error.message && error.message.includes('429')) {
-                        retryDelay = Math.min(retryDelay * 1.5, 60000); // Máximo 60 segundos
+                        retryDelay = Math.min(retryDelay * 1.5, 120000); // Máximo 120 segundos
                         console.warn(`Rate limit atingido. Aumentando delay para ${retryDelay/1000}s`);
                         clearInterval(statusInterval);
                         setTimeout(scheduleStatusCheck, retryDelay);
                     }
                 });
                 updateCount++;
-                // Após 6 atualizações (60 segundos), reduz frequência para 15 segundos
-                if (updateCount >= 6) {
+                // Após 4 atualizações (2 minutos), reduz frequência para 60 segundos
+                if (updateCount >= 4) {
                     clearInterval(statusInterval);
                     statusInterval = setInterval(() => {
                         checkStatus().catch(() => {
                             // Ignora erros silenciosamente após período inicial
                         });
-                    }, 15000); // Atualiza a cada 15 segundos depois (reduzido para evitar rate limit)
+                    }, 60000); // Atualiza a cada 60 segundos depois (reduzido para evitar rate limit e piscar)
                 }
-            }, retryDelay); // Começa com 10 segundos
+            }, retryDelay); // Começa com 30 segundos
         }
         
         scheduleStatusCheck();

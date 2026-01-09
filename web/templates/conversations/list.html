@@ -184,6 +184,110 @@
             color: #333;
         }
         
+        /* Estilos para mídias estilo WhatsApp */
+        .message-media {
+            margin: 8px 0;
+            border-radius: 8px;
+            overflow: hidden;
+            max-width: 100%;
+        }
+        
+        .message-image {
+            max-width: 100%;
+            max-height: 400px;
+            width: auto;
+            height: auto;
+            border-radius: 8px;
+            cursor: pointer;
+            display: block;
+            object-fit: contain;
+        }
+        
+        .message-image:hover {
+            opacity: 0.9;
+        }
+        
+        .message-audio {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+        
+        .message-item.received .message-audio {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        
+        .audio-player {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .audio-player audio {
+            width: 100%;
+            height: 40px;
+            outline: none;
+        }
+        
+        .audio-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        
+        .message-caption {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .message-item.received .message-caption {
+            border-top-color: rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Modal para visualizar imagem em tamanho maior */
+        .image-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            cursor: pointer;
+        }
+        
+        .image-modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .image-modal img {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+        }
+        
+        .image-modal-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 1001;
+        }
+        
+        .image-modal-close:hover {
+            opacity: 0.7;
+        }
+        
         .message-time {
             font-size: 11px;
             color: #999;
@@ -409,6 +513,12 @@
                         <h3>💬 Selecione uma conversa</h3>
                         <p>Escolha uma conversa da lista ao lado para ver as mensagens</p>
                     </div>
+                </div>
+                
+                <!-- Modal para visualizar imagem em tamanho maior -->
+                <div class="image-modal" id="imageModal" onclick="closeImageModal()">
+                    <span class="image-modal-close">&times;</span>
+                    <img id="modalImage" src="" alt="Imagem ampliada">
                 </div>
                 <!-- Campo de envio de mensagem -->
                 <div class="message-input-container" id="messageInputContainer" style="display: none;">
@@ -766,15 +876,67 @@
         function formatMessageBody(msg) {
             // Verifica tipo de mensagem primeiro
             if (msg.type === 'image' || (msg.hasMedia && msg.type === 'image')) {
+                // Retorna HTML para exibir imagem
+                const mediaUrl = getMediaUrl(msg);
+                if (mediaUrl) {
+                    let html = `<div class="message-media">
+                        <img src="${escapeHtml(mediaUrl)}" alt="Imagem" class="message-image" onclick="openImageModal('${escapeHtml(mediaUrl)}')" loading="lazy">
+                    </div>`;
+                    // Se tem legenda (body), adiciona
+                    if (msg.body && msg.body.trim()) {
+                        html += `<div class="message-caption">${escapeHtml(msg.body)}</div>`;
+                    }
+                    return html;
+                }
                 return '📷 Imagem';
             }
             if (msg.type === 'video') {
+                const mediaUrl = getMediaUrl(msg);
+                if (mediaUrl) {
+                    let html = `<div class="message-media">
+                        <video controls class="message-image" style="max-height: 400px;">
+                            <source src="${escapeHtml(mediaUrl)}" type="video/mp4">
+                            Seu navegador não suporta vídeo.
+                        </video>
+                    </div>`;
+                    if (msg.body && msg.body.trim()) {
+                        html += `<div class="message-caption">${escapeHtml(msg.body)}</div>`;
+                    }
+                    return html;
+                }
                 return '🎥 Vídeo';
             }
             if (msg.type === 'audio' || msg.type === 'ptt') {
+                // Retorna HTML para player de áudio
+                const mediaUrl = getMediaUrl(msg);
+                if (mediaUrl) {
+                    let html = `<div class="message-audio">
+                        <span class="audio-icon">🎤</span>
+                        <div class="audio-player">
+                            <audio controls preload="metadata">
+                                <source src="${escapeHtml(mediaUrl)}" type="audio/ogg; codecs=opus">
+                                <source src="${escapeHtml(mediaUrl)}" type="audio/mpeg">
+                                Seu navegador não suporta áudio.
+                            </audio>
+                        </div>
+                    </div>`;
+                    if (msg.body && msg.body.trim()) {
+                        html += `<div class="message-caption">${escapeHtml(msg.body)}</div>`;
+                    }
+                    return html;
+                }
                 return '🎤 Áudio';
             }
             if (msg.type === 'document') {
+                const mediaUrl = getMediaUrl(msg);
+                if (mediaUrl) {
+                    return `<div class="message-media">
+                        <a href="${escapeHtml(mediaUrl)}" target="_blank" style="color: inherit; text-decoration: none;">
+                            📄 Documento
+                        </a>
+                        ${msg.body ? `<div class="message-caption">${escapeHtml(msg.body)}</div>` : ''}
+                    </div>`;
+                }
                 return '📄 Documento';
             }
             if (msg.type === 'location') {
@@ -856,10 +1018,92 @@
         }
         
         function escapeHtml(text) {
+            if (!text) return '';
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
+        
+        // Variável para armazenar porta do WhatsApp
+        let whatsappServerPort = 5001;
+        let whatsappServerUrl = null;
+        
+        // Função para obter URL da mídia
+        function getMediaUrl(msg) {
+            if (!msg.hasMedia || !msg.messageId) {
+                return null;
+            }
+            
+            // Usa a URL do servidor WhatsApp se disponível, senão constrói a partir da porta
+            let baseUrl;
+            if (whatsappServerUrl) {
+                baseUrl = whatsappServerUrl;
+            } else {
+                // Em desenvolvimento, usa localhost com porta
+                const origin = window.location.origin;
+                if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+                    baseUrl = `http://localhost:${whatsappServerPort}`;
+                } else {
+                    // Em produção, tenta usar o mesmo domínio
+                    baseUrl = origin.replace(/:\d+$/, '') + `:${whatsappServerPort}`;
+                }
+            }
+            
+            // Obtém user_id para passar na query
+            const userId = getCurrentUserId();
+            const mediaUrl = `${baseUrl}/media/${msg.messageId}?user_id=${encodeURIComponent(userId)}`;
+            
+            return mediaUrl;
+        }
+        
+        // Função auxiliar para obter user_id atual (mesma lógica do backend)
+        function getCurrentUserId() {
+            // O backend usa get_instance_user_id que retorna: f"{user_id}_{instance_id}" (ex: "2_1")
+            if (currentInstanceId) {
+                // Em produção, precisaria obter user_id do contexto de autenticação
+                // Por enquanto, usa padrão baseado na instância (assume user_id=1)
+                return `1_${currentInstanceId}`;
+            }
+            // Fallback: usa porta (modo compatibilidade)
+            return `port_${whatsappServerPort}`;
+        }
+        
+        // Atualiza informações do servidor WhatsApp ao carregar conversas
+        async function updateWhatsAppServerInfo() {
+            try {
+                const response = await fetch('/api/instances');
+                const data = await response.json();
+                if (data.success && data.instances && data.instances.length > 0) {
+                    const instance = data.instances[0];
+                    whatsappServerPort = instance.port || 5001;
+                    // Em produção, pode ter URL completa configurada
+                    // Por enquanto, usa porta
+                }
+            } catch (error) {
+                console.error('Erro ao obter informações do servidor WhatsApp:', error);
+            }
+        }
+        
+        // Função para abrir imagem em modal
+        function openImageModal(imageUrl) {
+            const modal = document.getElementById('imageModal');
+            const modalImg = document.getElementById('modalImage');
+            modalImg.src = imageUrl;
+            modal.classList.add('active');
+        }
+        
+        // Função para fechar modal
+        function closeImageModal() {
+            const modal = document.getElementById('imageModal');
+            modal.classList.remove('active');
+        }
+        
+        // Fecha modal ao pressionar ESC
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeImageModal();
+            }
+        });
         
         function renderMessages(messages) {
             const messagesList = document.getElementById('messagesList');
@@ -898,6 +1142,9 @@
                 messagesList.scrollTop = messagesList.scrollHeight;
             }, 100);
         }
+        
+        // Atualiza informações do servidor WhatsApp
+        updateWhatsAppServerInfo();
         
         // Carrega conversas ao iniciar
         loadConversations();

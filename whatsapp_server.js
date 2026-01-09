@@ -111,7 +111,12 @@ function initClient(userId) {
 
     client.on('ready', () => {
         const timestamp = new Date().toISOString();
-        console.log(`\n[${timestamp}] [User ${userId}] ✅ WhatsApp conectado com sucesso!`);
+        console.log(`\n[${timestamp}] [User ${userId}] ═══════════════════════════════════════`);
+        console.log(`[${timestamp}] [User ${userId}] ✅ WhatsApp CONECTADO E PRONTO!`);
+        console.log(`[${timestamp}] [User ${userId}] ═══════════════════════════════════════`);
+        console.log(`[${timestamp}] [User ${userId}] 📱 Sessão salva em: .wwebjs_auth_user_${userId}`);
+        console.log(`[${timestamp}] [User ${userId}] ✅ Pronto para enviar e receber mensagens!`);
+        console.log(`[${timestamp}] [User ${userId}] ═══════════════════════════════════════\n`);
         clients[userId].isReady = true;
         clients[userId].qrCodeData = null;
         clients[userId].reconnectAttempts = 0;
@@ -119,28 +124,68 @@ function initClient(userId) {
     });
 
     client.on('authenticated', () => {
-        console.log('✅ Autenticado!');
+        const timestamp = new Date().toISOString();
+        console.log(`\n[${timestamp}] [User ${userId}] ✅ Autenticado com sucesso!`);
+        console.log(`[${timestamp}] [User ${userId}] ⏳ Aguardando inicialização completa...`);
+        // authenticated não significa ready ainda, apenas que a autenticação foi aceita
     });
 
     client.on('auth_failure', (msg) => {
-        console.error(`[User ${userId}] ❌ Falha na autenticação:`, msg);
+        const timestamp = new Date().toISOString();
+        console.error(`\n[${timestamp}] [User ${userId}] ❌ Falha na autenticação:`, msg);
+        console.error(`[${timestamp}] [User ${userId}] Detalhes:`, JSON.stringify(msg, null, 2));
         clients[userId].isReady = false;
+        clients[userId].qrCodeData = null;
+        
+        // Se a falha foi por sessão inválida, limpa e permite nova tentativa
+        if (msg && (msg.includes('SESSION') || msg.includes('session') || msg.includes('invalid'))) {
+            console.log(`[${timestamp}] [User ${userId}] 🔄 Sessão inválida detectada. Limpando sessão...`);
+            // Não limpa automaticamente, mas informa que precisa limpar manualmente
+        }
     });
 
     client.on('disconnected', (reason) => {
         const timestamp = new Date().toISOString();
         console.log(`\n[${timestamp}] [User ${userId}] ⚠️ WhatsApp desconectado. Motivo: ${reason}`);
+        console.log(`[${timestamp}] [User ${userId}] Tipo de desconexão: ${typeof reason}`);
+        if (reason && typeof reason === 'object') {
+            console.log(`[${timestamp}] [User ${userId}] Detalhes da desconexão:`, JSON.stringify(reason, null, 2));
+        }
         clients[userId].isReady = false;
         clients[userId].qrCodeData = null;
         
-        // Tenta reconectar automaticamente (exceto se foi logout manual)
-        if (reason !== 'LOGOUT' && !clients[userId].isReconnecting) {
+        // Se foi desconectado por logout manual ou sessão removida, não tenta reconectar
+        if (reason === 'LOGOUT' || (reason && reason.toString().includes('LOGOUT'))) {
+            console.log(`[${timestamp}] [User ${userId}] 🚪 Logout manual detectado. Não tentará reconectar automaticamente.`);
+            return;
+        }
+        
+        // Tenta reconectar automaticamente
+        if (!clients[userId].isReconnecting) {
+            console.log(`[${timestamp}] [User ${userId}] 🔄 Tentando reconectar automaticamente...`);
             attemptReconnect(userId);
         }
     });
 
     client.on('loading_screen', (percent, message) => {
-        console.log(`[User ${userId}] ⏳ Carregando: ${percent}% - ${message}`);
+        console.log(`[User ${userId}] ⏳ Carregando: ${percent}% - ${message || 'Aguardando...'}`);
+    });
+    
+    // Evento quando o QR Code é escaneado (mas ainda não autenticado)
+    client.on('change_state', (state) => {
+        const timestamp = new Date().toISOString();
+        console.log(`[${timestamp}] [User ${userId}] 🔄 Mudança de estado: ${state}`);
+        
+        if (state === 'CONNECTING') {
+            console.log(`[${timestamp}] [User ${userId}] 🔗 Conectando... (QR Code foi escaneado)`);
+        } else if (state === 'OPENING') {
+            console.log(`[${timestamp}] [User ${userId}] 🚪 Abrindo conexão...`);
+        } else if (state === 'PAIRING') {
+            console.log(`[${timestamp}] [User ${userId}] 🔐 Pareando dispositivo...`);
+        } else if (state === 'UNPAIRED' || state === 'UNPAIRED_IDLE') {
+            console.log(`[${timestamp}] [User ${userId}] ⚠️ Dispositivo não pareado. Precisa escanear QR Code novamente.`);
+            clients[userId].qrCodeData = null; // Força gerar novo QR
+        }
     });
 
     // Log quando começa a inicializar
@@ -672,6 +717,7 @@ app.get('/chats/:chatId/messages', async (req, res) => {
                 type: msg.type,
                 hasMedia: msg.hasMedia,
                 mediaUrl: msg.hasMedia ? (msg.mediaUrl || '') : null,
+                messageId: msg.id._serialized, // ID para baixar mídia
                 contactName: contactName
             };
         });
@@ -687,6 +733,59 @@ app.get('/chats/:chatId/messages', async (req, res) => {
             nextCursor: formattedMessages.length > 0 ? formattedMessages[0].id : null
         });
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint para baixar e servir mídias (imagens, áudios, vídeos)
+app.get('/media/:messageId', async (req, res) => {
+    const userId = req.query.user_id || req.query.userId || `port_${port}`;
+    
+    if (!clients[userId] || !clients[userId].isReady) {
+        return res.status(400).json({ error: 'Cliente não conectado' });
+    }
+    
+    try {
+        const { messageId } = req.params;
+        
+        // Busca a mensagem pelo ID
+        const message = await clients[userId].client.getMessageById(messageId);
+        
+        if (!message || !message.hasMedia) {
+            return res.status(404).json({ error: 'Mídia não encontrada' });
+        }
+        
+        // Baixa a mídia
+        const media = await message.downloadMedia();
+        
+        if (!media) {
+            return res.status(404).json({ error: 'Não foi possível baixar a mídia' });
+        }
+        
+        // Converte base64 para buffer
+        const buffer = Buffer.from(media.data, 'base64');
+        
+        // Define o tipo de conteúdo baseado no tipo de mídia
+        let contentType = 'application/octet-stream';
+        if (message.type === 'image') {
+            contentType = media.mimetype || 'image/jpeg';
+        } else if (message.type === 'audio' || message.type === 'ptt') {
+            contentType = media.mimetype || 'audio/ogg; codecs=opus';
+        } else if (message.type === 'video') {
+            contentType = media.mimetype || 'video/mp4';
+        } else if (message.type === 'document') {
+            contentType = media.mimetype || 'application/pdf';
+        }
+        
+        // Define headers
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Length', buffer.length);
+        res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache por 1 ano
+        
+        // Envia o buffer
+        res.send(buffer);
+    } catch (error) {
+        console.error(`[User ${userId}] Erro ao baixar mídia:`, error);
         res.status(500).json({ error: error.message });
     }
 });

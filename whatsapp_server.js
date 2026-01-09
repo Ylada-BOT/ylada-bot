@@ -418,7 +418,7 @@ app.post('/send', async (req, res) => {
     }
 });
 
-app.get('/status', (req, res) => {
+app.get('/status', async (req, res) => {
     const userId = req.query.user_id || req.query.userId || `port_${port}`;
     
     if (!clients[userId]) {
@@ -445,15 +445,16 @@ app.get('/status', (req, res) => {
             }
             
             // Verifica adicional se o cliente está realmente autenticado
-            if (actuallyReady && clientData.client.pupPage) {
+            if (actuallyReady && clientData.client.pupBrowser) {
                 // Tenta verificar se a página do Puppeteer ainda está aberta
                 try {
-                    const pages = await clientData.client.pupBrowser?.pages();
+                    const pages = await clientData.client.pupBrowser.pages();
                     if (!pages || pages.length === 0) {
                         actuallyReady = false;
                     }
                 } catch (e) {
                     // Se não conseguir verificar, assume que está ok se tem info
+                    // Não é crítico, apenas uma verificação adicional
                 }
             }
         } catch (e) {

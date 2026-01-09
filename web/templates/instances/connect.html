@@ -289,12 +289,27 @@
             }
             }
             
+            let retryDelay = 5000; // Delay inicial de 5 segundos
+            let consecutiveErrors = 0; // Contador de erros consecutivos
+            
             async function checkQR() {
             try {
                 const response = await fetch(`/api/qr`);
                 if (!response.ok) {
+                    // Se for erro 429, aumenta o delay
+                    if (response.status === 429) {
+                        consecutiveErrors++;
+                        retryDelay = Math.min(retryDelay * 2, 30000); // Máximo 30 segundos
+                        console.warn(`Erro 429 (Too Many Requests). Aguardando ${retryDelay/1000}s antes de tentar novamente...`);
+                        setTimeout(checkQR, retryDelay);
+                        return;
+                    }
                     throw new Error(`Erro ${response.status}: ${response.statusText}`);
                 }
+                
+                // Se sucesso, reseta contadores
+                consecutiveErrors = 0;
+                retryDelay = 5000;
                 const data = await response.json();
                 
                 console.log('Resposta da API QR:', data); // Debug
@@ -407,20 +422,21 @@
                         }
                     }
                     
-                    // Verifica status a cada 3 segundos
+                    // Verifica status a cada 10 segundos (reduzido para evitar 429)
                     if (!checkInterval) {
-                        checkInterval = setInterval(checkStatus, 3000);
+                        checkInterval = setInterval(checkStatus, 10000);
                     }
                 } else if (data.status === 'generating' || (!data.qr && !data.ready)) {
                     // Ainda não tem QR code
                     statusDiv.className = 'status waiting';
-                    statusDiv.textContent = 'Aguardando QR Code...';
-                    qrContainer.innerHTML = '<div class="loading">Gerando QR Code... Aguarde alguns segundos.</div>';
+                    const message = data.message || 'Aguardando QR Code...';
+                    statusDiv.textContent = message;
+                    qrContainer.innerHTML = `<div class="loading">${message}<br><small style="color: #666; margin-top: 10px; display: block;">Se demorar mais de 30 segundos, recarregue a página (F5)</small></div>`;
                     instructions.style.display = 'none';
                     
-                    // Tenta novamente em 3 segundos
+                    // Tenta novamente em 15 segundos (aumentado para evitar 429 e dar tempo para gerar)
                     // Se está gerando, aguarda mais tempo antes de tentar novamente
-                    setTimeout(checkQR, 5000);
+                    setTimeout(checkQR, 15000);
                 } else {
                     // Erro ou servidor não está rodando
                     statusDiv.className = 'status error';
@@ -489,8 +505,8 @@
                 statusDiv.textContent = errorMessage;
                 qrContainer.innerHTML = errorDetails;
                 
-                // Tenta novamente em 5 segundos
-                setTimeout(checkQR, 5000);
+                // Tenta novamente em 10 segundos (aumentado para evitar 429)
+                setTimeout(checkQR, 10000);
             }
             }
             
@@ -527,11 +543,11 @@
             console.log('Página carregada, iniciando...');
             loadInstance();
             
-            // Também tenta carregar QR imediatamente após 1 segundo
+            // Também tenta carregar QR após 2 segundos (aumentado para evitar 429)
             setTimeout(() => {
-                console.log('Tentando carregar QR code após 1 segundo...');
+                console.log('Tentando carregar QR code após 2 segundos...');
                 checkQR();
-            }, 1000);
+            }, 2000);
         }
     </script>
 </body>

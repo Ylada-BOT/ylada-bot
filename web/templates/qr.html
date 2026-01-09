@@ -299,9 +299,9 @@
                     statusDiv.className = 'status waiting';
                     statusDiv.textContent = '📱 Escaneie o QR Code com seu WhatsApp (QR Code atualiza automaticamente a cada 3s)';
                     
-                    // Verifica conexão a cada 2 segundos
+                    // Verifica conexão a cada 10 segundos (reduzido para evitar rate limiting)
                     if (!checkInterval) {
-                        checkInterval = setInterval(checkConnection, 2000);
+                        checkInterval = setInterval(checkConnection, 10000);
                     }
                 } else if (data.status === 'connected') {
                     // Verifica novamente se realmente está conectado antes de redirecionar

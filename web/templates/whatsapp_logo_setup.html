@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurar Logo no WhatsApp - BOT by YLADA</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .logo-preview {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 30px;
+            border-radius: 50%;
+            border: 5px solid #667eea;
+            object-fit: cover;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        h1 {
+            color: #1f2937;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #6b7280;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        
+        .instructions {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+        
+        .instructions h2 {
+            color: #1f2937;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+        
+        .step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .step-number {
+            background: #667eea;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        
+        .step-content {
+            flex: 1;
+        }
+        
+        .step-title {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 5px;
+        }
+        
+        .step-description {
+            color: #6b7280;
+            font-size: 14px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+            margin: 10px;
+        }
+        
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+        
+        .note {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: left;
+        }
+        
+        .note-title {
+            font-weight: 600;
+            color: #92400e;
+            margin-bottom: 5px;
+        }
+        
+        .note-text {
+            color: #78350f;
+            font-size: 14px;
+        }
+        
+        .loading {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .error {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            color: #991b1b;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img id="logoPreview" src="/static/assets/logo.png" alt="Logo YLADA BOT" class="logo-preview" onerror="this.style.display='none'">
+        
+        <h1>📱 Configurar Logo no WhatsApp</h1>
+        <p class="subtitle">Faça o logo aparecer quando você enviar mensagens</p>
+        
+        <div class="instructions">
+            <h2>📋 Passo a Passo</h2>
+            
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <div class="step-title">Baixe o Logo</div>
+                    <div class="step-description">Clique no botão abaixo para baixar o logo otimizado para WhatsApp</div>
+                </div>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <div class="step-title">Abra o WhatsApp no Celular</div>
+                    <div class="step-description">Use o mesmo número que está conectado no sistema</div>
+                </div>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <div class="step-title">Vá em Configurações</div>
+                    <div class="step-description">Toque no menu (três pontos) > Configurações</div>
+                </div>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <div class="step-title">Acesse o Perfil</div>
+                    <div class="step-description">Toque em "Perfil" no topo da tela</div>
+                </div>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <div class="step-title">Altere a Foto</div>
+                    <div class="step-description">Toque na foto de perfil e escolha o logo que você baixou</div>
+                </div>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">6</div>
+                <div class="step-content">
+                    <div class="step-title">Salve</div>
+                    <div class="step-description">Confirme e salve. Pronto! O logo aparecerá nas mensagens</div>
+                </div>
+            </div>
+        </div>
+        
+        <button class="btn" onclick="downloadLogo()">📥 Baixar Logo</button>
+        <a href="/" class="btn btn-secondary">← Voltar</a>
+        
+        <div id="loading" class="loading">
+            <p>Baixando logo...</p>
+        </div>
+        
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <div class="note">
+            <div class="note-title">ℹ️ Importante</div>
+            <div class="note-text">
+                O WhatsApp não permite alterar a foto de perfil via código. A foto que aparece nas mensagens é a foto de perfil do número de telefone conectado. Por isso, você precisa configurar manualmente no WhatsApp do celular.
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        async function downloadLogo() {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const errorDiv = document.getElementById('error');
+            
+            loading.classList.add('active');
+            errorDiv.style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/whatsapp-config/logo/prepare');
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || 'Erro ao baixar logo');
+                }
+                
+                // Cria link de download
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'ylada-bot-logo-whatsapp.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                loading.classList.remove('active');
+            } catch (err) {
+                loading.classList.remove('active');
+                errorDiv.style.display = 'block';
+                errorDiv.textContent = 'Erro: ' + err.message;
+            }
+        }
+        
+        // Carrega preview do logo
+        window.addEventListener('load', () => {
+            const logoPreview = document.getElementById('logoPreview');
+            logoPreview.onerror = function() {
+                this.style.display = 'none';
+            };
+        });
+    </script>
+</body>
+</html>
+

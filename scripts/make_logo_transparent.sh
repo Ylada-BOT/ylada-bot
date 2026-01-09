@@ -25,3 +25,4 @@ else
     echo "   Linux: sudo apt-get install imagemagick"
 fi
 
+

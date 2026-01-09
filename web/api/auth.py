@@ -43,10 +43,9 @@ except Exception as e:
 
 bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 
-# Configuração JWT simples
-JWT_SECRET = os.getenv('JWT_SECRET', 'dev-secret-key-change-in-production')
-JWT_ALGORITHM = 'HS256'
-JWT_EXPIRATION_HOURS = 24
+# Configuração JWT simples - usa JWT_SECRET_KEY de settings.py
+from config.settings import JWT_SECRET_KEY, JWT_ALGORITHM, JWT_EXPIRATION_HOURS
+JWT_SECRET = os.getenv('JWT_SECRET_KEY', JWT_SECRET_KEY)
 
 
 def create_token_simple(user_id: int, email: str, role: str) -> str:
@@ -432,43 +431,55 @@ def login():
         # Modo simplificado (arquivo JSON)
         elif SIMPLE_AUTH_AVAILABLE:
             try:
-                print(f"[DEBUG] Tentando autenticar: {email}")
+                print(f"[DEBUG LOGIN] Tentando autenticar no modo simplificado: {email}")
                 user = authenticate_user_simple(email, password)
                 
                 if not user:
                     # Debug: verifica se usuário existe
                     import json
                     import os
-                    users_file = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'users.json')
-                    print(f"[DEBUG] Arquivo de usuários: {users_file}")
-                    print(f"[DEBUG] Arquivo existe: {os.path.exists(users_file)}")
+                    from pathlib import Path
+                    users_file = Path(__file__).resolve().parent.parent.parent / 'data' / 'users.json'
+                    print(f"[DEBUG LOGIN] Arquivo de usuários: {users_file}")
+                    print(f"[DEBUG LOGIN] Arquivo existe: {users_file.exists()}")
                     
-                    if os.path.exists(users_file):
-                        with open(users_file, 'r', encoding='utf-8') as f:
-                            users = json.load(f)
-                            print(f"[DEBUG] Total de usuários no arquivo: {len(users)}")
-                            # Verifica se email existe
-                            email_found = False
-                            for u in users.values():
-                                user_email = u.get('email', '').lower().strip()
-                                if user_email == email.lower().strip():
-                                    email_found = True
-                                    print(f"[DEBUG] Email encontrado: {user_email}")
-                                    print(f"[DEBUG] Role do usuário: {u.get('role')}")
-                                    break
-                            
-                            if not email_found:
-                                print(f"[DEBUG] Email não encontrado no arquivo")
-                                return jsonify({
-                                    'error': 'Email não encontrado',
-                                    'debug': 'Verifique se o usuário foi criado corretamente'
-                                }), 401
+                    if users_file.exists():
+                        try:
+                            with open(users_file, 'r', encoding='utf-8') as f:
+                                users = json.load(f)
+                                print(f"[DEBUG LOGIN] Total de usuários no arquivo: {len(users)}")
+                                # Verifica se email existe
+                                email_found = False
+                                for u in users.values():
+                                    user_email = u.get('email', '').lower().strip()
+                                    if user_email == email.lower().strip():
+                                        email_found = True
+                                        print(f"[DEBUG LOGIN] Email encontrado: {user_email}")
+                                        print(f"[DEBUG LOGIN] Role do usuário: {u.get('role')}")
+                                        break
+                                
+                                if not email_found:
+                                    print(f"[DEBUG LOGIN] Email não encontrado no arquivo")
+                                    return jsonify({
+                                        'error': 'Email não encontrado',
+                                        'hint': 'Verifique se o usuário foi criado. Use /register para criar uma conta.'
+                                    }), 401
+                        except Exception as file_error:
+                            print(f"[!] Erro ao ler arquivo de usuários: {file_error}")
                     else:
-                        print(f"[DEBUG] Arquivo de usuários não existe!")
+                        print(f"[DEBUG LOGIN] Arquivo de usuários não existe! Criando...")
+                        # Tenta criar arquivo vazio
+                        try:
+                            users_file.parent.mkdir(parents=True, exist_ok=True)
+                            with open(users_file, 'w', encoding='utf-8') as f:
+                                json.dump({}, f)
+                            print(f"[✓] Arquivo de usuários criado")
+                        except Exception as create_error:
+                            print(f"[!] Erro ao criar arquivo: {create_error}")
                     
                     return jsonify({
                         'error': 'Credenciais inválidas',
-                        'hint': 'Verifique se a senha está correta'
+                        'hint': 'Verifique se a senha está correta ou se o usuário existe. Use /register para criar uma conta.'
                     }), 401
             except Exception as auth_error:
                 print(f"[!] Erro na autenticação: {auth_error}")

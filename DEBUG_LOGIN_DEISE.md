@@ -143,3 +143,4 @@ Se o banco estiver causando problemas, você pode forçar o modo simplificado te
 
 **Última atualização:** 2025-01-27
 
+

@@ -98,3 +98,4 @@ ALTER COLUMN photo_url TYPE VARCHAR(500);
 **Data de Verificação**: 2025-01-27
 **Status**: ✅ **APROVADO - PRONTO PARA PRODUÇÃO**
 
+

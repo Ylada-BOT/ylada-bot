@@ -131,3 +131,4 @@ tail -f /tmp/whatsapp_server_5003.log
    - O processo pode não estar persistindo
    - Tente iniciar manualmente primeiro
 
+

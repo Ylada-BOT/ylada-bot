@@ -28,3 +28,4 @@ SELECT id, email, name, role, is_active, created_at
 FROM users 
 WHERE email = 'faulaandre@gmail.com';
 
+

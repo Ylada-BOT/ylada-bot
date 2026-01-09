@@ -899,10 +899,23 @@ def get_qr():
             user_id = get_user_id() or 1
         except:
             user_id = 1  # Fallback para desenvolvimento
-        instance = get_or_create_user_instance(user_id)
+        
+        # Permite especificar instance_id via query string
+        instance_id = request.args.get('instance_id', type=int)
+        instance = get_or_create_user_instance(user_id, instance_id)
+        if not instance:
+            return jsonify({
+                "error": "Instância não encontrada",
+                "status": "error"
+            }), 404
+        
         port = instance.get('port', 5001)
         
-        print(f"[*] Usuário {user_id} solicitando QR code na porta {port}")
+        # IMPORTANTE: Usa user_id_instance_id para identificar instância única
+        from web.utils.instance_helper import get_instance_user_id
+        unique_user_id = get_instance_user_id(user_id, instance.get('id', user_id))
+        
+        print(f"[*] Usuário {user_id}, Instância {instance.get('id')} solicitando QR code na porta {port}")
         
         # Obtém URL do servidor WhatsApp
         from config.settings import IS_PRODUCTION
@@ -924,9 +937,9 @@ def get_qr():
                 }), 503
         
         # Busca QR Code do servidor Node.js
-        # Passa user_id para separar sessões por usuário
+        # Passa unique_user_id para separar sessões por instância
         base_url = server_url.rstrip('/')
-        qr_url = f"{base_url}/qr?user_id={user_id}"
+        qr_url = f"{base_url}/qr?user_id={unique_user_id}"
         
         try:
             response = requests.get(qr_url, timeout=10)
@@ -949,18 +962,21 @@ def get_qr():
                 # Se não tem QR ainda, verifica se precisa reiniciar o cliente
                 # Se o cliente está inicializado mas não tem QR e não está pronto, pode precisar reiniciar
                 if not data.get('ready') and not qr_data:
+                    message = data.get('message', 'Aguardando geração do QR Code...')
                     return jsonify({
                         "status": "generating",
-                        "message": "Aguardando geração do QR Code... Se demorar, tente recarregar a página.",
+                        "message": message,
                         "success": True,
-                        "hint": "O servidor está aguardando o WhatsApp gerar o QR code. Isso pode levar alguns segundos."
+                        "hint": "O servidor está aguardando o WhatsApp gerar o QR code. Isso pode levar 10-30 segundos. Se demorar mais, recarregue a página."
                     })
                 
-                # Se não tem QR ainda, retorna status de geração
+                # Se não tem QR ainda, verifica se o servidor retornou uma mensagem
+                server_message = data.get('message', 'Aguardando geração do QR Code...')
                 return jsonify({
                     "status": "generating",
-                    "message": "Aguardando geração do QR Code...",
-                    "success": True
+                    "message": server_message,
+                    "success": True,
+                    "hint": "O servidor está aguardando o WhatsApp gerar o QR code. Isso pode levar 10-30 segundos. Se demorar mais, recarregue a página."
                 })
                 
         except requests.exceptions.ConnectionError:
@@ -1038,9 +1054,22 @@ def get_conversations():
         
         # Obtém instância do usuário atual
         user_id = get_current_user_id() or 1
-        instance = get_or_create_user_instance(user_id)
+        data = request.get_json() or {}
+        instance_id = data.get('instance_id')
+        
+        instance = get_or_create_user_instance(user_id, instance_id)
+        if not instance:
+            return jsonify({
+                "success": False,
+                "error": "Instância não encontrada"
+            }), 404
+        
         whatsapp_port = instance.get('port', 5001)
         server_url = get_whatsapp_server_url(whatsapp_port)
+        
+        # IMPORTANTE: Usa user_id_instance_id para identificar instância única
+        from web.utils.instance_helper import get_instance_user_id
+        unique_user_id = get_instance_user_id(user_id, instance.get('id', user_id))
         
         # PRIMEIRO: Verifica se o servidor está acessível (health check)
         try:
@@ -1066,7 +1095,7 @@ def get_conversations():
         
         # SEGUNDO: Verifica se o WhatsApp está conectado
         try:
-            status_response = requests.get(f"{server_url}/status?user_id={user_id}", timeout=5)
+            status_response = requests.get(f"{server_url}/status?user_id={unique_user_id}", timeout=5)
             if status_response.status_code == 200:
                 status_data = status_response.json()
                 actually_connected = status_data.get("actuallyConnected", False)
@@ -1098,8 +1127,8 @@ def get_conversations():
         only_individuals = request.args.get('only_individuals', 'false').lower() == 'true'
         limit = request.args.get('limit', type=int)
         
-        # IMPORTANTE: Passa user_id para separar conversas por usuário
-        response = requests.get(f"{server_url}/chats", params={"user_id": user_id}, timeout=10)
+        # IMPORTANTE: Passa unique_user_id para separar conversas por instância
+        response = requests.get(f"{server_url}/chats", params={"user_id": unique_user_id}, timeout=10)
         
         if response.status_code == 200:
             data = response.json()
@@ -1183,15 +1212,24 @@ def get_conversation_messages(chat_id):
         
         # Obtém instância do usuário atual
         user_id = get_current_user_id() or 1
-        instance = get_or_create_user_instance(user_id)
+        instance_id = request.args.get('instance_id', type=int)
+        
+        instance = get_or_create_user_instance(user_id, instance_id)
+        if not instance:
+            return jsonify({"success": False, "error": "Instância não encontrada"}), 404
+        
         whatsapp_port = instance.get('port', 5001)
         server_url = get_whatsapp_server_url(whatsapp_port)
         
+        # IMPORTANTE: Usa user_id_instance_id para identificar instância única
+        from web.utils.instance_helper import get_instance_user_id
+        unique_user_id = get_instance_user_id(user_id, instance.get('id', user_id))
+        
         limit = request.args.get('limit', 50, type=int)
-        # IMPORTANTE: Passa user_id para separar mensagens por usuário
+        # IMPORTANTE: Passa unique_user_id para separar mensagens por instância
         response = requests.get(
             f"{server_url}/chats/{chat_id}/messages",
-            params={"limit": limit, "user_id": user_id},
+            params={"limit": limit, "user_id": unique_user_id},
             timeout=10
         )
         
@@ -1278,13 +1316,26 @@ def whatsapp_status():
         
         # Obtém instância do usuário
         user_id = get_current_user_id() or 1
-        instance = get_or_create_user_instance(user_id)
+        instance_id = request.args.get('instance_id', type=int)
+        
+        instance = get_or_create_user_instance(user_id, instance_id)
+        if not instance:
+            return jsonify({
+                "connected": False,
+                "error": "Instância não encontrada",
+                "hasQr": False
+            }), 404
+        
         whatsapp_port = instance.get('port', 5001)
         server_url = get_whatsapp_server_url(whatsapp_port)
         
+        # IMPORTANTE: Usa user_id_instance_id para identificar instância única
+        from web.utils.instance_helper import get_instance_user_id
+        unique_user_id = get_instance_user_id(user_id, instance.get('id', user_id))
+        
         # Verifica status do servidor Node.js da instância do usuário
         try:
-            status_response = requests.get(f"{server_url}/status?user_id={user_id}", timeout=3)
+            status_response = requests.get(f"{server_url}/status?user_id={unique_user_id}", timeout=3)
             if status_response.status_code == 200:
                 status_data = status_response.json()
                 has_qr = status_data.get("hasQr", False)
@@ -1292,15 +1343,24 @@ def whatsapp_status():
                 ready = status_data.get("ready", False)
                 
                 # Só considera conectado se realmente estiver conectado
-                # actually_connected pode ser um objeto (dict) quando conectado, ou False quando não
+                # Verifica múltiplos indicadores para garantir conexão real
                 is_connected = False
+                
+                # PRIORIDADE 1: actuallyConnected é o mais confiável
                 if actually_connected:
-                    # Se actually_connected existe (não é False/None), está conectado
                     is_connected = True
-                elif ready:
-                    # Se ready existe e não tem QR, também está conectado
-                    if isinstance(ready, dict) or ready is True:
+                # PRIORIDADE 2: ready + clientInfo com wid válido
+                elif ready and status_data.get('clientInfo'):
+                    client_info = status_data.get('clientInfo', {})
+                    wid = client_info.get('wid')
+                    # Wid válido não deve ser None e não deve ser temporário
+                    if wid and '@temp' not in str(wid):
                         is_connected = True
+                # PRIORIDADE 3: ready sem QR (pode ser conexão, mas menos confiável)
+                elif ready and not has_qr:
+                    # Só confia se não tiver QR e estiver marcado como ready
+                    # Mas marca como menos confiável
+                    is_connected = True
                 
                 connected = is_connected
                 
@@ -1375,14 +1435,24 @@ def whatsapp_disconnect():
         
         # Obtém instância do usuário atual
         user_id = get_current_user_id() or 1
-        instance = get_or_create_user_instance(user_id)
+        data = request.get_json() or {}
+        instance_id = data.get('instance_id')
+        
+        instance = get_or_create_user_instance(user_id, instance_id)
+        if not instance:
+            return jsonify({"success": False, "error": "Instância não encontrada"}), 404
+        
         whatsapp_port = instance.get('port', 5001)
         server_url = get_whatsapp_server_url(whatsapp_port)
         
+        # IMPORTANTE: Usa user_id_instance_id para identificar instância única
+        # Isso permite múltiplas instâncias por usuário funcionarem independentemente
+        from web.utils.instance_helper import get_instance_user_id
+        unique_user_id = get_instance_user_id(user_id, instance.get('id', user_id))
+        
         # Chama endpoint de desconexão do servidor Node.js
-        # IMPORTANTE: Passa user_id para desconectar o WhatsApp do usuário correto
         try:
-            response = requests.post(f"{server_url}/disconnect", json={"user_id": user_id}, timeout=5)
+            response = requests.post(f"{server_url}/disconnect", json={"user_id": unique_user_id}, timeout=5)
             if response.status_code == 200:
                 data = response.json()
                 return jsonify({

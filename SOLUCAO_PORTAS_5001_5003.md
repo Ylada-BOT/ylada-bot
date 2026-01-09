@@ -150,3 +150,4 @@ PORT=5003 node whatsapp_server.js > /tmp/whatsapp_5003.log 2>&1 &
 
 **Próximo passo:** Acesse `http://localhost:5002/connect` com a terceira conta e escaneie o QR code!
 
+

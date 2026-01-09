@@ -182,3 +182,4 @@ Se você está usando Vercel:
 
 **Última atualização:** 27/01/2025
 
+

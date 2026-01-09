@@ -768,6 +768,15 @@
                         'Cache-Control': 'no-cache'
                     }
                 });
+                
+                // Verifica se houve erro de rate limiting
+                if (statusResponse.status === 429) {
+                    const errorData = await statusResponse.json();
+                    errorEl.textContent = `⚠️ Muitas requisições. Aguarde alguns segundos...`;
+                    errorEl.classList.remove('hidden');
+                    throw new Error('429 Too Many Requests');
+                }
+                
                 const statusData = await statusResponse.json();
                 
                 console.log('Status recebido:', statusData); // Debug
@@ -962,19 +971,36 @@
         
         // Verifica status imediatamente e depois a cada 3 segundos
         checkStatus();
-        // Atualiza mais frequentemente quando a página carrega (primeiros 30 segundos)
+        // Atualiza status com intervalo maior para evitar rate limiting
         let updateCount = 0;
-        const statusInterval = setInterval(() => {
-            checkStatus();
-            updateCount++;
-            // Após 10 atualizações (30 segundos), reduz frequência para 5 segundos
-            if (updateCount >= 10) {
-                clearInterval(statusInterval);
-                setInterval(() => {
-                    checkStatus();
-                }, 5000); // Atualiza a cada 5 segundos depois
-            }
-        }, 3000); // Atualiza a cada 3 segundos inicialmente
+        let statusInterval;
+        let retryDelay = 10000; // Começa com 10 segundos
+        
+        function scheduleStatusCheck() {
+            statusInterval = setInterval(() => {
+                checkStatus().catch(error => {
+                    // Se der erro 429 (Too Many Requests), aumenta o delay
+                    if (error.message && error.message.includes('429')) {
+                        retryDelay = Math.min(retryDelay * 1.5, 60000); // Máximo 60 segundos
+                        console.warn(`Rate limit atingido. Aumentando delay para ${retryDelay/1000}s`);
+                        clearInterval(statusInterval);
+                        setTimeout(scheduleStatusCheck, retryDelay);
+                    }
+                });
+                updateCount++;
+                // Após 6 atualizações (60 segundos), reduz frequência para 15 segundos
+                if (updateCount >= 6) {
+                    clearInterval(statusInterval);
+                    statusInterval = setInterval(() => {
+                        checkStatus().catch(() => {
+                            // Ignora erros silenciosamente após período inicial
+                        });
+                    }, 15000); // Atualiza a cada 15 segundos depois (reduzido para evitar rate limit)
+                }
+            }, retryDelay); // Começa com 10 segundos
+        }
+        
+        scheduleStatusCheck();
         
         // Atualiza métricas a cada 30 segundos (menos frequente)
         loadMetrics();

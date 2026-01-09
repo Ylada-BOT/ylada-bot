@@ -144,3 +144,4 @@ Configure no roteador para redirecionar uma porta externa para `192.168.0.202:50
 2. **Acesse:** `http://192.168.0.202:5002` (não use localhost!)
 3. **Se não funcionar:** Verifique firewall e se servidor está rodando
 
+

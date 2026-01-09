@@ -282,3 +282,4 @@ O sistema detecta quando você cria uma nova instância e:
 
 **Última atualização:** 27/01/2025
 
+

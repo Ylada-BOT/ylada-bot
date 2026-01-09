@@ -1,6 +1,6 @@
 """
-Helper para gerenciar instância única por usuário
-No modo simplificado: 1 usuário = 1 instância WhatsApp
+Helper para gerenciar múltiplas instâncias por usuário
+Agora suporta: 1 usuário = múltiplas instâncias WhatsApp
 """
 import json
 import os
@@ -12,60 +12,148 @@ from pathlib import Path
 from web.utils.auth_helpers import get_current_user_id
 
 
-def get_or_create_user_instance(user_id=None):
+def get_user_instances(user_id=None):
     """
-    Obtém ou cria automaticamente a instância do usuário
+    Obtém todas as instâncias do usuário
     
-    No modo simplificado: cada usuário tem apenas 1 instância
-    Se não existir, cria automaticamente
+    Returns:
+        list: Lista de instâncias do usuário
+    """
+    if not user_id:
+        user_id = get_current_user_id() or 1
+    
+    instances_file = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'user_instances.json')
+    os.makedirs(os.path.dirname(instances_file), exist_ok=True)
+    
+    # Carrega instâncias existentes
+    all_user_instances = {}
+    if os.path.exists(instances_file):
+        try:
+            with open(instances_file, 'r', encoding='utf-8') as f:
+                all_user_instances = json.load(f)
+        except:
+            all_user_instances = {}
+    
+    user_key = str(user_id)
+    
+    # Verifica formato antigo (compatibilidade)
+    if user_key in all_user_instances:
+        user_data = all_user_instances[user_key]
+        # Se é formato antigo (instância única), converte para novo formato
+        if 'instances' not in user_data:
+            old_instance = user_data if isinstance(user_data, dict) and 'id' in user_data else None
+            if old_instance:
+                # Converte para novo formato
+                all_user_instances[user_key] = {
+                    'instances': [old_instance],
+                    'default_instance_id': old_instance.get('id', user_id)
+                }
+                with open(instances_file, 'w', encoding='utf-8') as f:
+                    json.dump(all_user_instances, f, indent=2, ensure_ascii=False)
+                return all_user_instances[user_key].get('instances', [])
+    
+    # Retorna instâncias do usuário
+    if user_key in all_user_instances:
+        return all_user_instances[user_key].get('instances', [])
+    
+    return []
+
+
+def get_or_create_user_instance(user_id=None, instance_id=None):
+    """
+    Obtém ou cria uma instância do usuário
+    
+    Se instance_id não for fornecido, retorna a primeira instância ou cria uma nova
+    
+    Args:
+        user_id: ID do usuário
+        instance_id: ID da instância específica (opcional)
     
     Returns:
         dict: Dados da instância do usuário
     """
     if not user_id:
-        user_id = get_current_user_id() or 1  # Default para desenvolvimento
+        user_id = get_current_user_id() or 1
     
-    # MODO SIMPLES: Usa arquivo JSON
     instances_file = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'user_instances.json')
     os.makedirs(os.path.dirname(instances_file), exist_ok=True)
     
     # Carrega instâncias existentes
-    user_instances = {}
+    all_user_instances = {}
     if os.path.exists(instances_file):
         try:
             with open(instances_file, 'r', encoding='utf-8') as f:
-                user_instances = json.load(f)
+                all_user_instances = json.load(f)
         except:
-            user_instances = {}
+            all_user_instances = {}
     
-    # Verifica se usuário já tem instância
     user_key = str(user_id)
-    if user_key in user_instances:
-        instance = user_instances[user_key]
-        # Em produção, força porta 5001 (único serviço Node.js)
-        from config.settings import IS_PRODUCTION
-        if IS_PRODUCTION and instance.get('port', 5001) != 5001:
-            instance['port'] = 5001
-            instance['updated_at'] = datetime.now().isoformat()
-            # Salva atualização
-            user_instances[user_key] = instance
-            with open(instances_file, 'w', encoding='utf-8') as f:
-                json.dump(user_instances, f, indent=2, ensure_ascii=False)
-        return instance
     
-    # Cria nova instância para o usuário
-    # Em produção: todos usam porta 5001 (único serviço Node.js)
-    # Em desenvolvimento: cada usuário tem sua porta (5001, 5002, 5003...)
+    # Verifica formato antigo (compatibilidade)
+    if user_key in all_user_instances:
+        user_data = all_user_instances[user_key]
+        if 'instances' not in user_data:
+            # Formato antigo - converte
+            old_instance = user_data if isinstance(user_data, dict) and 'id' in user_data else None
+            if old_instance:
+                all_user_instances[user_key] = {
+                    'instances': [old_instance],
+                    'default_instance_id': old_instance.get('id', user_id)
+                }
+                with open(instances_file, 'w', encoding='utf-8') as f:
+                    json.dump(all_user_instances, f, indent=2, ensure_ascii=False)
+    
+    # Inicializa estrutura do usuário se não existir
+    if user_key not in all_user_instances:
+        all_user_instances[user_key] = {
+            'instances': [],
+            'default_instance_id': None
+        }
+    
+    user_instances = all_user_instances[user_key].get('instances', [])
+    
+    # Se instance_id foi fornecido, busca essa instância específica
+    if instance_id:
+        for inst in user_instances:
+            if inst.get('id') == instance_id:
+                return inst
+        # Se não encontrou, retorna None (instância não existe)
+        return None
+    
+    # Se não forneceu instance_id, retorna primeira instância ou cria nova
+    if user_instances:
+        # Retorna primeira instância (ou pode usar default_instance_id se configurado)
+        default_id = all_user_instances[user_key].get('default_instance_id')
+        if default_id:
+            for inst in user_instances:
+                if inst.get('id') == default_id:
+                    return inst
+        return user_instances[0]
+    
+    # Cria nova instância se não existir nenhuma
     from config.settings import IS_PRODUCTION
     if IS_PRODUCTION:
         base_port = 5001  # Todos usam a mesma porta em produção
     else:
-        base_port = 5001 + (user_id - 1)  # Desenvolvimento: portas diferentes
+        # Encontra próxima porta disponível
+        used_ports = set()
+        for user_data in all_user_instances.values():
+            for inst in user_data.get('instances', []):
+                used_ports.add(inst.get('port', 5001))
+        base_port = 5001
+        while base_port in used_ports:
+            base_port += 1
+    
+    # Gera novo ID de instância
+    max_id = 0
+    for inst in user_instances:
+        max_id = max(max_id, inst.get('id', 0))
+    new_instance_id = max_id + 1
     
     new_instance = {
-        'id': user_id,  # ID da instância = ID do usuário (simplificado)
+        'id': new_instance_id,
         'user_id': user_id,
-        'name': f'Meu WhatsApp',
+        'name': f'WhatsApp {new_instance_id}',
         'status': 'disconnected',
         'port': base_port,
         'phone_number': None,
@@ -73,53 +161,171 @@ def get_or_create_user_instance(user_id=None):
         'messages_sent': 0,
         'messages_received': 0,
         'created_at': datetime.now().isoformat(),
-        'session_dir': f"data/sessions/user_{user_id}"
+        'session_dir': f"data/sessions/user_{user_id}_instance_{new_instance_id}"
     }
     
-    # Salva instância
-    user_instances[user_key] = new_instance
+    # Adiciona instância
+    user_instances.append(new_instance)
+    all_user_instances[user_key]['instances'] = user_instances
+    if not all_user_instances[user_key].get('default_instance_id'):
+        all_user_instances[user_key]['default_instance_id'] = new_instance_id
+    
+    # Salva
     with open(instances_file, 'w', encoding='utf-8') as f:
-        json.dump(user_instances, f, indent=2, ensure_ascii=False)
+        json.dump(all_user_instances, f, indent=2, ensure_ascii=False)
     
     return new_instance
 
 
-def get_user_instance_id(user_id=None):
+def get_user_instance_id(user_id=None, instance_id=None):
     """
     Obtém ID da instância do usuário
+    
+    Args:
+        user_id: ID do usuário
+        instance_id: ID da instância específica (opcional)
     
     Returns:
         int: ID da instância do usuário
     """
-    instance = get_or_create_user_instance(user_id)
-    return instance.get('id')
+    instance = get_or_create_user_instance(user_id, instance_id)
+    if instance:
+        return instance.get('id')
+    return None
 
 
-def update_user_instance(user_id, updates):
+def create_user_instance(user_id=None, name=None):
+    """
+    Cria uma nova instância para o usuário
+    
+    Args:
+        user_id: ID do usuário
+        name: Nome da instância (opcional)
+    
+    Returns:
+        dict: Dados da nova instância criada
+    """
+    if not user_id:
+        user_id = get_current_user_id() or 1
+    
+    instances_file = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'user_instances.json')
+    os.makedirs(os.path.dirname(instances_file), exist_ok=True)
+    
+    # Carrega instâncias existentes
+    all_user_instances = {}
+    if os.path.exists(instances_file):
+        try:
+            with open(instances_file, 'r', encoding='utf-8') as f:
+                all_user_instances = json.load(f)
+        except:
+            all_user_instances = {}
+    
+    user_key = str(user_id)
+    
+    # Inicializa estrutura do usuário se não existir
+    if user_key not in all_user_instances:
+        all_user_instances[user_key] = {
+            'instances': [],
+            'default_instance_id': None
+        }
+    
+    user_instances = all_user_instances[user_key].get('instances', [])
+    
+    # Encontra próxima porta disponível
+    from config.settings import IS_PRODUCTION
+    used_ports = set()
+    for user_data in all_user_instances.values():
+        for inst in user_data.get('instances', []):
+            used_ports.add(inst.get('port', 5001))
+    
+    if IS_PRODUCTION:
+        base_port = 5001  # Todos usam a mesma porta em produção
+    else:
+        base_port = 5001
+        while base_port in used_ports:
+            base_port += 1
+    
+    # Gera novo ID de instância
+    max_id = 0
+    for inst in user_instances:
+        max_id = max(max_id, inst.get('id', 0))
+    new_instance_id = max_id + 1
+    
+    if not name:
+        name = f'WhatsApp {new_instance_id}'
+    
+    new_instance = {
+        'id': new_instance_id,
+        'user_id': user_id,
+        'name': name,
+        'status': 'disconnected',
+        'port': base_port,
+        'phone_number': None,
+        'agent_id': None,
+        'messages_sent': 0,
+        'messages_received': 0,
+        'created_at': datetime.now().isoformat(),
+        'session_dir': f"data/sessions/user_{user_id}_instance_{new_instance_id}"
+    }
+    
+    # Adiciona instância
+    user_instances.append(new_instance)
+    all_user_instances[user_key]['instances'] = user_instances
+    
+    # Salva
+    with open(instances_file, 'w', encoding='utf-8') as f:
+        json.dump(all_user_instances, f, indent=2, ensure_ascii=False)
+    
+    return new_instance
+
+
+def get_instance_user_id(user_id, instance_id):
+    """
+    Gera identificador único para instância no servidor WhatsApp
+    Formato: user_id_instance_id (ex: "2_1", "2_2")
+    
+    Isso permite que o mesmo usuário tenha múltiplas instâncias funcionando independentemente
+    
+    Args:
+        user_id: ID do usuário
+        instance_id: ID da instância
+    
+    Returns:
+        str: Identificador único (ex: "2_1")
+    """
+    return f"{user_id}_{instance_id}"
+
+
+def update_user_instance(user_id, instance_id, updates):
     """
     Atualiza dados da instância do usuário
     
     Args:
         user_id: ID do usuário
+        instance_id: ID da instância
         updates: Dict com campos para atualizar
     """
     instances_file = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'user_instances.json')
     
-    user_instances = {}
+    all_user_instances = {}
     if os.path.exists(instances_file):
         try:
             with open(instances_file, 'r', encoding='utf-8') as f:
-                user_instances = json.load(f)
+                all_user_instances = json.load(f)
         except:
-            user_instances = {}
+            all_user_instances = {}
     
     user_key = str(user_id)
-    if user_key in user_instances:
-        user_instances[user_key].update(updates)
-        user_instances[user_key]['updated_at'] = datetime.now().isoformat()
-        
-        with open(instances_file, 'w', encoding='utf-8') as f:
-            json.dump(user_instances, f, indent=2, ensure_ascii=False)
+    if user_key in all_user_instances:
+        instances = all_user_instances[user_key].get('instances', [])
+        for inst in instances:
+            if inst.get('id') == instance_id:
+                inst.update(updates)
+                inst['updated_at'] = datetime.now().isoformat()
+                all_user_instances[user_key]['instances'] = instances
+                with open(instances_file, 'w', encoding='utf-8') as f:
+                    json.dump(all_user_instances, f, indent=2, ensure_ascii=False)
+                return
 
 
 def get_whatsapp_server_url(port=None):

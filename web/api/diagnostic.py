@@ -78,3 +78,4 @@ def diagnostic_whatsapp():
         }
     })
 
+

@@ -47,86 +47,27 @@ def get_next_available_port():
 
 @bp.route('', methods=['POST'])
 def create_instance():
-    """Cria nova instância (bot)"""
+    """Cria nova instância (bot) para o usuário atual"""
     try:
-        data = request.get_json()
+        from web.utils.instance_helper import create_user_instance
+        from web.utils.auth_helpers import get_current_user_id
+        
+        data = request.get_json() or {}
         
         # Validações
         name = data.get('name')
-        tenant_id = data.get('tenant_id')  # organization_id
+        user_id = get_current_user_id() or 1
         
         if not name:
-            return jsonify({
-                'success': False,
-                'error': 'Nome é obrigatório'
-            }), 400
-        if not tenant_id:
-            return jsonify({
-                'success': False,
-                'error': 'tenant_id (organization_id) é obrigatório'
-            }), 400
+            # Se não forneceu nome, gera um automático
+            from web.utils.instance_helper import get_user_instances
+            existing = get_user_instances(user_id)
+            name = f'WhatsApp {len(existing) + 1}'
         
-        # MODO SIMPLES: Salva em arquivo JSON (sem banco de dados)
-        import json
-        import os
-        from datetime import datetime
+        # Cria nova instância usando o novo sistema
+        new_instance = create_user_instance(user_id, name)
         
-        orgs_file = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'organizations.json')
-        os.makedirs(os.path.dirname(orgs_file), exist_ok=True)
-        
-        # Carrega organizações
-        organizations = []
-        if os.path.exists(orgs_file):
-            try:
-                with open(orgs_file, 'r', encoding='utf-8') as f:
-                    organizations = json.load(f)
-            except:
-                organizations = []
-        
-        # Busca organização
-        org = None
-        for o in organizations:
-            if o.get('id') == tenant_id:
-                org = o
-                break
-        
-        if not org:
-            return jsonify({
-                'success': False,
-                'error': 'Organização não encontrada'
-            }), 404
-        
-        # Obtém próxima porta disponível
-        port = get_next_available_port()
-        
-        # Calcula próximo ID da instância
-        existing_instances = org.get('instances', [])
-        next_instance_id = max([inst.get('id', 0) for inst in existing_instances], default=0) + 1
-        
-        # Cria nova instância
-        new_instance = {
-            'id': next_instance_id,
-            'name': name,
-            'status': 'disconnected',
-            'port': port,
-            'agent_id': data.get('agent_id'),
-            'phone_number': None,
-            'messages_sent': 0,
-            'messages_received': 0,
-            'created_at': datetime.now().isoformat(),
-            'session_dir': f"data/sessions/instance_{tenant_id}_{name.lower().replace(' ', '_')}"
-        }
-        
-        # Adiciona instância à organização
-        if 'instances' not in org:
-            org['instances'] = []
-        org['instances'].append(new_instance)
-        
-        # Salva no arquivo
-        with open(orgs_file, 'w', encoding='utf-8') as f:
-            json.dump(organizations, f, indent=2, ensure_ascii=False)
-        
-        logger.info(f"Instância criada (modo simples): {new_instance['id']} - {new_instance['name']} (porta {new_instance['port']})")
+        logger.info(f"Instância criada: {new_instance['id']} - {new_instance['name']} (porta {new_instance['port']})")
         
         return jsonify({
             'success': True,
@@ -209,17 +150,24 @@ def create_instance():
 
 @bp.route('', methods=['GET'])
 def list_instances():
-    """Lista instâncias do usuário atual (modo simplificado: 1 usuário = 1 instância)"""
+    """Lista todas as instâncias do usuário atual (agora suporta múltiplas instâncias)"""
     try:
+        from web.utils.instance_helper import get_user_instances
         user_id = get_current_user_id() or 1  # Default para desenvolvimento
         
-        # No modo simplificado, cada usuário tem apenas 1 instância
-        instance = get_or_create_user_instance(user_id)
+        # Obtém todas as instâncias do usuário
+        instances = get_user_instances(user_id)
+        
+        # Se não tiver nenhuma, cria uma padrão
+        if not instances:
+            from web.utils.instance_helper import get_or_create_user_instance
+            instance = get_or_create_user_instance(user_id)
+            instances = [instance] if instance else []
         
         return jsonify({
             'success': True,
-            'instances': [instance],
-            'total': 1
+            'instances': instances,
+            'total': len(instances)
         }), 200
         
         # CÓDIGO COM BANCO DE DADOS (comentado - usar depois quando precisar)

@@ -101,3 +101,4 @@ if __name__ == '__main__':
     print("🎨 Gerando ícones PWA...\n")
     generate_icons()
 
+

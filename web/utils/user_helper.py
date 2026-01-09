@@ -16,7 +16,16 @@ def _load_users():
     """Carrega usuários do arquivo"""
     if not os.path.exists(USERS_FILE):
         print(f"[!] Arquivo de usuários não encontrado: {USERS_FILE}")
-        return {}
+        # Cria arquivo vazio se não existir
+        try:
+            os.makedirs(os.path.dirname(USERS_FILE), exist_ok=True)
+            with open(USERS_FILE, 'w', encoding='utf-8') as f:
+                json.dump({}, f)
+            print(f"[✓] Arquivo de usuários criado: {USERS_FILE}")
+            return {}
+        except Exception as create_error:
+            print(f"[!] Erro ao criar arquivo de usuários: {create_error}")
+            return {}
     
     try:
         with open(USERS_FILE, 'r', encoding='utf-8') as f:
@@ -25,6 +34,13 @@ def _load_users():
             return users
     except json.JSONDecodeError as e:
         print(f"[!] Erro ao decodificar JSON: {e}")
+        # Tenta criar arquivo novo se JSON está corrompido
+        try:
+            with open(USERS_FILE, 'w', encoding='utf-8') as f:
+                json.dump({}, f)
+            print(f"[✓] Arquivo JSON recriado após erro de decodificação")
+        except:
+            pass
         return {}
     except Exception as e:
         print(f"[!] Erro ao carregar usuários: {e}")

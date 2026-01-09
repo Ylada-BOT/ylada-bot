@@ -114,3 +114,4 @@ O script vai gerar o SQL automaticamente.
 
 **Última atualização:** 2025-01-27
 
+

@@ -796,14 +796,13 @@
                         if (instancesData.success && instancesData.instances && instancesData.instances.length > 0) {
                             const instance = instancesData.instances[0];
                             
-                            // Mostra informações
+                            // Mostra informações - prioriza número do telefone sobre nome
+                            const displayName = statusData.phone_number || instance.phone_number || instance.name || 'Meu WhatsApp';
                             let infoHtml = '<div style="font-weight: 600; margin-bottom: 10px; color: #166534;">📱 WhatsApp Conectado:</div>';
                             infoHtml += `
                                 <div style="margin-top: 10px; padding: 12px; background: white; border-radius: 8px; border-left: 4px solid #10b981; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                                    <div style="font-weight: 600; color: #166534; margin-bottom: 6px; font-size: 14px;">${instance.name || 'Meu WhatsApp'}</div>
-                                    <div style="color: #166534; font-size: 12px; line-height: 1.6;">
-                                        ${statusData.phone_number ? `<div>📞 <strong>Número:</strong> ${statusData.phone_number}</div>` : (instance.phone_number ? `<div>📞 <strong>Número:</strong> ${instance.phone_number}</div>` : '')}
-                                    </div>
+                                    <div style="font-weight: 600; color: #166534; margin-bottom: 6px; font-size: 14px;">${displayName}</div>
+                                    ${(statusData.phone_number || instance.phone_number) && displayName !== (statusData.phone_number || instance.phone_number) ? `<div style="color: #166534; font-size: 12px; line-height: 1.6; margin-top: 4px;">📞 <strong>Número:</strong> ${statusData.phone_number || instance.phone_number}</div>` : ''}
                                 <div style="margin-top: 8px;">
                                     <a href="/instances/${instance.id}" class="btn" style="font-size: 12px; padding: 6px 12px; text-decoration: none; display: inline-block; margin-right: 8px;">Ver Detalhes</a>
                                 </div>

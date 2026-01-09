@@ -436,15 +436,43 @@
         let conversations = [];
         let selectedChatId = null;
         let currentFilter = 'all'; // all, unread, individuals, groups
+        let currentInstanceId = null;
         
-        function loadConversations() {
+        // Busca instância do usuário antes de carregar conversas
+        async function getCurrentInstance() {
+            try {
+                const response = await fetch('/api/instances');
+                const data = await response.json();
+                if (data.success && data.instances && data.instances.length > 0) {
+                    return data.instances[0].id;
+                }
+            } catch (error) {
+                console.error('Erro ao buscar instância:', error);
+            }
+            return null;
+        }
+        
+        async function loadConversations() {
             // Mostra loading
             document.getElementById('conversationsList').innerHTML = '<div class="loading">Carregando conversas...</div>';
             
-            fetch('/api/conversations')
+            // Obtém instance_id se ainda não tiver
+            if (!currentInstanceId) {
+                currentInstanceId = await getCurrentInstance();
+            }
+            
+            // Monta URL com instance_id se disponível
+            const url = currentInstanceId ? `/api/conversations?instance_id=${currentInstanceId}` : '/api/conversations';
+            
+            fetch(url)
                 .then(r => {
                     if (!r.ok) {
-                        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+                        // Tenta obter mensagem de erro do JSON
+                        return r.json().then(errData => {
+                            throw new Error(errData.error || errData.details || `HTTP ${r.status}: ${r.statusText}`);
+                        }).catch(() => {
+                            throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+                        });
                     }
                     return r.json();
                 })
@@ -479,11 +507,20 @@
                 })
                 .catch(error => {
                     console.error('Erro ao carregar conversas:', error);
+                    let errorMessage = error.message || 'Erro desconhecido';
+                    // Se a mensagem contém "HTTP 500", adiciona mais contexto
+                    if (errorMessage.includes('HTTP 500')) {
+                        errorMessage = 'Erro interno do servidor. Verifique se o WhatsApp está conectado e tente novamente.';
+                    } else if (errorMessage.includes('HTTP 503')) {
+                        errorMessage = 'Servidor WhatsApp não está acessível. Verifique se o serviço está rodando.';
+                    } else if (errorMessage.includes('HTTP 400')) {
+                        errorMessage = 'WhatsApp não está conectado. Conecte o WhatsApp primeiro.';
+                    }
                     document.getElementById('conversationsList').innerHTML = `
                         <div class="empty-state">
                             <h3>❌ Erro ao carregar conversas</h3>
-                            <p>${error.message}</p>
-                            <p style="margin-top: 10px; font-size: 12px;">Verifique se o WhatsApp está conectado</p>
+                            <p style="color: #dc2626; font-weight: 500;">${errorMessage}</p>
+                            <p style="margin-top: 10px; font-size: 12px; color: #666;">Verifique se o WhatsApp está conectado na página "Conectar WhatsApp"</p>
                             <button onclick="loadConversations()" class="btn" style="margin-top: 10px;">🔄 Tentar Novamente</button>
                         </div>
                     `;

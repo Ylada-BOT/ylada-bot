@@ -1054,8 +1054,8 @@ def get_conversations():
         
         # Obtém instância do usuário atual
         user_id = get_current_user_id() or 1
-        data = request.get_json() or {}
-        instance_id = data.get('instance_id')
+        # Permite instance_id via query string ou JSON body
+        instance_id = request.args.get('instance_id', type=int) or (request.get_json() or {}).get('instance_id')
         
         instance = get_or_create_user_instance(user_id, instance_id)
         if not instance:
@@ -1193,12 +1193,15 @@ def get_conversations():
         }), 503
     except Exception as e:
         import traceback
+        error_traceback = traceback.format_exc()
+        app.logger.error(f"Erro inesperado em get_conversations: {e}\n{error_traceback}")
         print(f"[!] Erro inesperado em get_conversations: {e}")
-        print(traceback.format_exc())
+        print(error_traceback)
         return jsonify({
             "success": False, 
-            "error": str(e),
-            "details": "Erro interno do servidor. Verifique os logs para mais detalhes."
+            "error": f"Erro interno: {str(e)}",
+            "details": "Erro interno do servidor. Verifique os logs para mais detalhes.",
+            "traceback": error_traceback if app.debug else None
         }), 500
 
 @app.route('/api/conversations/<chat_id>/messages')

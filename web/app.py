@@ -10,6 +10,10 @@ import sys
 import os
 import json
 import time
+import logging
+from logging.handlers import RotatingFileHandler
+from datetime import datetime
+from pathlib import Path
 
 # Carrega variáveis de ambiente do .env
 try:
@@ -46,8 +50,111 @@ app = Flask(__name__,
             static_url_path='/static')
 CORS(app, supports_credentials=True)  # Permite envio de cookies
 
-# Handler global para erros não tratados - sempre retorna JSON para APIs
+# ============================================
+# CONFIGURAÇÃO DE LOGGING CENTRALIZADO
+# ============================================
+BASE_DIR = Path(__file__).resolve().parent.parent
+log_dir = BASE_DIR / 'logs'
+log_dir.mkdir(exist_ok=True)
+
+# Handler para arquivo (rotação automática)
+file_handler = RotatingFileHandler(
+    log_dir / 'app.log',
+    maxBytes=10*1024*1024,  # 10MB
+    backupCount=5
+)
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(logging.Formatter(
+    '%(asctime)s [%(levelname)s] %(name)s:%(lineno)d - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+))
+
+# Handler para console
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(logging.Formatter(
+    '[%(levelname)s] %(message)s'
+))
+
+# Configurar logger do app
+app.logger.setLevel(logging.INFO)
+app.logger.addHandler(file_handler)
+app.logger.addHandler(console_handler)
+
+# Desabilitar logs verbosos do Werkzeug
+logging.getLogger('werkzeug').setLevel(logging.WARNING)
+
+# Logger para este módulo
+logger = app.logger
+logger.info("="*60)
+logger.info("🚀 Iniciando BOT by YLADA")
+logger.info("="*60)
+
+# ============================================
+# VALIDAÇÃO DE CONFIGURAÇÕES
+# ============================================
+def validate_configuration():
+    """Valida configurações críticas na inicialização"""
+    from config.settings import WHATSAPP_SERVER_URL, IS_PRODUCTION, DATABASE_URL
+    
+    errors = []
+    warnings = []
+    
+    if IS_PRODUCTION:
+        # Validar WHATSAPP_SERVER_URL em produção
+        if not WHATSAPP_SERVER_URL or 'localhost' in WHATSAPP_SERVER_URL:
+            errors.append(
+                "❌ WHATSAPP_SERVER_URL não configurado em produção!\n"
+                "   Configure no Railway: WHATSAPP_SERVER_URL=http://whatsapp-server-2:5001"
+            )
+        
+        # Validar DATABASE_URL
+        if not DATABASE_URL or 'localhost' in DATABASE_URL:
+            warnings.append(
+                "⚠️  DATABASE_URL parece estar em modo desenvolvimento.\n"
+                "   Verifique se está usando a connection string do Supabase."
+            )
+    else:
+        # Em desenvolvimento, apenas avisa
+        if not WHATSAPP_SERVER_URL:
+            warnings.append(
+                "⚠️  WHATSAPP_SERVER_URL não configurado.\n"
+                "   Usando padrão: http://localhost:5001"
+            )
+    
+    if errors:
+        logger.error("\n" + "="*60)
+        logger.error("⚠️  ERROS DE CONFIGURAÇÃO DETECTADOS:")
+        logger.error("="*60)
+        for error in errors:
+            logger.error(error)
+        logger.error("="*60 + "\n")
+        # Em produção, não trava o servidor, apenas avisa
+        if not IS_PRODUCTION:
+            raise ValueError("Configurações inválidas. Corrija antes de continuar.")
+    
+    if warnings:
+        logger.warning("\n" + "="*60)
+        logger.warning("⚠️  AVISOS DE CONFIGURAÇÃO:")
+        logger.warning("="*60)
+        for warning in warnings:
+            logger.warning(warning)
+        logger.warning("="*60 + "\n")
+    
+    return len(errors) == 0
+
+# Executar validação após criar o app
+try:
+    validate_configuration()
+    logger.info("✅ Configurações validadas com sucesso")
+except Exception as e:
+    logger.error(f"❌ Erro na validação de configurações: {e}")
+
+# ============================================
+# HANDLERS DE ERRO GLOBAL
+# ============================================
 from werkzeug.exceptions import HTTPException
+from web.utils.error_messages import format_error_response
 
 @app.errorhandler(HTTPException)
 def handle_http_error(e):
@@ -65,27 +172,8 @@ def handle_generic_error(e):
     """Handler para erros genéricos não tratados - retorna JSON para APIs"""
     # Se a rota é uma API, retorna JSON
     if request.path.startswith('/api/'):
-        import traceback
-        error_msg = str(e)
-        
-        # Erros de banco de dados
-        if 'psycopg2' in error_msg or 'OperationalError' in error_msg or 'connection' in error_msg.lower() or 'Tenant or user not found' in error_msg:
-            return jsonify({
-                'success': False,
-                'error': 'Erro de conexão com o banco de dados',
-                'message': 'Verifique se a DATABASE_URL está correta no arquivo .env.local',
-                'hint': 'Acesse: Settings > Database no Supabase para obter a connection string correta',
-                'details': error_msg if app.debug else None
-            }), 503
-        
-        # Outros erros
-        logger.error(f"Erro não tratado em {request.path}: {e}")
-        return jsonify({
-            'success': False,
-            'error': 'Erro interno do servidor',
-            'message': error_msg if app.debug else 'Ocorreu um erro. Tente novamente.',
-            'details': traceback.format_exc() if app.debug else None
-        }), 500
+        logger.error(f"Erro não tratado em {request.path}: {e}", exc_info=True)
+        return format_error_response(e, context=f"em {request.path}", status_code=500)
     
     # Para rotas não-API, deixa o Flask tratar normalmente
     raise e
@@ -1072,30 +1160,31 @@ def get_conversations():
         unique_user_id = get_instance_user_id(user_id, instance.get('id', user_id))
         
         # PRIMEIRO: Verifica se o servidor está acessível (health check)
+        from web.utils.http_client import get_with_retry
+        from web.utils.error_messages import format_error_response
+        import requests  # Mantido para compatibilidade
+        
         try:
-            health_response = requests.get(f"{server_url}/health", timeout=5)
+            health_response = get_with_retry(f"{server_url}/health", timeout=10, max_retries=2)
             if health_response.status_code != 200:
-                return jsonify({
-                    "success": False, 
-                    "error": f"Servidor WhatsApp não está respondendo (status {health_response.status_code})",
-                    "details": "O servidor WhatsApp está online mas não está funcionando corretamente. Verifique os logs do servidor."
-                }), 503
-        except requests.exceptions.ConnectionError:
-            return jsonify({
-                "success": False,
-                "error": "Servidor WhatsApp não está acessível",
-                "details": f"Não foi possível conectar ao servidor em {server_url}. Verifique se o serviço WhatsApp está rodando no Railway."
-            }), 503
-        except requests.exceptions.Timeout:
-            return jsonify({
-                "success": False,
-                "error": "Timeout ao conectar ao servidor WhatsApp",
-                "details": "O servidor WhatsApp demorou muito para responder. Pode estar sobrecarregado ou offline."
-            }), 503
+                return format_error_response(
+                    Exception(f"Servidor retornou status {health_response.status_code}"),
+                    context="ao verificar saúde do servidor WhatsApp",
+                    operation="verificar servidor WhatsApp",
+                    status_code=503
+                )
+        except Exception as e:
+            logger.error(f"Erro ao verificar servidor WhatsApp: {e}")
+            return format_error_response(
+                e,
+                context=f"ao conectar ao servidor WhatsApp em {server_url}",
+                operation="verificar servidor WhatsApp",
+                status_code=503
+            )
         
         # SEGUNDO: Verifica se o WhatsApp está conectado
         try:
-            status_response = requests.get(f"{server_url}/status?user_id={unique_user_id}", timeout=5)
+            status_response = get_with_retry(f"{server_url}/status?user_id={unique_user_id}", timeout=10, max_retries=2)
             if status_response.status_code == 200:
                 status_data = status_response.json()
                 actually_connected = status_data.get("actuallyConnected", False)
@@ -1128,7 +1217,7 @@ def get_conversations():
         limit = request.args.get('limit', type=int)
         
         # IMPORTANTE: Passa unique_user_id para separar conversas por instância
-        response = requests.get(f"{server_url}/chats", params={"user_id": unique_user_id}, timeout=10)
+        response = get_with_retry(f"{server_url}/chats", timeout=15, max_retries=2, params={"user_id": unique_user_id})
         
         if response.status_code == 200:
             data = response.json()
@@ -1173,36 +1262,14 @@ def get_conversations():
                 "details": "O servidor WhatsApp retornou um erro. Verifique os logs do servidor."
             }), 500
             
-    except requests.exceptions.ConnectionError as e:
-        return jsonify({
-            "success": False, 
-            "error": "Servidor WhatsApp não está acessível",
-            "details": f"Não foi possível conectar ao servidor. Verifique se o serviço WhatsApp está rodando e se a variável WHATSAPP_SERVER_URL está configurada corretamente no Railway."
-        }), 503
-    except requests.exceptions.Timeout as e:
-        return jsonify({
-            "success": False,
-            "error": "Timeout ao conectar ao servidor WhatsApp",
-            "details": "O servidor demorou muito para responder. Pode estar sobrecarregado."
-        }), 503
-    except requests.exceptions.RequestException as e:
-        return jsonify({
-            "success": False, 
-            "error": f"Erro ao comunicar com servidor WhatsApp: {str(e)}",
-            "details": "Verifique se o servidor WhatsApp está rodando e acessível."
-        }), 503
     except Exception as e:
-        import traceback
-        error_traceback = traceback.format_exc()
-        app.logger.error(f"Erro inesperado em get_conversations: {e}\n{error_traceback}")
-        print(f"[!] Erro inesperado em get_conversations: {e}")
-        print(error_traceback)
-        return jsonify({
-            "success": False, 
-            "error": f"Erro interno: {str(e)}",
-            "details": "Erro interno do servidor. Verifique os logs para mais detalhes.",
-            "traceback": error_traceback if app.debug else None
-        }), 500
+        logger.error(f"Erro em get_conversations: {e}", exc_info=True)
+        return format_error_response(
+            e,
+            context="ao carregar conversas",
+            operation="carregar conversas",
+            status_code=503 if isinstance(e, (requests.exceptions.ConnectionError, requests.exceptions.Timeout)) else 500
+        )
 
 @app.route('/api/conversations/<chat_id>/messages')
 @require_api_auth
@@ -1230,21 +1297,31 @@ def get_conversation_messages(chat_id):
         
         limit = request.args.get('limit', 50, type=int)
         # IMPORTANTE: Passa unique_user_id para separar mensagens por instância
-        response = requests.get(
+        response = get_with_retry(
             f"{server_url}/chats/{chat_id}/messages",
-            params={"limit": limit, "user_id": unique_user_id},
-            timeout=10
+            timeout=15,
+            max_retries=2,
+            params={"limit": limit, "user_id": unique_user_id}
         )
         
         if response.status_code == 200:
             return jsonify(response.json())
         else:
-            return jsonify({"success": False, "error": "Erro ao buscar mensagens"}), 500
+            return format_error_response(
+                Exception(f"Servidor retornou status {response.status_code}"),
+                context="ao buscar mensagens",
+                operation="buscar mensagens",
+                status_code=500
+            )
             
-    except requests.exceptions.RequestException as e:
-        return jsonify({"success": False, "error": f"Servidor WhatsApp não está respondendo: {str(e)}"}), 503
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        logger.error(f"Erro em get_conversation_messages: {e}", exc_info=True)
+        return format_error_response(
+            e,
+            context="ao buscar mensagens",
+            operation="buscar mensagens",
+            status_code=503 if isinstance(e, (requests.exceptions.ConnectionError, requests.exceptions.Timeout)) else 500
+        )
 
 @app.route('/api/conversations/send', methods=['POST'])
 @require_api_auth
@@ -1759,6 +1836,67 @@ def webhook():
 
 @app.route('/health')
 def health():
+    """Health check completo - verifica todas as dependências"""
+    from config.settings import WHATSAPP_SERVER_URL, IS_PRODUCTION, DATABASE_URL
+    from web.utils.http_client import get_with_retry
+    
+    health_status = {
+        "status": "ok",
+        "timestamp": datetime.utcnow().isoformat(),
+        "checks": {}
+    }
+    
+    # Check 1: Banco de dados
+    try:
+        from src.database.db import SessionLocal
+        db = SessionLocal()
+        db.execute("SELECT 1")
+        db.close()
+        health_status["checks"]["database"] = {"status": "ok"}
+    except Exception as e:
+        health_status["checks"]["database"] = {
+            "status": "error",
+            "message": str(e)[:100]  # Limita tamanho
+        }
+        health_status["status"] = "degraded"
+        logger.warning(f"Health check: Database error - {e}")
+    
+    # Check 2: Servidor WhatsApp
+    if IS_PRODUCTION and WHATSAPP_SERVER_URL and 'localhost' not in WHATSAPP_SERVER_URL:
+        try:
+            response = get_with_retry(f"{WHATSAPP_SERVER_URL}/health", timeout=5, max_retries=1)
+            if response.status_code == 200:
+                health_status["checks"]["whatsapp_server"] = {
+                    "status": "ok",
+                    "url": WHATSAPP_SERVER_URL
+                }
+            else:
+                health_status["checks"]["whatsapp_server"] = {
+                    "status": "error",
+                    "message": f"Status {response.status_code}",
+                    "url": WHATSAPP_SERVER_URL
+                }
+                health_status["status"] = "degraded"
+                logger.warning(f"Health check: WhatsApp server returned {response.status_code}")
+        except Exception as e:
+            health_status["checks"]["whatsapp_server"] = {
+                "status": "error",
+                "message": str(e)[:100],
+                "url": WHATSAPP_SERVER_URL
+            }
+            health_status["status"] = "degraded"
+            logger.warning(f"Health check: WhatsApp server error - {e}")
+    else:
+        health_status["checks"]["whatsapp_server"] = {
+            "status": "not_configured",
+            "message": "WHATSAPP_SERVER_URL não configurado ou em modo desenvolvimento"
+        }
+    
+    # Se algum check crítico falhou, retorna 503
+    if health_status["status"] == "degraded":
+        return jsonify(health_status), 503
+    
+    return jsonify(health_status), 200
     """Health check"""
     return jsonify({"status": "ok"})
 

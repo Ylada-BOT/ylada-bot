@@ -194,20 +194,16 @@ function initClient(userId) {
         const timestamp = new Date().toISOString();
         console.log(`[${timestamp}] [User ${userId}] 🔄 Mudança de estado: ${state}`);
         
-        if (state === 'CONNECTING') {
-            console.log(`[${timestamp}] [User ${userId}] 🔗 Conectando... (QR Code foi escaneado)`);
+        if (state === 'CONNECTING' || state === 'OPENING' || state === 'PAIRING') {
+            console.log(`[${timestamp}] [User ${userId}] 🔗 Estado: ${state} - QR Code foi escaneado!`);
             clients[userId].isConnecting = true; // Marca que está conectando
-            // Remove QR Code para evitar gerar novo durante conexão
+            clients[userId].isAuthenticated = false; // Ainda não autenticado, mas conectando
+            // Remove QR Code IMEDIATAMENTE para evitar gerar novo durante conexão
             if (clients[userId].qrCodeData) {
                 console.log(`[${timestamp}] [User ${userId}] 🧹 Removendo QR Code (foi escaneado, conectando...)`);
                 clients[userId].qrCodeData = null;
             }
-        } else if (state === 'OPENING') {
-            console.log(`[${timestamp}] [User ${userId}] 🚪 Abrindo conexão...`);
-            clients[userId].isConnecting = true;
-        } else if (state === 'PAIRING') {
-            console.log(`[${timestamp}] [User ${userId}] 🔐 Pareando dispositivo...`);
-            clients[userId].isConnecting = true;
+            console.log(`[${timestamp}] [User ${userId}] ✅ Flags atualizadas: isConnecting=true, isAuthenticated=false`);
         } else if (state === 'UNPAIRED' || state === 'UNPAIRED_IDLE') {
             console.log(`[${timestamp}] [User ${userId}] ⚠️ Dispositivo não pareado. Precisa escanear QR Code novamente.`);
             clients[userId].qrCodeData = null; // Força gerar novo QR

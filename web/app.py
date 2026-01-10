@@ -1432,6 +1432,8 @@ def whatsapp_status():
                 has_qr = status_data.get("hasQr", False)
                 actually_connected = status_data.get("actuallyConnected", False)
                 ready = status_data.get("ready", False)
+                is_authenticated = status_data.get("isAuthenticated", False)
+                is_connecting = status_data.get("isConnecting", False)
                 
                 # Só considera conectado se realmente estiver conectado
                 # Verifica múltiplos indicadores para garantir conexão real

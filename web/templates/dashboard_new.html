@@ -982,12 +982,12 @@
         loadAIConfig();
         loadUserHeaderInfo(); // Carrega informações do usuário
         
-        // Verifica status imediatamente e depois com intervalo maior para evitar piscar
+        // Verifica status imediatamente e depois com intervalo para detectar conexão rapidamente
         checkStatus();
-        // Atualiza status com intervalo maior para evitar rate limiting e piscar
+        // Atualiza status com intervalo menor inicialmente para detectar conexão rapidamente
         let updateCount = 0;
         let statusInterval;
-        let retryDelay = 30000; // Começa com 30 segundos (aumentado para evitar piscar)
+        let retryDelay = 5000; // Começa com 5 segundos para detectar conexão rapidamente
         
         function scheduleStatusCheck() {
             statusInterval = setInterval(() => {
@@ -1001,16 +1001,16 @@
                     }
                 });
                 updateCount++;
-                // Após 4 atualizações (2 minutos), reduz frequência para 60 segundos
-                if (updateCount >= 4) {
+                // Após 12 atualizações (1 minuto com 5s), reduz frequência para 15 segundos
+                if (updateCount >= 12) {
                     clearInterval(statusInterval);
                     statusInterval = setInterval(() => {
                         checkStatus().catch(() => {
                             // Ignora erros silenciosamente após período inicial
                         });
-                    }, 60000); // Atualiza a cada 60 segundos depois (reduzido para evitar rate limit e piscar)
+                    }, 15000); // Atualiza a cada 15 segundos depois
                 }
-            }, retryDelay); // Começa com 30 segundos
+            }, retryDelay); // Começa com 5 segundos
         }
         
         scheduleStatusCheck();

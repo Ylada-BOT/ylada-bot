@@ -479,7 +479,24 @@ app.get('/status', async (req, res) => {
     // Verifica se realmente está conectado tentando usar o cliente
     let actuallyReady = false;
     let clientInfo = null;
+    let isAuthenticated = false;
     
+    // Verifica se está autenticado (mesmo que não esteja ready ainda)
+    if (clientData.client) {
+        try {
+            // Verifica se o cliente tem info (indica que está autenticado)
+            if (clientData.client.info) {
+                clientInfo = clientData.client.info;
+                isAuthenticated = true;
+                // Verifica se tem wid (WhatsApp ID) e se não está desconectado
+                actuallyReady = !!(clientInfo.wid && !clientInfo.wid.includes('@temp'));
+            }
+        } catch (e) {
+            // Ignora erro se não conseguir acessar info ainda
+        }
+    }
+    
+    // Se está ready, verifica novamente para garantir
     if (clientData.isReady && clientData.client) {
         try {
             // Verifica se o cliente está realmente conectado
@@ -525,8 +542,9 @@ app.get('/status', async (req, res) => {
     res.json({ 
         ready: actuallyReady || clientData.isReady, 
         hasQr: !!clientData.qrCodeData,
-        actuallyConnected: actuallyReady,
+        actuallyConnected: actuallyReady || (isAuthenticated && !clientData.qrCodeData), // Considera conectado se autenticado e sem QR
         clientInitialized: !!clientData.client,
+        isAuthenticated: isAuthenticated, // Adiciona flag de autenticado
         phone_number: phoneNumber, // Adiciona número formatado
         clientInfo: clientInfo ? {
             wid: clientInfo.wid,

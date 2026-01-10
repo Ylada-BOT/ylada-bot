@@ -1442,8 +1442,20 @@ def whatsapp_status():
                 # PRIORIDADE 3: ready sem QR (pode ser conexão, mas menos confiável)
                 elif ready and not has_qr:
                     # Só confia se não tiver QR e estiver marcado como ready
-                    # Mas marca como menos confiável
                     is_connected = True
+                # PRIORIDADE 4: Se está autenticado mas ainda não ready (processo de conexão)
+                is_authenticated = status_data.get('isAuthenticated', False)
+                if is_authenticated and not has_qr:
+                    # Se está autenticado e não tem QR, está conectando
+                    is_connected = True
+                # PRIORIDADE 5: Se não tem QR e não está ready, mas tem clientInfo válido
+                elif not has_qr and status_data.get('clientInfo'):
+                    client_info = status_data.get('clientInfo', {})
+                    wid = client_info.get('wid')
+                    # Se tem wid válido, mesmo que não esteja ready ainda, considera conectando
+                    if wid and '@temp' not in str(wid):
+                        # Marca como conectado mas pode estar ainda inicializando
+                        is_connected = True
                 
                 connected = is_connected
                 

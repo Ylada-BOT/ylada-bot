@@ -93,14 +93,23 @@ function initClient(userId) {
         qrCodeData: null,
         isReady: false,
         reconnectAttempts: 0,
-        isReconnecting: false
+        isReconnecting: false,
+        isConnecting: false, // Flag para rastrear se está no processo de conexão (QR escaneado)
+        isAuthenticated: false // Flag para rastrear se está autenticado
     };
 
     client.on('qr', (qr) => {
+        // NÃO gera novo QR Code se já está conectando ou autenticado
+        if (clients[userId].isConnecting || clients[userId].isAuthenticated || clients[userId].isReady) {
+            console.log(`[User ${userId}] ⚠️ QR Code solicitado mas já está conectando/autenticado. Ignorando...`);
+            return;
+        }
+        
         console.log(`\n[User ${userId}] ═══════════════════════════════════════`);
         console.log(`[User ${userId}] 📱 QR CODE PARA CONECTAR WHATSAPP`);
         console.log(`[User ${userId}] ═══════════════════════════════════════\n`);
         clients[userId].qrCodeData = qr;
+        clients[userId].isConnecting = false; // Reset flag quando gera novo QR
         qrcode.generate(qr, { small: true });
         console.log(`\n[User ${userId}] ═══════════════════════════════════════`);
         console.log(`[User ${userId}] Escaneie o QR Code acima com seu WhatsApp`);
@@ -118,6 +127,8 @@ function initClient(userId) {
         console.log(`[${timestamp}] [User ${userId}] ✅ Pronto para enviar e receber mensagens!`);
         console.log(`[${timestamp}] [User ${userId}] ═══════════════════════════════════════\n`);
         clients[userId].isReady = true;
+        clients[userId].isAuthenticated = true;
+        clients[userId].isConnecting = false; // Concluiu conexão
         clients[userId].qrCodeData = null;
         clients[userId].reconnectAttempts = 0;
         clients[userId].isReconnecting = false;
@@ -129,6 +140,8 @@ function initClient(userId) {
         console.log(`[${timestamp}] [User ${userId}] ⏳ Aguardando inicialização completa...`);
         // authenticated não significa ready ainda, apenas que a autenticação foi aceita
         // Mas já pode considerar como conectando - remove QR Code para evitar confusão
+        clients[userId].isAuthenticated = true; // Marca como autenticado
+        clients[userId].isConnecting = true; // Ainda está conectando (aguardando ready)
         if (clients[userId].qrCodeData) {
             console.log(`[${timestamp}] [User ${userId}] 🧹 Removendo QR Code (já autenticado)`);
             clients[userId].qrCodeData = null;
@@ -183,13 +196,23 @@ function initClient(userId) {
         
         if (state === 'CONNECTING') {
             console.log(`[${timestamp}] [User ${userId}] 🔗 Conectando... (QR Code foi escaneado)`);
+            clients[userId].isConnecting = true; // Marca que está conectando
+            // Remove QR Code para evitar gerar novo durante conexão
+            if (clients[userId].qrCodeData) {
+                console.log(`[${timestamp}] [User ${userId}] 🧹 Removendo QR Code (foi escaneado, conectando...)`);
+                clients[userId].qrCodeData = null;
+            }
         } else if (state === 'OPENING') {
             console.log(`[${timestamp}] [User ${userId}] 🚪 Abrindo conexão...`);
+            clients[userId].isConnecting = true;
         } else if (state === 'PAIRING') {
             console.log(`[${timestamp}] [User ${userId}] 🔐 Pareando dispositivo...`);
+            clients[userId].isConnecting = true;
         } else if (state === 'UNPAIRED' || state === 'UNPAIRED_IDLE') {
             console.log(`[${timestamp}] [User ${userId}] ⚠️ Dispositivo não pareado. Precisa escanear QR Code novamente.`);
             clients[userId].qrCodeData = null; // Força gerar novo QR
+            clients[userId].isConnecting = false; // Reset flag
+            clients[userId].isAuthenticated = false; // Reset flag
         }
     });
 
@@ -415,6 +438,19 @@ app.get('/qr', (req, res) => {
     
     const clientData = clients[userId];
     
+    // Se está conectando ou autenticado, não retorna QR Code
+    if (clientData.isConnecting || clientData.isAuthenticated) {
+        console.log(`[User ${userId}] Cliente está conectando/autenticado, não retornando QR Code`);
+        return res.json({ 
+            ready: clientData.isReady, 
+            qr: null, 
+            hasQr: false,
+            isConnecting: clientData.isConnecting,
+            isAuthenticated: clientData.isAuthenticated,
+            message: clientData.isConnecting ? "QR Code foi escaneado, conectando..." : "Autenticado, aguardando inicialização..."
+        });
+    }
+    
     // Se o cliente está sendo inicializado mas ainda não tem QR, aguarda
     if (clientData.client && !clientData.isReady && !clientData.qrCodeData && !clientData.isReconnecting) {
         console.log(`[User ${userId}] Cliente inicializando, aguardando QR code...`);
@@ -550,7 +586,8 @@ app.get('/status', async (req, res) => {
         hasQr: !!clientData.qrCodeData,
         actuallyConnected: actuallyReady || (isAuthenticated && !clientData.qrCodeData), // Considera conectado se autenticado e sem QR
         clientInitialized: !!clientData.client,
-        isAuthenticated: isAuthenticated, // Adiciona flag de autenticado
+        isAuthenticated: isAuthenticated || clientData.isAuthenticated, // Flag de autenticado
+        isConnecting: clientData.isConnecting || false, // Flag de conectando (QR escaneado)
         phone_number: phoneNumber, // Adiciona número formatado
         clientInfo: clientInfo ? {
             wid: clientInfo.wid,

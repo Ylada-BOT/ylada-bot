@@ -326,6 +326,42 @@
                 const instructions = document.getElementById('instructions');
                 const refreshBtn = document.getElementById('refresh-btn');
                 
+                // Verifica se está conectando (QR foi escaneado)
+                if (data.isConnecting || data.message?.includes('conectando') || data.message?.includes('escaneado')) {
+                    // QR Code foi escaneado! Mostra mensagem de conexão
+                    statusDiv.className = 'status waiting';
+                    statusDiv.textContent = '⏳ QR Code escaneado! Conectando...';
+                    qrContainer.innerHTML = '<div class="loading">⏳ Conectando...<br><small style="color: #666; margin-top: 10px; display: block;">Aguarde alguns segundos</small></div>';
+                    instructions.style.display = 'none';
+                    
+                    // Verifica status a cada 2 segundos enquanto está conectando
+                    const connectingInterval = setInterval(async () => {
+                        try {
+                            const statusCheck = await fetch('/api/whatsapp-status');
+                            const statusData = await statusCheck.json();
+                            
+                            if (statusData.connected === true) {
+                                clearInterval(connectingInterval);
+                                statusDiv.className = 'status connected';
+                                statusDiv.textContent = '✅ WhatsApp conectado!';
+                                qrContainer.innerHTML = '<div style="color: #10b981; font-size: 48px;">✅</div>';
+                                
+                                setTimeout(() => {
+                                    window.location.href = '/';
+                                }, 1000);
+                            } else if (!statusData.isConnecting && !statusData.isAuthenticated) {
+                                // Parou de conectar, volta para QR
+                                clearInterval(connectingInterval);
+                                checkQR();
+                            }
+                        } catch (e) {
+                            // Ignora erro
+                        }
+                    }, 2000);
+                    
+                    return;
+                }
+                
                 // Suporta dois formatos de resposta:
                 // 1. {success: true, qr: "...", ready: false}
                 // 2. {qr: "...", status: "waiting"} ou {status: "connected"}

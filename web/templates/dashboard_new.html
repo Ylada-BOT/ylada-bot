@@ -788,7 +788,12 @@
                 
                 console.log('Status recebido:', statusData); // Debug
                 
-                if (statusData.connected === true) {
+                // Considera conectado se realmente conectado OU se está autenticado (conectando)
+                const isConnected = statusData.connected === true || 
+                                  (statusData.isAuthenticated && !statusData.hasQr) ||
+                                  (statusData.isConnecting && !statusData.hasQr);
+                
+                if (isConnected) {
                     // Conectado
                     lastStatus = 'connected';
                     statusEl.textContent = '✓ Conectado';

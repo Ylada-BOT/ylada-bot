@@ -361,6 +361,14 @@ try:
 except Exception as e:
     logger.warning(f"⚠️ API de Campanhas não disponível: {e}")
 
+# API de Conversas (Funcionalidades Avançadas)
+try:
+    from web.api.conversations import bp as conversations_api_bp
+    app.register_blueprint(conversations_api_bp)
+    logger.info("✅ API de Conversas (funcionalidades avançadas) registrada")
+except Exception as e:
+    logger.warning(f"⚠️ API de Conversas não disponível: {e}")
+
 # ============================================
 # INICIALIZAÇÃO
 # ============================================
@@ -1484,13 +1492,16 @@ def whatsapp_status():
                         else:
                             phone_number = f"+{phone_number}"
                 
-                if connected:
+                # Considera conectado se realmente ready OU se está autenticado (processo de conexão)
+                if connected or (is_authenticated and not has_qr):
                     return jsonify({
                         "connected": True, 
-                        "message": "WhatsApp conectado",
+                        "message": "WhatsApp conectado" if connected else "WhatsApp conectando...",
                         "hasQr": False,
                         "port": whatsapp_port,
-                        "phone_number": phone_number
+                        "phone_number": phone_number,
+                        "isAuthenticated": is_authenticated,
+                        "isConnecting": not connected and is_authenticated  # Conectando se autenticado mas não ready
                     })
                 elif has_qr:
                     return jsonify({

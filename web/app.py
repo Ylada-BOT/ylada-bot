@@ -353,6 +353,14 @@ try:
 except Exception as e:
     print(f"[!] Rotas de configuração do WhatsApp não disponíveis: {e}")
 
+# API de Campanhas (Envio em Massa)
+try:
+    from web.api.campaigns import bp as campaigns_bp
+    app.register_blueprint(campaigns_bp)
+    logger.info("✅ API de Campanhas (envio em massa) registrada")
+except Exception as e:
+    logger.warning(f"⚠️ API de Campanhas não disponível: {e}")
+
 # ============================================
 # INICIALIZAÇÃO
 # ============================================
@@ -1009,28 +1017,22 @@ def get_qr():
         from config.settings import IS_PRODUCTION
         server_url = get_whatsapp_server_url(port)
         
-        # Garante que o servidor está rodando na porta correta
-        server_started = ensure_whatsapp_server_running(port)
-        if not server_started:
-            print(f"[!] Servidor WhatsApp não está acessível na porta {port}")
-            if IS_PRODUCTION:
-                return jsonify({
-                    "error": "Servidor WhatsApp não está acessível. O serviço Node.js precisa estar rodando.",
-                    "status": "error",
-                    "message": "Erro 503: Servidor WhatsApp não está disponível",
-                    "hint": f"Em produção, o servidor WhatsApp precisa estar rodando como um serviço separado no Railway. Verifique se o serviço está ativo e acessível em {server_url}",
-                    "port": port,
-                    "server_url": server_url,
-                    "solution": "Tente recarregar a página (F5) em alguns segundos ou verifique se o serviço WhatsApp está ativo no Railway."
-                }), 503
+        # Não bloqueia aqui - deixa o retry do http_client tentar conectar
+        # Se o servidor não estiver disponível, o retry vai lidar com isso
+        logger.info(f"Buscando QR Code do servidor WhatsApp em {server_url} para user_id={unique_user_id}")
         
         # Busca QR Code do servidor Node.js
         # Passa unique_user_id para separar sessões por instância
         base_url = server_url.rstrip('/')
         qr_url = f"{base_url}/qr?user_id={unique_user_id}"
         
+        # Usa http_client com retry para comunicação robusta
+        from web.utils.http_client import get_with_retry
+        
         try:
-            response = requests.get(qr_url, timeout=10)
+            # Tenta buscar QR Code com retry (até 3 tentativas) e timeout maior
+            # Timeout aumentado para 30s porque servidor pode estar lento gerando QR Code
+            response = get_with_retry(qr_url, timeout=30, max_retries=3)
             if response.status_code == 200:
                 data = response.json()
                 
@@ -1067,9 +1069,10 @@ def get_qr():
                     "hint": "O servidor está aguardando o WhatsApp gerar o QR code. Isso pode levar 10-30 segundos. Se demorar mais, recarregue a página."
                 })
                 
-        except requests.exceptions.ConnectionError:
-            error_msg = f"Servidor WhatsApp não está rodando na porta {port}."
-            print(f"[!] {error_msg}")
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as conn_error:
+            error_msg = f"Servidor WhatsApp não está acessível na porta {port}."
+            logger.error(f"[!] {error_msg}: {conn_error}")
+            logger.error(f"[!] Tentando acessar: {qr_url}")
             
             # Em produção, não tenta iniciar automaticamente
             from config.settings import IS_PRODUCTION
@@ -1091,7 +1094,7 @@ def get_qr():
                 time.sleep(3)
                 # Tenta novamente após iniciar
             try:
-                response = requests.get(qr_url, timeout=5)
+                response = get_with_retry(qr_url, timeout=15, max_retries=2)
                 if response.status_code == 200:
                     data = response.json()
                     if data.get('ready'):

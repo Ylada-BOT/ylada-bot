@@ -70,6 +70,7 @@ def retry_request(
         except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
             last_exception = e
             logger.warning(f"Erro de conexão/timeout na tentativa {attempt + 1}/{max_retries}: {str(e)}")
+            logger.warning(f"URL tentada: {url}")
             
             if attempt < max_retries - 1:
                 wait_time = retry_delay * (2 ** attempt)  # Backoff exponencial
@@ -79,6 +80,7 @@ def retry_request(
             
             # Última tentativa falhou
             logger.error(f"Todas as {max_retries} tentativas falharam para {url}")
+            logger.error(f"Erro final: {str(e)}")
             raise
             
         except requests.exceptions.RequestException as e:

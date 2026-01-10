@@ -294,13 +294,20 @@
             
             async function checkQR() {
             try {
-                const response = await fetch(`/api/qr`);
+                // Aumenta timeout para 30 segundos (servidor pode estar lento)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000);
+                
+                const response = await fetch(`/api/qr`, {
+                    signal: controller.signal
+                }).finally(() => clearTimeout(timeoutId));
+                
                 if (!response.ok) {
-                    // Se for erro 429, aumenta o delay
-                    if (response.status === 429) {
+                    // Se for erro 429 ou 503, aumenta o delay
+                    if (response.status === 429 || response.status === 503) {
                         consecutiveErrors++;
-                        retryDelay = Math.min(retryDelay * 2, 30000); // Máximo 30 segundos
-                        console.warn(`Erro 429 (Too Many Requests). Aguardando ${retryDelay/1000}s antes de tentar novamente...`);
+                        retryDelay = Math.min(retryDelay * 2, 60000); // Máximo 60 segundos
+                        console.warn(`Erro ${response.status}. Aguardando ${retryDelay/1000}s antes de tentar novamente...`);
                         setTimeout(checkQR, retryDelay);
                         return;
                     }

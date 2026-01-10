@@ -429,11 +429,33 @@
                         }
                     }
                     
-                    // Verifica status a cada 10 segundos (reduzido para evitar 429)
+                    // Verifica status a cada 3 segundos (mais frequente para detectar conexão rapidamente)
                     if (!checkInterval) {
-                        checkInterval = setInterval(checkStatus, 10000);
+                        checkInterval = setInterval(checkStatus, 3000);
                     }
                 } else if (data.status === 'generating' || (!data.qr && !data.ready)) {
+                    // Verifica se está conectado antes de mostrar "gerando"
+                    // Pode estar no processo de conexão (authenticated mas não ready ainda)
+                    try {
+                        const statusCheck = await fetch('/api/whatsapp-status');
+                        const statusData = await statusCheck.json();
+                        
+                        // Se está conectado ou autenticado, redireciona
+                        if (statusData.connected === true || (statusData.isAuthenticated && !statusData.hasQr)) {
+                            statusDiv.className = 'status connected';
+                            statusDiv.textContent = '✅ WhatsApp conectado!';
+                            qrContainer.innerHTML = '<div style="color: #10b981; font-size: 48px;">✅</div>';
+                            instructions.style.display = 'none';
+                            
+                            setTimeout(() => {
+                                window.location.href = '/';
+                            }, 2000);
+                            return;
+                        }
+                    } catch (e) {
+                        // Ignora erro e continua
+                    }
+                    
                     // Ainda não tem QR code
                     statusDiv.className = 'status waiting';
                     const message = data.message || 'Aguardando QR Code...';
@@ -441,9 +463,8 @@
                     qrContainer.innerHTML = `<div class="loading">${message}<br><small style="color: #666; margin-top: 10px; display: block;">Se demorar mais de 30 segundos, recarregue a página (F5)</small></div>`;
                     instructions.style.display = 'none';
                     
-                    // Tenta novamente em 15 segundos (aumentado para evitar 429 e dar tempo para gerar)
-                    // Se está gerando, aguarda mais tempo antes de tentar novamente
-                    setTimeout(checkQR, 15000);
+                    // Tenta novamente em 5 segundos (mais frequente para detectar conexão rapidamente)
+                    setTimeout(checkQR, 5000);
                 } else {
                     // Erro ou servidor não está rodando
                     statusDiv.className = 'status error';
@@ -522,28 +543,45 @@
                     const response = await fetch(`/api/whatsapp-status`);
                 const data = await response.json();
                 
-                    if (data.connected || (data.success && data.connected)) {
+                    // Verifica múltiplos indicadores de conexão
+                    const isConnected = data.connected === true || 
+                                      (data.isAuthenticated && !data.hasQr) ||
+                                      (data.success && data.connected);
+                
+                    if (isConnected) {
                     // Conectado!
-                    document.getElementById('status').className = 'status connected';
-                    document.getElementById('status').textContent = '✅ WhatsApp conectado!';
-                    document.getElementById('qr-container').innerHTML = '<div style="color: #10b981; font-size: 48px;">✅</div>';
-                    document.getElementById('instructions').style.display = 'none';
-                    document.getElementById('refresh-btn').style.display = 'none';
+                    const statusEl = document.getElementById('status');
+                    const qrContainerEl = document.getElementById('qr-container');
+                    const instructionsEl = document.getElementById('instructions');
+                    const refreshBtnEl = document.getElementById('refresh-btn');
+                    
+                    if (statusEl) statusEl.className = 'status connected';
+                    if (statusEl) statusEl.textContent = '✅ WhatsApp conectado!';
+                    if (qrContainerEl) qrContainerEl.innerHTML = '<div style="color: #10b981; font-size: 48px;">✅</div>';
+                    if (instructionsEl) instructionsEl.style.display = 'none';
+                    if (refreshBtnEl) refreshBtnEl.style.display = 'none';
                     
                     if (checkInterval) {
                         clearInterval(checkInterval);
                     }
                     
-                    setTimeout(() => {
-                            window.location.href = '/';
-                    }, 2000);
+                    // Redireciona imediatamente (sem delay)
+                    window.location.href = '/';
+                    return;
                 } else {
-                    // Ainda não conectado, recarrega QR
+                    // Ainda não conectado, verifica QR novamente
+                    // Mas não recarrega se já tem QR válido
                     checkQR();
                 }
             } catch (error) {
                 console.error('Erro ao verificar status:', error);
             }
+            }
+            
+            // Verifica status a cada 3 segundos quando está na página de QR Code
+            // Isso detecta conexão rapidamente após escanear
+            if (!checkInterval) {
+                checkInterval = setInterval(checkStatus, 3000);
             }
             
             // Carrega QR Code ao carregar a página

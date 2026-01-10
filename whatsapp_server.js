@@ -128,6 +128,11 @@ function initClient(userId) {
         console.log(`\n[${timestamp}] [User ${userId}] ✅ Autenticado com sucesso!`);
         console.log(`[${timestamp}] [User ${userId}] ⏳ Aguardando inicialização completa...`);
         // authenticated não significa ready ainda, apenas que a autenticação foi aceita
+        // Mas já pode considerar como conectando - remove QR Code para evitar confusão
+        if (clients[userId].qrCodeData) {
+            console.log(`[${timestamp}] [User ${userId}] 🧹 Removendo QR Code (já autenticado)`);
+            clients[userId].qrCodeData = null;
+        }
     });
 
     client.on('auth_failure', (msg) => {
@@ -471,7 +476,8 @@ app.get('/status', async (req, res) => {
             ready: false, 
             hasQr: false,
             actuallyConnected: false,
-            clientInitialized: false
+            clientInitialized: false,
+            isAuthenticated: false
         });
     }
     

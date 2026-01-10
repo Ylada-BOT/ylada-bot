@@ -1446,8 +1446,10 @@ def whatsapp_status():
                 # PRIORIDADE 4: Se está autenticado mas ainda não ready (processo de conexão)
                 is_authenticated = status_data.get('isAuthenticated', False)
                 if is_authenticated and not has_qr:
-                    # Se está autenticado e não tem QR, está conectando
+                    # Se está autenticado e não tem QR, está conectando ou conectado
+                    # WhatsApp Web.js pode estar no processo de inicialização
                     is_connected = True
+                    logger.info(f"Detectado estado 'authenticated' sem QR - considerando conectado para user_id={unique_user_id}")
                 # PRIORIDADE 5: Se não tem QR e não está ready, mas tem clientInfo válido
                 elif not has_qr and status_data.get('clientInfo'):
                     client_info = status_data.get('clientInfo', {})

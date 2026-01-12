@@ -146,6 +146,7 @@ function initClient(userId) {
             console.log(`[${timestamp}] [User ${userId}] 🧹 Removendo QR Code (já autenticado)`);
             clients[userId].qrCodeData = null;
         }
+        console.log(`[${timestamp}] [User ${userId}] ✅ Flags após authenticated: isAuthenticated=true, isConnecting=true`);
     });
 
     client.on('auth_failure', (msg) => {
@@ -204,6 +205,8 @@ function initClient(userId) {
                 clients[userId].qrCodeData = null;
             }
             console.log(`[${timestamp}] [User ${userId}] ✅ Flags atualizadas: isConnecting=true, isAuthenticated=false`);
+            // IMPORTANTE: Força não gerar novo QR enquanto está conectando
+            console.log(`[${timestamp}] [User ${userId}] 🚫 Bloqueando geração de novo QR Code enquanto isConnecting=true`);
         } else if (state === 'CONNECTED') {
             // Estado CONNECTED indica que está conectado
             console.log(`[${timestamp}] [User ${userId}] ✅ Estado CONNECTED detectado!`);
@@ -214,21 +217,16 @@ function initClient(userId) {
                 clients[userId].isReady = true;
                 console.log(`[${timestamp}] [User ${userId}] ✅ Cliente marcado como ready (tem info)`);
             }
+            console.log(`[${timestamp}] [User ${userId}] ✅ Flags finais CONNECTED: isReady=${clients[userId].isReady}, isAuthenticated=true, isConnecting=false`);
         } else if (state === 'UNPAIRED' || state === 'UNPAIRED_IDLE') {
             console.log(`[${timestamp}] [User ${userId}] ⚠️ Dispositivo não pareado. Precisa escanear QR Code novamente.`);
             clients[userId].qrCodeData = null; // Força gerar novo QR
             clients[userId].isConnecting = false; // Reset flag
             clients[userId].isAuthenticated = false; // Reset flag
-        } else if (state === 'CONNECTED') {
-            // Estado CONNECTED indica que está conectado
-            console.log(`[${timestamp}] [User ${userId}] ✅ Estado CONNECTED detectado!`);
-            clients[userId].isConnecting = false;
-            clients[userId].isAuthenticated = true;
-            // Força atualizar isReady se o cliente tem info
-            if (clients[userId].client && clients[userId].client.info) {
-                clients[userId].isReady = true;
-                console.log(`[${timestamp}] [User ${userId}] ✅ Cliente marcado como ready (tem info)`);
-            }
+            console.log(`[${timestamp}] [User ${userId}] 🔄 Flags resetadas: isConnecting=false, isAuthenticated=false`);
+        } else {
+            // Outros estados (TIMEOUT, etc)
+            console.log(`[${timestamp}] [User ${userId}] ℹ️ Estado recebido: ${state} (sem ação específica)`);
         }
     });
 
@@ -454,9 +452,10 @@ app.get('/qr', (req, res) => {
     
     const clientData = clients[userId];
     
-    // Se está conectando ou autenticado, não retorna QR Code
+    // PROTEÇÃO CRÍTICA: Se está conectando ou autenticado, NUNCA retorna QR Code
     if (clientData.isConnecting || clientData.isAuthenticated) {
-        console.log(`[User ${userId}] Cliente está conectando/autenticado, não retornando QR Code`);
+        const timestamp = new Date().toISOString();
+        console.log(`[${timestamp}] [User ${userId}] 🚫 QR Code solicitado mas isConnecting=${clientData.isConnecting} ou isAuthenticated=${clientData.isAuthenticated}. BLOQUEANDO geração de novo QR!`);
         return res.json({ 
             ready: clientData.isReady, 
             qr: null, 
@@ -481,6 +480,21 @@ app.get('/qr', (req, res) => {
     if (clientData.isReady) {
         return res.json({ ready: true, qr: null, hasQr: false });
     }
+    
+    // ANTES de retornar QR, verifica novamente se não está conectando (proteção dupla)
+    if (clientData.isConnecting || clientData.isAuthenticated) {
+        const timestamp = new Date().toISOString();
+        console.log(`[${timestamp}] [User ${userId}] 🚫 Tentativa de retornar QR mas isConnecting=${clientData.isConnecting}. BLOQUEANDO!`);
+        return res.json({ 
+            ready: false, 
+            qr: null, 
+            hasQr: false,
+            isConnecting: clientData.isConnecting,
+            isAuthenticated: clientData.isAuthenticated,
+            message: "QR Code foi escaneado, conectando..."
+        });
+    }
+    
     if (clientData.qrCodeData) {
         return res.json({ ready: false, qr: clientData.qrCodeData, hasQr: true });
     }

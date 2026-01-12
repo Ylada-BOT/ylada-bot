@@ -1216,8 +1216,14 @@ def get_conversations():
         
         # Obtém instância do usuário atual
         user_id = get_current_user_id() or 1
-        # Permite instance_id via query string ou JSON body
-        instance_id = request.args.get('instance_id', type=int) or (request.get_json() or {}).get('instance_id')
+        # Permite instance_id via query string ou JSON body (apenas se for POST/PUT)
+        instance_id = request.args.get('instance_id', type=int)
+        if not instance_id and request.method in ['POST', 'PUT', 'PATCH']:
+            try:
+                json_data = request.get_json(silent=True) or {}
+                instance_id = json_data.get('instance_id')
+            except Exception:
+                pass  # Ignora erro se não conseguir ler JSON
         
         instance = get_or_create_user_instance(user_id, instance_id)
         if not instance:
@@ -1338,10 +1344,22 @@ def get_conversations():
             
     except Exception as e:
         logger.error(f"Erro em get_conversations: {e}", exc_info=True)
-        return format_error_response(
-            e,
-            context="ao carregar conversas",
-            operation="carregar conversas",
+        # Importa format_error_response aqui para garantir que está disponível
+        try:
+            from web.utils.error_messages import format_error_response
+            return format_error_response(
+                e,
+                context="ao carregar conversas",
+                operation="carregar conversas",
+                status_code=500
+            )
+        except ImportError:
+            # Fallback se format_error_response não estiver disponível
+            return jsonify({
+                "success": False,
+                "error": str(e),
+                "details": "Erro ao carregar conversas"
+            }), 500
             status_code=503 if isinstance(e, (requests.exceptions.ConnectionError, requests.exceptions.Timeout)) else 500
         )
 

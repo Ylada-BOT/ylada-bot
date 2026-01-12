@@ -224,7 +224,12 @@
                     
                     // Redireciona baseado no role do usuário
                     const userRole = data.user?.role || 'user';
-                    const redirectUrl = userRole === 'admin' ? '/admin' : '/';
+                    let redirectUrl = '/dashboard';
+                    
+                    // Se for admin, vai para admin dashboard
+                    if (userRole === 'admin') {
+                        redirectUrl = '/admin';
+                    }
                     
                     showAlert('Login realizado com sucesso!', 'success');
                     

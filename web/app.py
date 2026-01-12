@@ -646,41 +646,65 @@ def whatsapp_logo_setup():
 @app.route('/')
 def index():
     """Página inicial (landing page) ou Dashboard se logado"""
-    # Versão ultra-simplificada que sempre funciona
     try:
-        from flask import render_template
-        # Sempre mostra landing page (usuário pode fazer login depois)
-        return render_template('landing.html')
+        # Se autenticação está desabilitada, mostra dashboard direto
+        if not AUTH_REQUIRED:
+            return render_template('dashboard_new.html')
+        
+        # Se usuário não está logado, mostra landing page
+        if 'user_id' not in session:
+            return render_template('landing.html')
+        
+        # Se usuário está logado, redireciona para dashboard
+        user_role = session.get('user_role', 'user')
+        if user_role == 'admin':
+            return redirect(url_for('admin_dashboard'))
+        
+        # Carrega config do usuário logado (opcional, não deve quebrar se falhar)
+        try:
+            user_id = session.get('user_id')
+            if user_id:
+                try:
+                    load_config(user_id)
+                except Exception as e:
+                    logger.warning(f"Erro ao carregar config do usuário {user_id}: {e}")
+        except Exception as e:
+            logger.warning(f"Erro ao acessar sessão: {e}")
+        
+        # Mostra dashboard para usuário logado
+        return render_template('dashboard_new.html')
     except Exception as e:
         logger.error(f"Erro na rota /: {e}", exc_info=True)
-        import traceback
-        traceback.print_exc()
-        # Fallback HTML simples que sempre funciona
-        return """
-        <!DOCTYPE html>
-        <html lang="pt-BR">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>BOT by YLADA</title>
-            <style>
-                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-                h1 { color: #25D366; }
-                a { color: #25D366; text-decoration: none; margin: 0 10px; }
-                a:hover { text-decoration: underline; }
-            </style>
-        </head>
-        <body>
-            <h1>🔗 BOT by YLADA</h1>
-            <p>Automação com WhatsApp e IA</p>
-            <p>
-                <a href="/login">Fazer Login</a> | 
-                <a href="/register">Criar Conta</a> |
-                <a href="/health">Health Check</a>
-            </p>
-        </body>
-        </html>
-        """, 200
+        # Em caso de erro, tenta mostrar landing page
+        try:
+            return render_template('landing.html')
+        except Exception as e2:
+            logger.error(f"Erro ao renderizar landing.html: {e2}", exc_info=True)
+            # Fallback HTML simples
+            return """
+            <!DOCTYPE html>
+            <html lang="pt-BR">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>BOT by YLADA</title>
+                <style>
+                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                    h1 { color: #25D366; }
+                    a { color: #25D366; text-decoration: none; margin: 0 10px; }
+                    a:hover { text-decoration: underline; }
+                </style>
+            </head>
+            <body>
+                <h1>🔗 BOT by YLADA</h1>
+                <p>Automação com WhatsApp e IA</p>
+                <p>
+                    <a href="/login">Fazer Login</a> | 
+                    <a href="/register">Criar Conta</a>
+                </p>
+            </body>
+            </html>
+            """, 200
 
 @app.route('/dashboard')
 @require_login

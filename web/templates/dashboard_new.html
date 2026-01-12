@@ -805,6 +805,33 @@
                     disconnectBtn.style.display = 'inline-block';
                     errorEl.classList.add('hidden');
                     
+                    // Mostra informações da instância quando conectado
+                    try {
+                        const instancesResponse = await fetch('/api/instances');
+                        const instancesData = await instancesResponse.json();
+                        if (instancesData.success && instancesData.instances && instancesData.instances.length > 0) {
+                            const instance = instancesData.instances[0];
+                            const phoneNumber = statusData.phone_number || instance.phone_number;
+                            const displayName = phoneNumber || instance.name || 'Meu WhatsApp';
+                            
+                            const newInfoHtml = '<div style="font-weight: 600; margin-bottom: 10px; color: #166534;">📱 WhatsApp Conectado:</div>' +
+                                `<div style="margin-top: 10px; padding: 12px; background: white; border-radius: 8px; border-left: 4px solid #10b981; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                    <div style="font-weight: 600; color: #166534; margin-bottom: 6px; font-size: 14px;">${displayName}</div>
+                                    ${phoneNumber && displayName !== phoneNumber ? `<div style="color: #166534; font-size: 12px; line-height: 1.6; margin-top: 4px;">📞 <strong>Número:</strong> ${phoneNumber}</div>` : ''}
+                                    <div style="margin-top: 8px;">
+                                        <a href="/instances/${instance.id}" class="btn" style="font-size: 12px; padding: 6px 12px; text-decoration: none; display: inline-block; margin-right: 8px;">Ver Detalhes</a>
+                                    </div>
+                                </div>`;
+                            
+                            if (connectedInstanceInfo.innerHTML !== newInfoHtml) {
+                                connectedInstanceInfo.innerHTML = newInfoHtml;
+                            }
+                            connectionInfo.style.display = 'block';
+                        }
+                    } catch (e) {
+                        console.warn('Erro ao buscar detalhes da instância:', e);
+                    }
+                    
                     // Para verificação frequente quando conectado
                     if (statusInterval) {
                         clearInterval(statusInterval);
@@ -836,37 +863,14 @@
                     statusEl.textContent = '✗ Desconectado';
                     connectBtn.style.display = 'inline-block';
                     updateBtn.style.display = 'none';
+                    disconnectBtn.style.display = 'none'; // Esconde botão de desconectar quando desconectado
                     
-                    // Busca informações da instância para mostrar detalhes (só atualiza se mudou)
-                    try {
-                        const instancesResponse = await fetch('/api/instances');
-                        const instancesData = await instancesResponse.json();
-                        if (instancesData.success && instancesData.instances && instancesData.instances.length > 0) {
-                            const instance = instancesData.instances[0];
-                            
-                            // Mostra informações - prioriza número do telefone sobre nome
-                            const phoneNumber = statusData.phone_number || instance.phone_number;
-                            const displayName = phoneNumber || instance.name || 'Meu WhatsApp';
-                            
-                            // Só atualiza HTML se mudou (evita piscar)
-                            const newInfoHtml = '<div style="font-weight: 600; margin-bottom: 10px; color: #166534;">📱 WhatsApp Conectado:</div>' +
-                                `<div style="margin-top: 10px; padding: 12px; background: white; border-radius: 8px; border-left: 4px solid #10b981; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                                    <div style="font-weight: 600; color: #166534; margin-bottom: 6px; font-size: 14px;">${displayName}</div>
-                                    ${phoneNumber && displayName !== phoneNumber ? `<div style="color: #166534; font-size: 12px; line-height: 1.6; margin-top: 4px;">📞 <strong>Número:</strong> ${phoneNumber}</div>` : ''}
-                                    <div style="margin-top: 8px;">
-                                        <a href="/instances/${instance.id}" class="btn" style="font-size: 12px; padding: 6px 12px; text-decoration: none; display: inline-block; margin-right: 8px;">Ver Detalhes</a>
-                                    </div>
-                                </div>`;
-                            
-                            // Só atualiza se o conteúdo mudou
-                            if (connectedInstanceInfo.innerHTML !== newInfoHtml) {
-                                connectedInstanceInfo.innerHTML = newInfoHtml;
-                            }
-                            connectionInfo.style.display = 'block';
-                        }
-                    } catch (e) {
-                        // Ignora erro ao buscar detalhes, mas mantém status conectado
-                        console.warn('Erro ao buscar detalhes da instância:', e);
+                    // Esconde informações de conexão quando desconectado
+                    if (connectionInfo) {
+                        connectionInfo.style.display = 'none';
+                    }
+                    if (connectedInstanceInfo) {
+                        connectedInstanceInfo.innerHTML = '';
                     }
                     
                     // Trata erros de status
@@ -913,6 +917,16 @@
                     document.getElementById('updateBtn').style.display = 'none';
                     errorEl.textContent = '';
                     errorEl.classList.add('hidden');
+                    
+                    // Esconde informações de conexão
+                    const connectionInfo = document.getElementById('whatsappConnectionInfo');
+                    const connectedInstanceInfo = document.getElementById('connectedInstanceInfo');
+                    if (connectionInfo) {
+                        connectionInfo.style.display = 'none';
+                    }
+                    if (connectedInstanceInfo) {
+                        connectedInstanceInfo.innerHTML = '';
+                    }
                     
                     // Atualiza status após 2 segundos
                     setTimeout(() => {

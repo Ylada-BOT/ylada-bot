@@ -209,6 +209,16 @@ function initClient(userId) {
             clients[userId].qrCodeData = null; // Força gerar novo QR
             clients[userId].isConnecting = false; // Reset flag
             clients[userId].isAuthenticated = false; // Reset flag
+        } else if (state === 'CONNECTED') {
+            // Estado CONNECTED indica que está conectado
+            console.log(`[${timestamp}] [User ${userId}] ✅ Estado CONNECTED detectado!`);
+            clients[userId].isConnecting = false;
+            clients[userId].isAuthenticated = true;
+            // Força atualizar isReady se o cliente tem info
+            if (clients[userId].client && clients[userId].client.info) {
+                clients[userId].isReady = true;
+                console.log(`[${timestamp}] [User ${userId}] ✅ Cliente marcado como ready (tem info)`);
+            }
         }
     });
 

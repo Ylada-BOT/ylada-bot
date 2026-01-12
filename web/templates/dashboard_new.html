@@ -868,22 +868,15 @@
                         // Ignora erro ao buscar detalhes, mas mantém status conectado
                         console.warn('Erro ao buscar detalhes da instância:', e);
                     }
-                } else {
-                    lastStatus = 'disconnected';
-                    // Desconectado
-                        statusEl.textContent = '✗ Desconectado';
-                        statusEl.className = 'status disconnected';
-                        connectBtn.style.display = 'inline-block';
-                    connectBtn.textContent = 'Conectar WhatsApp';
-                    connectBtn.href = '/qr';
-                        updateBtn.style.display = 'none';
-                        disconnectBtn.style.display = 'none';
-                        
+                    
+                    // Trata erros de status
                     if (statusData.error) {
                         errorEl.textContent = statusData.error;
-                            errorEl.classList.remove('hidden');
-                        }
+                        errorEl.classList.remove('hidden');
+                    } else {
+                        errorEl.classList.add('hidden');
                     }
+                }
             } catch (err) {
                     statusEl.textContent = '✗ Erro';
                     statusEl.className = 'status disconnected';

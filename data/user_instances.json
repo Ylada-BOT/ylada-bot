@@ -18,16 +18,21 @@
     "default_instance_id": 1
   },
   "2": {
-    "id": 2,
-    "user_id": 2,
-    "name": "Meu WhatsApp",
-    "status": "disconnected",
-    "port": 5002,
-    "phone_number": null,
-    "agent_id": null,
-    "messages_sent": 0,
-    "messages_received": 0,
-    "created_at": "2026-01-08T09:49:49.343275",
-    "session_dir": "data/sessions/user_2"
+    "instances": [
+      {
+        "id": 2,
+        "user_id": 2,
+        "name": "Meu WhatsApp",
+        "status": "disconnected",
+        "port": 5002,
+        "phone_number": null,
+        "agent_id": null,
+        "messages_sent": 0,
+        "messages_received": 0,
+        "created_at": "2026-01-08T09:49:49.343275",
+        "session_dir": "data/sessions/user_2"
+      }
+    ],
+    "default_instance_id": 2
   }
 }

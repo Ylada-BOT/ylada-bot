@@ -1506,103 +1506,131 @@ def whatsapp_status():
                             status_data = fallback_data
                             logger.info(f"Usando cliente com user_id={user_id} (fallback) para instância {instance.get('id')}")
             
-            if status_data and status_response.status_code == 200:
-                has_qr = status_data.get("hasQr", False)
-                actually_connected = status_data.get("actuallyConnected", False)
-                ready = status_data.get("ready", False)
-                is_authenticated = status_data.get("isAuthenticated", False)
-                is_connecting = status_data.get("isConnecting", False)
-                
-                # Só considera conectado se realmente estiver conectado
-                # Verifica múltiplos indicadores para garantir conexão real
-                is_connected = False
-                
-                # PRIORIDADE 1: actuallyConnected é o mais confiável
-                if actually_connected:
+            # Se não conseguiu obter dados do servidor, retorna erro
+            if not status_data or status_response.status_code != 200:
+                return jsonify({
+                    "connected": False,
+                    "error": "Servidor WhatsApp não respondeu corretamente",
+                    "hasQr": False,
+                    "port": whatsapp_port,
+                    "message": "Aguardando inicialização do servidor WhatsApp..."
+                })
+            
+            # Processa dados do servidor
+            has_qr = status_data.get("hasQr", False)
+            actually_connected = status_data.get("actuallyConnected", False)
+            ready = status_data.get("ready", False)
+            is_authenticated = status_data.get("isAuthenticated", False)
+            is_connecting = status_data.get("isConnecting", False)
+            client_initialized = status_data.get("clientInitialized", False)
+            
+            # Só considera conectado se realmente estiver conectado
+            # Verifica múltiplos indicadores para garantir conexão real
+            is_connected = False
+            
+            # PRIORIDADE 1: actuallyConnected é o mais confiável
+            if actually_connected:
+                is_connected = True
+                logger.info(f"✅ WhatsApp conectado (actuallyConnected=true) para user_id={unique_user_id}")
+            # PRIORIDADE 2: ready + clientInfo com wid válido
+            elif ready and status_data.get('clientInfo'):
+                client_info = status_data.get('clientInfo', {})
+                wid = client_info.get('wid')
+                # Wid válido não deve ser None e não deve ser temporário
+                if wid and '@temp' not in str(wid):
                     is_connected = True
-                # PRIORIDADE 2: ready + clientInfo com wid válido
-                elif ready and status_data.get('clientInfo'):
-                    client_info = status_data.get('clientInfo', {})
-                    wid = client_info.get('wid')
-                    # Wid válido não deve ser None e não deve ser temporário
-                    if wid and '@temp' not in str(wid):
-                        is_connected = True
-                # PRIORIDADE 3: ready sem QR (pode ser conexão, mas menos confiável)
-                elif ready and not has_qr:
-                    # Só confia se não tiver QR e estiver marcado como ready
+                    logger.info(f"✅ WhatsApp conectado (ready + wid válido) para user_id={unique_user_id}")
+            # PRIORIDADE 3: ready sem QR (pode ser conexão, mas menos confiável)
+            elif ready and not has_qr:
+                # Só confia se não tiver QR e estiver marcado como ready
+                is_connected = True
+                logger.info(f"✅ WhatsApp conectado (ready sem QR) para user_id={unique_user_id}")
+            # PRIORIDADE 4: Se está autenticado mas ainda não ready (processo de conexão)
+            elif is_authenticated and not has_qr:
+                # Se está autenticado e não tem QR, está conectando ou conectado
+                # WhatsApp Web.js pode estar no processo de inicialização
+                # MAS: só considera conectado se tem cliente inicializado
+                if client_initialized:
                     is_connected = True
-                # PRIORIDADE 4: Se está autenticado mas ainda não ready (processo de conexão)
-                is_authenticated = status_data.get('isAuthenticated', False)
-                if is_authenticated and not has_qr:
-                    # Se está autenticado e não tem QR, está conectando ou conectado
-                    # WhatsApp Web.js pode estar no processo de inicialização
-                    # MAS: só considera conectado se tem cliente inicializado
-                    if status_data.get('clientInitialized'):
-                        is_connected = True
-                        logger.info(f"Detectado estado 'authenticated' sem QR + cliente inicializado - considerando conectado para user_id={unique_user_id}")
-                    elif is_connecting:
-                        # Se está conectando (QR escaneado), aguarda um pouco mais
-                        is_connected = False
-                        logger.info(f"QR escaneado, aguardando autenticação completa para user_id={unique_user_id}")
-                # PRIORIDADE 5: Se não tem QR e não está ready, mas tem clientInfo válido
-                elif not has_qr and status_data.get('clientInfo'):
-                    client_info = status_data.get('clientInfo', {})
-                    wid = client_info.get('wid')
-                    # Se tem wid válido, mesmo que não esteja ready ainda, considera conectando
-                    if wid and '@temp' not in str(wid):
-                        # Marca como conectado mas pode estar ainda inicializando
-                        is_connected = True
+                    logger.info(f"✅ WhatsApp conectado (authenticated + cliente inicializado) para user_id={unique_user_id}")
+                elif is_connecting:
+                    # Se está conectando (QR escaneado), aguarda um pouco mais
+                    is_connected = False
+                    logger.info(f"⏳ QR escaneado, aguardando autenticação completa para user_id={unique_user_id}")
+            # PRIORIDADE 5: Se não tem QR e não está ready, mas tem clientInfo válido
+            elif not has_qr and status_data.get('clientInfo'):
+                client_info = status_data.get('clientInfo', {})
+                wid = client_info.get('wid')
+                # Se tem wid válido, mesmo que não esteja ready ainda, considera conectando
+                if wid and '@temp' not in str(wid):
+                    # Marca como conectado mas pode estar ainda inicializando
+                    is_connected = True
+                    logger.info(f"✅ WhatsApp conectado (clientInfo válido) para user_id={unique_user_id}")
+            
+            connected = is_connected
+            
+            # Extrai número do telefone se estiver conectado
+            # Primeiro tenta usar phone_number do servidor Node.js (já formatado)
+            phone_number = status_data.get('phone_number')
+            if not phone_number and connected:
+                # Fallback: tenta obter o número do telefone do objeto actually_connected ou ready
+                if isinstance(actually_connected, dict) and 'user' in actually_connected:
+                    phone_number = actually_connected.get('user')
+                elif isinstance(ready, dict) and 'user' in ready:
+                    phone_number = ready.get('user')
+                elif status_data.get('clientInfo') and status_data['clientInfo'].get('wid'):
+                    phone_number = status_data['clientInfo']['wid']
                 
-                connected = is_connected
-                
-                # Extrai número do telefone se estiver conectado
-                # Primeiro tenta usar phone_number do servidor Node.js (já formatado)
-                phone_number = status_data.get('phone_number')
-                if not phone_number and connected:
-                    # Fallback: tenta obter o número do telefone do objeto actually_connected ou ready
-                    if isinstance(actually_connected, dict) and 'user' in actually_connected:
-                        phone_number = actually_connected.get('user')
-                    elif isinstance(ready, dict) and 'user' in ready:
-                        phone_number = ready.get('user')
-                    elif status_data.get('clientInfo') and status_data['clientInfo'].get('wid'):
-                        phone_number = status_data['clientInfo']['wid']
-                    
-                    # Formata o número para exibição (adiciona formatação brasileira se necessário)
-                    if phone_number:
-                        # Remove @c.us se houver
-                        phone_number = phone_number.replace('@c.us', '').replace('@s.whatsapp.net', '')
-                        # Formata número brasileiro (se começar com 55)
-                        if phone_number.startswith('55') and len(phone_number) >= 12:
-                            formatted = f"+{phone_number[:2]} ({phone_number[2:4]}) {phone_number[4:9]}-{phone_number[9:]}"
-                            phone_number = formatted
-                        else:
-                            phone_number = f"+{phone_number}"
-                
-                # Considera conectado se realmente ready OU se está autenticado (processo de conexão)
-                if connected or (is_authenticated and not has_qr):
-                    return jsonify({
-                        "connected": True, 
-                        "message": "WhatsApp conectado" if connected else "WhatsApp conectando...",
-                        "hasQr": False,
-                        "port": whatsapp_port,
-                        "phone_number": phone_number,
-                        "isAuthenticated": is_authenticated,
-                        "isConnecting": not connected and is_authenticated  # Conectando se autenticado mas não ready
-                    })
-                elif has_qr:
-                    return jsonify({
-                        "connected": False, 
-                        "message": "QR Code disponível. Escaneie para conectar.",
-                        "hasQr": True,
-                        "port": whatsapp_port
-                    })
-                else:
-                    return jsonify({
-                        "connected": False, 
-                        "message": "Aguardando conexão. Clique em 'Conectar WhatsApp' para gerar QR Code.",
-                        "hasQr": False,
-                        "port": whatsapp_port
-                    })
+                # Formata o número para exibição (adiciona formatação brasileira se necessário)
+                if phone_number:
+                    # Remove @c.us se houver
+                    phone_number = phone_number.replace('@c.us', '').replace('@s.whatsapp.net', '')
+                    # Formata número brasileiro (se começar com 55)
+                    if phone_number.startswith('55') and len(phone_number) >= 12:
+                        formatted = f"+{phone_number[:2]} ({phone_number[2:4]}) {phone_number[4:9]}-{phone_number[9:]}"
+                        phone_number = formatted
+                    else:
+                        phone_number = f"+{phone_number}"
+            
+            # Considera conectado se realmente ready OU se está autenticado (processo de conexão)
+            if connected or (is_authenticated and not has_qr and client_initialized):
+                return jsonify({
+                    "connected": True, 
+                    "actuallyConnected": actually_connected,
+                    "ready": ready,
+                    "message": "WhatsApp conectado" if connected else "WhatsApp conectando...",
+                    "hasQr": False,
+                    "port": whatsapp_port,
+                    "phone_number": phone_number,
+                    "isAuthenticated": is_authenticated,
+                    "isConnecting": not connected and is_authenticated,  # Conectando se autenticado mas não ready
+                    "clientInitialized": client_initialized
+                })
+            elif has_qr:
+                return jsonify({
+                    "connected": False, 
+                    "message": "QR Code disponível. Escaneie para conectar.",
+                    "hasQr": True,
+                    "port": whatsapp_port,
+                    "isConnecting": is_connecting
+                })
+            elif is_connecting or (is_authenticated and not has_qr):
+                # Está conectando (QR escaneado ou autenticado mas não ready ainda)
+                return jsonify({
+                    "connected": False,
+                    "message": "QR Code escaneado! Conectando... Aguarde alguns segundos.",
+                    "hasQr": False,
+                    "port": whatsapp_port,
+                    "isConnecting": True,
+                    "isAuthenticated": is_authenticated
+                })
+            else:
+                return jsonify({
+                    "connected": False, 
+                    "message": "Aguardando conexão. Clique em 'Conectar WhatsApp' para gerar QR Code.",
+                    "hasQr": False,
+                    "port": whatsapp_port
+                })
         except requests.exceptions.ConnectionError:
             return jsonify({
                 "connected": False, 

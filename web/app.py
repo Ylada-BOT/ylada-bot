@@ -1360,8 +1360,6 @@ def get_conversations():
                 "error": str(e),
                 "details": "Erro ao carregar conversas"
             }), 500
-            status_code=503 if isinstance(e, (requests.exceptions.ConnectionError, requests.exceptions.Timeout)) else 500
-        )
 
 @app.route('/api/conversations/<chat_id>/messages')
 @require_api_auth

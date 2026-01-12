@@ -170,12 +170,38 @@ def handle_http_error(e):
 @app.errorhandler(Exception)
 def handle_generic_error(e):
     """Handler para erros genéricos não tratados - retorna JSON para APIs"""
+    # Loga o erro sempre com traceback completo
+    import traceback
+    error_trace = traceback.format_exc()
+    logger.error(f"Erro não tratado em {request.path}: {e}\n{error_trace}")
+    print(f"[ERRO] {request.path}: {e}")
+    print(error_trace)
+    
     # Se a rota é uma API, retorna JSON
     if request.path.startswith('/api/'):
-        logger.error(f"Erro não tratado em {request.path}: {e}", exc_info=True)
         return format_error_response(e, context=f"em {request.path}", status_code=500)
     
-    # Para rotas não-API, deixa o Flask tratar normalmente
+    # Para rotas não-API, especialmente a rota raiz, mostra landing page
+    if request.path == '/':
+        try:
+            from flask import render_template
+            return render_template('landing.html')
+        except Exception as e2:
+            logger.error(f"Erro ao renderizar landing.html no handler: {e2}")
+            # Fallback HTML simples
+            return """
+            <!DOCTYPE html>
+            <html>
+            <head><title>BOT by YLADA</title></head>
+            <body>
+                <h1>BOT by YLADA</h1>
+                <p>Automação com WhatsApp e IA</p>
+                <p><a href="/login">Fazer Login</a> | <a href="/register">Criar Conta</a></p>
+            </body>
+            </html>
+            """, 200
+    
+    # Para outras rotas, re-levanta para o Flask tratar
     raise e
 
 # Configuração de sessão
@@ -620,28 +646,41 @@ def whatsapp_logo_setup():
 @app.route('/')
 def index():
     """Página inicial (landing page) ou Dashboard se logado"""
-    # Se autenticação está desabilitada, mostra dashboard direto
-    if not AUTH_REQUIRED:
-        return render_template('dashboard_new.html')
-    
-    # Se usuário não está logado, mostra landing page
-    if 'user_id' not in session:
+    # Versão ultra-simplificada que sempre funciona
+    try:
+        from flask import render_template
+        # Sempre mostra landing page (usuário pode fazer login depois)
         return render_template('landing.html')
-    
-    # Se usuário está logado, redireciona para dashboard
-    user_role = session.get('user_role', 'user')
-    if user_role == 'admin':
-        return redirect(url_for('admin_dashboard'))
-    
-    # Carrega config do usuário logado
-    user_id = session.get('user_id')
-    if user_id:
-        try:
-            load_config(user_id)
-        except:
-            pass
-    
-    return render_template('dashboard_new.html')
+    except Exception as e:
+        logger.error(f"Erro na rota /: {e}", exc_info=True)
+        import traceback
+        traceback.print_exc()
+        # Fallback HTML simples que sempre funciona
+        return """
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>BOT by YLADA</title>
+            <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                h1 { color: #25D366; }
+                a { color: #25D366; text-decoration: none; margin: 0 10px; }
+                a:hover { text-decoration: underline; }
+            </style>
+        </head>
+        <body>
+            <h1>🔗 BOT by YLADA</h1>
+            <p>Automação com WhatsApp e IA</p>
+            <p>
+                <a href="/login">Fazer Login</a> | 
+                <a href="/register">Criar Conta</a> |
+                <a href="/health">Health Check</a>
+            </p>
+        </body>
+        </html>
+        """, 200
 
 @app.route('/dashboard')
 @require_login
@@ -1426,9 +1465,24 @@ def whatsapp_status():
         
         # Verifica status do servidor Node.js da instância do usuário
         try:
+            # Tenta primeiro com unique_user_id (formato correto)
             status_response = requests.get(f"{server_url}/status?user_id={unique_user_id}", timeout=3)
+            status_data = None
+            
             if status_response.status_code == 200:
                 status_data = status_response.json()
+                # Se não encontrou cliente, tenta com user_id simples (compatibilidade)
+                if not status_data.get('clientInitialized') and not status_data.get('ready'):
+                    # Tenta com user_id simples (pode ter sido criado antes da mudança)
+                    fallback_response = requests.get(f"{server_url}/status?user_id={user_id}", timeout=3)
+                    if fallback_response.status_code == 200:
+                        fallback_data = fallback_response.json()
+                        # Se o fallback tem cliente inicializado, usa ele
+                        if fallback_data.get('clientInitialized') or fallback_data.get('ready'):
+                            status_data = fallback_data
+                            logger.info(f"Usando cliente com user_id={user_id} (fallback) para instância {instance.get('id')}")
+            
+            if status_data and status_response.status_code == 200:
                 has_qr = status_data.get("hasQr", False)
                 actually_connected = status_data.get("actuallyConnected", False)
                 ready = status_data.get("ready", False)

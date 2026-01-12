@@ -43,6 +43,8 @@ class Conversation(Base):
     # Contato
     phone = Column(String(20), nullable=False, index=True)
     contact_name = Column(String(255), nullable=True)
+    contact_email = Column(String(255), nullable=True)
+    contact_cpf = Column(String(20), nullable=True)
     
     # Status
     status = Column(Enum(ConversationStatus), default=ConversationStatus.OPEN, nullable=False)
@@ -51,6 +53,16 @@ class Conversation(Base):
     message_count = Column(Integer, default=0, nullable=False)
     unread_count = Column(Integer, default=0, nullable=False)
     last_message_at = Column(DateTime, nullable=True)
+    
+    # Atribuição e organização
+    assigned_to = Column(Integer, ForeignKey('users.id'), nullable=True)
+    tags = Column(JSON, default=list, nullable=True)  # Array de tags
+    
+    # Automação
+    automation_enabled = Column(Boolean, default=True, nullable=False)
+    
+    # Metadados adicionais (usando extra_metadata para evitar conflito com palavra reservada)
+    extra_metadata = Column(JSON, default=dict, nullable=True)
     
     # Lead
     is_lead = Column(Boolean, default=False, nullable=False)
@@ -65,6 +77,7 @@ class Conversation(Base):
     # Conversation pertence a um Lead (many-to-one)
     lead = relationship("Lead", back_populates="conversation", foreign_keys=[lead_id])
     messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
+    assigned_user = relationship("User", foreign_keys=[assigned_to])
     
     def __repr__(self):
         return f"<Conversation(id={self.id}, phone={self.phone}, status={self.status.value})>"

@@ -83,9 +83,15 @@ class WhatsAppWebJSHandler:
             
             # Inicia servidor em background
             print(f"[*] Iniciando servidor WhatsApp Web.js na porta {self.port}...")
+            # Cria ambiente sem PORT para evitar conflito com Flask
+            env = os.environ.copy()
+            # Remove PORT do ambiente para garantir que use a porta passada como argumento
+            env.pop('PORT', None)
+            # Passa a porta como argumento explícito
             self.node_process = subprocess.Popen(
-                ["node", str(server_file)],
+                ["node", str(server_file), str(self.port)],
                 cwd=os.getcwd(),
+                env=env,  # Usa ambiente sem PORT
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 start_new_session=True  # Permite que continue rodando mesmo se o Python fechar

@@ -204,6 +204,16 @@ function initClient(userId) {
                 clients[userId].qrCodeData = null;
             }
             console.log(`[${timestamp}] [User ${userId}] ✅ Flags atualizadas: isConnecting=true, isAuthenticated=false`);
+        } else if (state === 'CONNECTED') {
+            // Estado CONNECTED indica que está conectado
+            console.log(`[${timestamp}] [User ${userId}] ✅ Estado CONNECTED detectado!`);
+            clients[userId].isConnecting = false;
+            clients[userId].isAuthenticated = true;
+            // Força atualizar isReady se o cliente tem info
+            if (clients[userId].client && clients[userId].client.info) {
+                clients[userId].isReady = true;
+                console.log(`[${timestamp}] [User ${userId}] ✅ Cliente marcado como ready (tem info)`);
+            }
         } else if (state === 'UNPAIRED' || state === 'UNPAIRED_IDLE') {
             console.log(`[${timestamp}] [User ${userId}] ⚠️ Dispositivo não pareado. Precisa escanear QR Code novamente.`);
             clients[userId].qrCodeData = null; // Força gerar novo QR
@@ -587,12 +597,29 @@ app.get('/status', async (req, res) => {
         }
     }
     
+    // MELHORIA: Verifica mais agressivamente se está conectado
+    // Se está autenticado e não tem QR, considera conectado mesmo que não esteja ready ainda
+    let finalConnected = actuallyReady;
+    const hasQrFlag = !!clientData.qrCodeData;
+    const isAuthFlag = isAuthenticated || clientData.isAuthenticated;
+    
+    if (!finalConnected && isAuthFlag && !hasQrFlag) {
+        // Se está autenticado, sem QR, e tem cliente inicializado, considera conectado
+        if (clientData.client && clientData.client.info) {
+            finalConnected = true;
+            console.log(`[User ${userId}] ✅ Considerando conectado: autenticado + sem QR + tem info`);
+        } else if (clientData.isReady) {
+            // Se está marcado como ready, confia
+            finalConnected = true;
+        }
+    }
+    
     res.json({ 
         ready: actuallyReady || clientData.isReady, 
-        hasQr: !!clientData.qrCodeData,
-        actuallyConnected: actuallyReady || (isAuthenticated && !clientData.qrCodeData), // Considera conectado se autenticado e sem QR
+        hasQr: hasQrFlag,
+        actuallyConnected: finalConnected || actuallyReady || (isAuthFlag && !hasQrFlag), // Considera conectado se autenticado e sem QR
         clientInitialized: !!clientData.client,
-        isAuthenticated: isAuthenticated || clientData.isAuthenticated, // Flag de autenticado
+        isAuthenticated: isAuthFlag, // Flag de autenticado
         isConnecting: clientData.isConnecting || false, // Flag de conectando (QR escaneado)
         phone_number: phoneNumber, // Adiciona número formatado
         clientInfo: clientInfo ? {

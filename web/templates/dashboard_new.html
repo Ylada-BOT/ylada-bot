@@ -996,7 +996,22 @@
         
         function scheduleStatusCheck() {
             statusInterval = setInterval(() => {
-                checkStatus().catch(error => {
+                checkStatus().then(data => {
+                    // Se está conectando ou não conectado, verifica mais frequentemente
+                    if (data && (data.isConnecting || !data.connected)) {
+                        // Se está conectando, verifica a cada 2 segundos
+                        if (data.isConnecting) {
+                            clearInterval(statusInterval);
+                            retryDelay = 2000; // 2 segundos quando conectando
+                            scheduleStatusCheck();
+                        } else if (!data.connected && !data.hasQr) {
+                            // Se não está conectado e não tem QR, verifica a cada 3 segundos
+                            clearInterval(statusInterval);
+                            retryDelay = 3000; // 3 segundos quando aguardando
+                            scheduleStatusCheck();
+                        }
+                    }
+                }).catch(error => {
                     // Se der erro 429 (Too Many Requests), aumenta o delay
                     if (error.message && error.message.includes('429')) {
                         retryDelay = Math.min(retryDelay * 1.5, 120000); // Máximo 120 segundos
@@ -1007,7 +1022,7 @@
                 });
                 updateCount++;
                 // Após 12 atualizações (1 minuto com 5s), reduz frequência para 15 segundos
-                if (updateCount >= 12) {
+                if (updateCount >= 12 && retryDelay >= 5000) {
                     clearInterval(statusInterval);
                     statusInterval = setInterval(() => {
                         checkStatus().catch(() => {
@@ -1015,7 +1030,7 @@
                         });
                     }, 15000); // Atualiza a cada 15 segundos depois
                 }
-            }, retryDelay); // Começa com 5 segundos
+            }, retryDelay); // Começa com 5 segundos, mas pode mudar dinamicamente
         }
         
         scheduleStatusCheck();

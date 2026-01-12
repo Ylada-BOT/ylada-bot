@@ -788,19 +788,54 @@
                 
                 console.log('Status recebido:', statusData); // Debug
                 
-                // Considera conectado se realmente conectado OU se está autenticado (conectando)
+                // Verifica múltiplos indicadores de conexão (mais agressivo)
                 const isConnected = statusData.connected === true || 
-                                  (statusData.isAuthenticated && !statusData.hasQr) ||
-                                  (statusData.isConnecting && !statusData.hasQr);
+                                  statusData.actuallyConnected === true ||
+                                  (statusData.isAuthenticated && !statusData.hasQr && statusData.clientInitialized) ||
+                                  (statusData.ready && !statusData.hasQr) ||
+                                  (statusData.success && statusData.connected);
                 
                 if (isConnected) {
-                    // Conectado
+                    // Conectado!
                     lastStatus = 'connected';
-                    statusEl.textContent = '✓ Conectado';
                     statusEl.className = 'status connected';
+                    statusEl.textContent = '✓ Conectado';
                     connectBtn.style.display = 'none';
                     updateBtn.style.display = 'inline-block';
                     disconnectBtn.style.display = 'inline-block';
+                    errorEl.classList.add('hidden');
+                    
+                    // Para verificação frequente quando conectado
+                    if (statusInterval) {
+                        clearInterval(statusInterval);
+                        // Verifica a cada 15 segundos quando conectado (menos frequente)
+                        statusInterval = setInterval(() => {
+                            checkStatus().catch(() => {});
+                        }, 15000);
+                    }
+                } else if (statusData.isConnecting || (statusData.isAuthenticated && !statusData.hasQr)) {
+                    // Está conectando (QR escaneado ou autenticado)
+                    lastStatus = 'connecting';
+                    statusEl.className = 'status connecting';
+                    statusEl.textContent = '⏳ Conectando...';
+                    connectBtn.style.display = 'none';
+                    updateBtn.style.display = 'none';
+                    errorEl.classList.add('hidden');
+                    
+                    // Verifica mais frequentemente quando está conectando (a cada 2 segundos)
+                    if (statusInterval) {
+                        clearInterval(statusInterval);
+                        statusInterval = setInterval(() => {
+                            checkStatus().catch(() => {});
+                        }, 2000); // 2 segundos quando conectando
+                    }
+                } else {
+                    // Não conectado
+                    lastStatus = 'disconnected';
+                    statusEl.className = 'status disconnected';
+                    statusEl.textContent = '✗ Desconectado';
+                    connectBtn.style.display = 'inline-block';
+                    updateBtn.style.display = 'none';
                     
                     // Busca informações da instância para mostrar detalhes (só atualiza se mudou)
                     try {

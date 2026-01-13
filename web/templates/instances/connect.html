@@ -334,22 +334,26 @@
                     qrContainer.innerHTML = '<div class="loading">⏳ Conectando...<br><small style="color: #666; margin-top: 10px; display: block;">Aguarde alguns segundos</small></div>';
                     instructions.style.display = 'none';
                     
-                    // Verifica status a cada 2 segundos enquanto está conectando
+                    // Verifica status a cada 1 segundo enquanto está conectando (mais rápido para detectar conexão)
                     const connectingInterval = setInterval(async () => {
                         try {
                             const statusCheck = await fetch('/api/whatsapp-status');
                             const statusData = await statusCheck.json();
                             
-                            if (statusData.connected === true) {
+                            // Verifica múltiplos indicadores de conexão
+                            const isConnected = statusData.connected === true || 
+                                              (statusData.isAuthenticated && !statusData.hasQr && statusData.clientInitialized) ||
+                                              (statusData.ready && !statusData.hasQr);
+                            
+                            if (isConnected) {
                                 clearInterval(connectingInterval);
                                 statusDiv.className = 'status connected';
                                 statusDiv.textContent = '✅ WhatsApp conectado!';
                                 qrContainer.innerHTML = '<div style="color: #10b981; font-size: 48px;">✅</div>';
                                 
-                                setTimeout(() => {
-                                    window.location.href = '/';
-                                }, 1000);
-                            } else if (!statusData.isConnecting && !statusData.isAuthenticated) {
+                                // Redireciona imediatamente (sem delay)
+                                window.location.href = '/';
+                            } else if (!statusData.isConnecting && !statusData.isAuthenticated && !statusData.connected) {
                                 // Parou de conectar, volta para QR
                                 clearInterval(connectingInterval);
                                 checkQR();
@@ -357,7 +361,7 @@
                         } catch (e) {
                             // Ignora erro
                         }
-                    }, 2000);
+                    }, 1000); // Verifica a cada 1 segundo (mais rápido)
                     
                     return;
                 }
@@ -579,9 +583,10 @@
                     const response = await fetch(`/api/whatsapp-status`);
                 const data = await response.json();
                 
-                    // Verifica múltiplos indicadores de conexão
+                    // Verifica múltiplos indicadores de conexão (mais agressivo)
                     const isConnected = data.connected === true || 
-                                      (data.isAuthenticated && !data.hasQr) ||
+                                      (data.isAuthenticated && !data.hasQr && data.clientInitialized) ||
+                                      (data.ready && !data.hasQr) ||
                                       (data.success && data.connected);
                 
                     if (isConnected) {
@@ -604,6 +609,13 @@
                     // Redireciona imediatamente (sem delay)
                     window.location.href = '/';
                     return;
+                } else if (data.isConnecting || data.isAuthenticated) {
+                    // Se está conectando ou autenticado, verifica mais frequentemente
+                    if (checkInterval) {
+                        clearInterval(checkInterval);
+                    }
+                    // Verifica a cada 1 segundo quando está conectando
+                    checkInterval = setInterval(checkStatus, 1000);
                 } else {
                     // Ainda não conectado, verifica QR novamente
                     // Mas não recarrega se já tem QR válido
@@ -614,10 +626,10 @@
             }
             }
             
-            // Verifica status a cada 3 segundos quando está na página de QR Code
+            // Verifica status a cada 2 segundos quando está na página de QR Code (reduzido para detectar mais rápido)
             // Isso detecta conexão rapidamente após escanear
             if (!checkInterval) {
-                checkInterval = setInterval(checkStatus, 3000);
+                checkInterval = setInterval(checkStatus, 2000);
             }
             
             // Carrega QR Code ao carregar a página

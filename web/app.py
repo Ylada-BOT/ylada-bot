@@ -1567,7 +1567,12 @@ def whatsapp_status():
             elif actually_connected:
                 is_connected = True
                 logger.info(f"✅ WhatsApp conectado (actuallyConnected=true) para user_id={unique_user_id}")
-            # PRIORIDADE 3: ready + clientInfo com wid válido
+            # PRIORIDADE 3: Se está autenticado, sem QR e tem cliente inicializado = CONECTADO
+            # Isso detecta conexão imediatamente após scan, antes do evento 'ready'
+            elif is_authenticated and not has_qr and client_initialized:
+                is_connected = True
+                logger.info(f"✅ WhatsApp conectado (authenticated + sem QR + cliente inicializado) para user_id={unique_user_id}")
+            # PRIORIDADE 4: ready + clientInfo com wid válido
             elif status_data.get('clientInfo'):
                 client_info = status_data.get('clientInfo', {})
                 wid = client_info.get('wid')
@@ -1575,18 +1580,11 @@ def whatsapp_status():
                 if wid and '@temp' not in str(wid):
                     is_connected = True
                     logger.info(f"✅ WhatsApp conectado (clientInfo com wid válido) para user_id={unique_user_id}")
-            # PRIORIDADE 4: Se está autenticado mas ainda não ready (processo de conexão)
-            elif is_authenticated and not has_qr:
-                # Se está autenticado e não tem QR, está conectando ou conectado
-                # WhatsApp Web.js pode estar no processo de inicialização
-                # MAS: só considera conectado se tem cliente inicializado
-                if client_initialized:
-                    is_connected = True
-                    logger.info(f"✅ WhatsApp conectado (authenticated + cliente inicializado) para user_id={unique_user_id}")
-                elif is_connecting:
-                    # Se está conectando (QR escaneado), aguarda um pouco mais
-                    is_connected = False
-                    logger.info(f"⏳ QR escaneado, aguardando autenticação completa para user_id={unique_user_id}")
+            # PRIORIDADE 5: Se está conectando (QR escaneado), aguarda um pouco mais
+            elif is_connecting:
+                # Se está conectando (QR escaneado), aguarda um pouco mais
+                is_connected = False
+                logger.info(f"⏳ QR escaneado, aguardando autenticação completa para user_id={unique_user_id}")
             # PRIORIDADE 5: Se não tem QR e não está ready, mas tem clientInfo válido
             elif not has_qr and status_data.get('clientInfo'):
                 client_info = status_data.get('clientInfo', {})

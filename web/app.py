@@ -1517,25 +1517,47 @@ def whatsapp_status():
         unique_user_id = get_instance_user_id(user_id, instance.get('id', user_id))
         
         # Verifica status do servidor Node.js da instância do usuário
+        status_data = None
+        process_status_data = False
+        
         try:
+            # Importa função de retry para ter mais robustez
+            from web.utils.http_client import get_with_retry
+            
             # Tenta primeiro com unique_user_id (formato correto)
             status_url = f"{server_url}/status?user_id={unique_user_id}"
             logger.info(f"🔍 [whatsapp_status] Tentando acessar: {status_url}")
-            status_response = requests.get(status_url, timeout=3)
-            status_data = None
+            
+            # Usa retry com timeout maior (10s) e até 3 tentativas
+            # Isso evita erro quando servidor está processando conexão
+            try:
+                status_response = get_with_retry(status_url, timeout=10, max_retries=3)
+            except Exception as retry_err:
+                logger.warning(f"⚠️ [whatsapp_status] Erro após retries: {retry_err}")
+                # Se falhou após retries, tenta fallback com user_id simples
+                try:
+                    fallback_url = f"{server_url}/status?user_id={user_id}"
+                    logger.info(f"🔍 [whatsapp_status] Tentando fallback: {fallback_url}")
+                    status_response = get_with_retry(fallback_url, timeout=10, max_retries=2)
+                except Exception:
+                    # Se fallback também falhou, lança exceção para ser capturada pelo except externo
+                    raise retry_err
             
             if status_response.status_code == 200:
                 status_data = status_response.json()
                 # Se não encontrou cliente, tenta com user_id simples (compatibilidade)
                 if not status_data.get('clientInitialized') and not status_data.get('ready'):
                     # Tenta com user_id simples (pode ter sido criado antes da mudança)
-                    fallback_response = requests.get(f"{server_url}/status?user_id={user_id}", timeout=3)
-                    if fallback_response.status_code == 200:
-                        fallback_data = fallback_response.json()
-                        # Se o fallback tem cliente inicializado, usa ele
-                        if fallback_data.get('clientInitialized') or fallback_data.get('ready'):
-                            status_data = fallback_data
-                            logger.info(f"Usando cliente com user_id={user_id} (fallback) para instância {instance.get('id')}")
+                    try:
+                        fallback_response = get_with_retry(f"{server_url}/status?user_id={user_id}", timeout=10, max_retries=2)
+                        if fallback_response.status_code == 200:
+                            fallback_data = fallback_response.json()
+                            # Se o fallback tem cliente inicializado, usa ele
+                            if fallback_data.get('clientInitialized') or fallback_data.get('ready'):
+                                status_data = fallback_data
+                                logger.info(f"Usando cliente com user_id={user_id} (fallback) para instância {instance.get('id')}")
+                    except Exception:
+                        pass  # Ignora erro do fallback
             
             # Se não conseguiu obter dados do servidor, retorna erro
             if not status_data or status_response.status_code != 200:
@@ -1547,7 +1569,8 @@ def whatsapp_status():
                     "message": "Aguardando inicialização do servidor WhatsApp..."
                 })
             
-            # Processa dados do servidor
+            # Se chegou aqui, tem dados válidos - processa normalmente
+            process_status_data = True
             has_qr = status_data.get("hasQr", False)
             actually_connected = status_data.get("actuallyConnected", False)
             ready = status_data.get("ready", False)
@@ -1663,27 +1686,50 @@ def whatsapp_status():
                     "hasQr": False,
                     "port": whatsapp_port
                 })
-        except requests.exceptions.ConnectionError as conn_err:
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as conn_err:
             # Log detalhado do erro
-            logger.error(f"❌ [whatsapp_status] Erro de conexão: {conn_err}")
-            logger.error(f"❌ [whatsapp_status] Tentou acessar: {server_url}/status?user_id={unique_user_id}")
-            logger.error(f"❌ [whatsapp_status] Server URL configurada: {server_url}")
+            logger.warning(f"⚠️ [whatsapp_status] Erro de conexão após retries: {conn_err}")
+            logger.warning(f"⚠️ [whatsapp_status] Tentou acessar: {server_url}/status?user_id={unique_user_id}")
+            logger.warning(f"⚠️ [whatsapp_status] Server URL configurada: {server_url}")
             
-            # Mensagem mais útil baseada no ambiente
-            from config.settings import IS_PRODUCTION
-            if IS_PRODUCTION or os.getenv('RAILWAY_ENVIRONMENT'):
-                error_msg = "Servidor WhatsApp não está acessível. Verifique se o serviço está online no Railway."
-            else:
-                error_msg = f"Servidor WhatsApp não está rodando na porta {whatsapp_port}. Execute: node whatsapp_server.js"
-            
-            return jsonify({
-                "connected": False, 
-                "error": error_msg,
-                "hasQr": False,
-                "port": whatsapp_port,
-                "server_url": server_url,  # Adiciona para debug
-                "hint": "Verifique os logs do Flask para mais detalhes"
-            })
+            # IMPORTANTE: Não retorna erro imediatamente se pode estar conectado
+            # Tenta verificar uma última vez com timeout menor antes de dar erro
+            try:
+                logger.info(f"🔄 [whatsapp_status] Tentativa final rápida antes de retornar erro...")
+                final_check = requests.get(f"{server_url}/status?user_id={unique_user_id}", timeout=3)
+                if final_check.status_code == 200:
+                    final_data = final_check.json()
+                    # Se está conectado, retorna sucesso mesmo após erro anterior
+                    if final_data.get('ready') or final_data.get('actuallyConnected') or (final_data.get('isAuthenticated') and not final_data.get('hasQr')):
+                        logger.info(f"✅ [whatsapp_status] Cliente está conectado! Retornando sucesso apesar do erro anterior.")
+                        # Processa dados normalmente - continua o fluxo
+                        status_data = final_data
+                        process_status_data = True
+                        # NÃO retorna aqui - deixa continuar o processamento normal abaixo
+                    else:
+                        # Se não está conectado, retorna erro
+                        raise conn_err
+                else:
+                    # Se não respondeu 200, retorna erro
+                    raise conn_err
+            except Exception as final_err:
+                # Se tentativa final também falhou, retorna erro
+                logger.error(f"❌ [whatsapp_status] Tentativa final também falhou: {final_err}")
+                # Mensagem mais útil baseada no ambiente
+                from config.settings import IS_PRODUCTION
+                if IS_PRODUCTION or os.getenv('RAILWAY_ENVIRONMENT'):
+                    error_msg = "Servidor WhatsApp não está acessível. Verifique se o serviço está online no Railway."
+                else:
+                    error_msg = f"Servidor WhatsApp não está rodando na porta {whatsapp_port}. Execute: node whatsapp_server.js"
+                
+                return jsonify({
+                    "connected": False, 
+                    "error": error_msg,
+                    "hasQr": False,
+                    "port": whatsapp_port,
+                    "server_url": server_url,  # Adiciona para debug
+                    "hint": "Verifique os logs do Flask para mais detalhes"
+                })
         except requests.exceptions.RequestException as e:
             return jsonify({
                 "connected": False, 
@@ -1691,6 +1737,124 @@ def whatsapp_status():
                 "hasQr": False,
                 "port": whatsapp_port
             })
+        
+        # Processa dados do servidor (tanto do try normal quanto do except recuperado)
+        if process_status_data and status_data:
+            has_qr = status_data.get("hasQr", False)
+            actually_connected = status_data.get("actuallyConnected", False)
+            ready = status_data.get("ready", False)
+            is_authenticated = status_data.get("isAuthenticated", False)
+            is_connecting = status_data.get("isConnecting", False)
+            client_initialized = status_data.get("clientInitialized", False)
+            
+            # Só considera conectado se realmente estiver conectado
+            # Verifica múltiplos indicadores para garantir conexão real
+            is_connected = False
+            
+            # PRIORIDADE 1: ready=true é o mais confiável (evento 'ready' foi disparado)
+            if ready:
+                is_connected = True
+                logger.info(f"✅ WhatsApp conectado (ready=true) para user_id={unique_user_id}")
+            # PRIORIDADE 2: actuallyConnected é o segundo mais confiável
+            elif actually_connected:
+                is_connected = True
+                logger.info(f"✅ WhatsApp conectado (actuallyConnected=true) para user_id={unique_user_id}")
+            # PRIORIDADE 3: Se está autenticado, sem QR e tem cliente inicializado = CONECTADO
+            # Isso detecta conexão imediatamente após scan, antes do evento 'ready'
+            elif is_authenticated and not has_qr and client_initialized:
+                is_connected = True
+                logger.info(f"✅ WhatsApp conectado (authenticated + sem QR + cliente inicializado) para user_id={unique_user_id}")
+            # PRIORIDADE 4: ready + clientInfo com wid válido
+            elif status_data.get('clientInfo'):
+                client_info = status_data.get('clientInfo', {})
+                wid = client_info.get('wid')
+                # Wid válido não deve ser None e não deve ser temporário
+                if wid and '@temp' not in str(wid):
+                    is_connected = True
+                    logger.info(f"✅ WhatsApp conectado (clientInfo com wid válido) para user_id={unique_user_id}")
+            # PRIORIDADE 5: Se está conectando (QR escaneado), aguarda um pouco mais
+            elif is_connecting:
+                # Se está conectando (QR escaneado), aguarda um pouco mais
+                is_connected = False
+                logger.info(f"⏳ QR escaneado, aguardando autenticação completa para user_id={unique_user_id}")
+            # PRIORIDADE 5: Se não tem QR e não está ready, mas tem clientInfo válido
+            elif not has_qr and status_data.get('clientInfo'):
+                client_info = status_data.get('clientInfo', {})
+                wid = client_info.get('wid')
+                # Se tem wid válido, mesmo que não esteja ready ainda, considera conectando
+                if wid and '@temp' not in str(wid):
+                    # Marca como conectado mas pode estar ainda inicializando
+                    is_connected = True
+                    logger.info(f"✅ WhatsApp conectado (clientInfo válido) para user_id={unique_user_id}")
+            
+            connected = is_connected
+            
+            # Extrai número do telefone se estiver conectado
+            # Primeiro tenta usar phone_number do servidor Node.js (já formatado)
+            phone_number = status_data.get('phone_number')
+            if not phone_number and connected:
+                # Fallback: tenta obter o número do telefone do objeto actually_connected ou ready
+                if isinstance(actually_connected, dict) and 'user' in actually_connected:
+                    phone_number = actually_connected.get('user')
+                elif isinstance(ready, dict) and 'user' in ready:
+                    phone_number = ready.get('user')
+                elif status_data.get('clientInfo') and status_data['clientInfo'].get('wid'):
+                    phone_number = status_data['clientInfo']['wid']
+                
+                # Formata o número para exibição (adiciona formatação brasileira se necessário)
+                if phone_number:
+                    # Remove @c.us se houver
+                    phone_number = phone_number.replace('@c.us', '').replace('@s.whatsapp.net', '')
+                    # Formata número brasileiro (se começar com 55)
+                    if phone_number.startswith('55') and len(phone_number) >= 12:
+                        formatted = f"+{phone_number[:2]} ({phone_number[2:4]}) {phone_number[4:9]}-{phone_number[9:]}"
+                        phone_number = formatted
+                    else:
+                        phone_number = f"+{phone_number}"
+            
+            # Considera conectado se realmente ready OU se está autenticado (processo de conexão)
+            # Se está autenticado, sem QR e tem cliente inicializado = CONECTADO (mesmo antes do ready)
+            final_connected = connected or (is_authenticated and not has_qr and client_initialized)
+            
+            if final_connected:
+                return jsonify({
+                    "connected": True, 
+                    "actuallyConnected": actually_connected or final_connected,
+                    "ready": ready,
+                    "message": "WhatsApp conectado",
+                    "hasQr": False,
+                    "port": whatsapp_port,
+                    "phone_number": phone_number,
+                    "isAuthenticated": is_authenticated,
+                    "isConnecting": False,  # Não está mais conectando, já conectou
+                    "clientInitialized": client_initialized
+                })
+            elif has_qr:
+                return jsonify({
+                    "connected": False, 
+                    "message": "QR Code disponível. Escaneie para conectar.",
+                    "hasQr": True,
+                    "port": whatsapp_port,
+                    "isConnecting": is_connecting
+                })
+            elif is_connecting or (is_authenticated and not has_qr):
+                # Está conectando (QR escaneado ou autenticado mas não ready ainda)
+                return jsonify({
+                    "connected": False,
+                    "message": "QR Code escaneado! Conectando... Aguarde alguns segundos.",
+                    "hasQr": False,
+                    "port": whatsapp_port,
+                    "isConnecting": True,
+                    "isAuthenticated": is_authenticated,
+                    "clientInitialized": client_initialized  # Adiciona para o frontend verificar
+                })
+            else:
+                return jsonify({
+                    "connected": False, 
+                    "message": "Aguardando conexão. Clique em 'Conectar WhatsApp' para gerar QR Code.",
+                    "hasQr": False,
+                    "port": whatsapp_port
+                })
             
     except Exception as e:
         return jsonify({"connected": False, "error": str(e), "hasQr": False})

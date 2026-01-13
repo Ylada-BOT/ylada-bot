@@ -149,7 +149,16 @@ function initClient(userId) {
             console.log(`[${timestamp}] [User ${userId}] 🧹 Removendo QR Code (já autenticado)`);
             clients[userId].qrCodeData = null;
         }
-        console.log(`[${timestamp}] [User ${userId}] ✅ Flags após authenticated: isAuthenticated=true, isConnecting=true`);
+        
+        // MELHORIA: Se o cliente já tem info, marca como ready imediatamente
+        // Isso acelera a detecção de conexão
+        if (clients[userId].client && clients[userId].client.info) {
+            clients[userId].isReady = true;
+            clients[userId].isConnecting = false;
+            console.log(`[${timestamp}] [User ${userId}] ✅ Cliente já tem info! Marcando como ready imediatamente`);
+        }
+        
+        console.log(`[${timestamp}] [User ${userId}] ✅ Flags após authenticated: isAuthenticated=true, isConnecting=${clients[userId].isConnecting}, isReady=${clients[userId].isReady}`);
     });
 
     client.on('auth_failure', (msg) => {

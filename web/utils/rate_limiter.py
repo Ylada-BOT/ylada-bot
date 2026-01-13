@@ -176,13 +176,21 @@ def init_rate_limiter(app, redis_url=None):
     """
     global limiter
     
+    # Em desenvolvimento, usa limites mais generosos
+    from config.settings import IS_PRODUCTION
+    if IS_PRODUCTION:
+        default_limits = ["200 per hour"]
+    else:
+        # Desenvolvimento: limites muito mais generosos para evitar 429 durante testes
+        default_limits = ["1000 per hour", "100 per minute"]
+    
     # Configura storage (Redis se disponível, senão memória)
     if redis_url:
         try:
             limiter = Limiter(
                 app=app,
                 key_func=get_rate_limit_key,
-                default_limits=["200 per hour"],
+                default_limits=default_limits,
                 storage_uri=redis_url,
                 strategy="fixed-window"
             )
@@ -192,7 +200,7 @@ def init_rate_limiter(app, redis_url=None):
             limiter = Limiter(
                 app=app,
                 key_func=get_rate_limit_key,
-                default_limits=["200 per hour"],
+                default_limits=default_limits,
                 storage_uri="memory://",
                 strategy="fixed-window"
             )
@@ -200,11 +208,11 @@ def init_rate_limiter(app, redis_url=None):
         limiter = Limiter(
             app=app,
             key_func=get_rate_limit_key,
-            default_limits=["200 per hour"],
+            default_limits=default_limits,
             storage_uri="memory://",
             strategy="fixed-window"
         )
-        logger.info("✅ Rate limiter configurado com memória (use Redis para produção)")
+        logger.info(f"✅ Rate limiter configurado com memória (limites: {default_limits})")
     
     return limiter
 

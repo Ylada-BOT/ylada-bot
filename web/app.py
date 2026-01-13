@@ -1054,6 +1054,7 @@ def qr_code():
     return render_template('instances/connect.html')
 
 @app.route('/api/qr')
+@rate_limit_status  # Limite mais generoso para rotas de status (apenas leitura)
 def get_qr():
     """Obtém QR Code do WhatsApp - Modelo Simplificado"""
     try:

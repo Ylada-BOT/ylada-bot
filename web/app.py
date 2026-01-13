@@ -1054,7 +1054,7 @@ def qr_code():
     return render_template('instances/connect.html')
 
 @app.route('/api/qr')
-@rate_limit_status  # Limite mais generoso para rotas de status (apenas leitura)
+# SEM rate limiting - rota de leitura que precisa ser acessível frequentemente
 def get_qr():
     """Obtém QR Code do WhatsApp - Modelo Simplificado"""
     try:
@@ -1142,21 +1142,26 @@ def get_qr():
                 })
                 
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as conn_error:
-            error_msg = f"Servidor WhatsApp não está acessível na porta {port}."
+            error_msg = f"Servidor WhatsApp não está acessível."
             logger.error(f"[!] {error_msg}: {conn_error}")
             logger.error(f"[!] Tentando acessar: {qr_url}")
+            logger.error(f"[!] Server URL configurada: {server_url}")
+            logger.error(f"[!] Porta da instância: {port}")
+            logger.error(f"[!] User ID: {unique_user_id}")
             
             # Em produção, não tenta iniciar automaticamente
             from config.settings import IS_PRODUCTION
             if IS_PRODUCTION:
+                # Mensagem mais clara e útil
                 return jsonify({
-                    "error": "Servidor WhatsApp não está acessível. O serviço Node.js precisa estar rodando.",
+                    "error": "Servidor WhatsApp não está acessível",
                     "status": "error",
-                    "message": "Erro 503: Servidor WhatsApp não está disponível",
+                    "message": "O serviço WhatsApp não está respondendo. Verifique se está rodando no Railway.",
                     "port": port,
-                    "hint": f"Em produção, o servidor WhatsApp precisa estar rodando como um serviço separado. Verifique se o serviço está ativo no Railway.",
                     "server_url": server_url,
-                    "solution": "Tente recarregar a página (F5) em alguns segundos ou verifique se o serviço WhatsApp está ativo no Railway."
+                    "qr_url": qr_url,
+                    "hint": "Verifique no Railway se o serviço WhatsApp está online e rodando.",
+                    "solution": "1. Acesse Railway.app → Seu projeto → Serviço WhatsApp\n2. Verifique se está 'Online'\n3. Veja os logs para erros\n4. Se necessário, faça redeploy do serviço"
                 }), 503
             
             # Em desenvolvimento, tenta iniciar automaticamente

@@ -501,7 +501,21 @@
                     if (!checkInterval) {
                         checkInterval = setInterval(checkStatus, 3000);
                     }
-                } else if (data.status === 'generating' || (!data.qr && !data.ready)) {
+                } else if (data.status === 'generating' || (!data.qr && !data.ready && !data.success)) {
+                    // QR Code está sendo gerado - mostra mensagem e continua tentando
+                    statusDiv.className = 'status waiting';
+                    statusDiv.textContent = data.message || '⏳ Gerando QR Code...';
+                    qrContainer.innerHTML = `
+                        <div style="padding: 40px; text-align: center;">
+                            <div class="spinner" style="margin: 0 auto 20px;"></div>
+                            <div style="color: #666; font-size: 14px;">${data.hint || data.message || 'Aguardando geração do QR Code... Isso pode levar 10-30 segundos.'}</div>
+                        </div>
+                    `;
+                    instructions.style.display = 'none';
+                    
+                    // Tenta novamente após 5 segundos (mais frequente durante geração)
+                    setTimeout(checkQR, 5000);
+                    return;
                     // Verifica se está conectado antes de mostrar "gerando"
                     // Pode estar no processo de conexão (authenticated mas não ready ainda)
                     try {

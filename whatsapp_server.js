@@ -126,12 +126,15 @@ function initClient(userId) {
         console.log(`[${timestamp}] [User ${userId}] 📱 Sessão salva em: .wwebjs_auth_user_${userId}`);
         console.log(`[${timestamp}] [User ${userId}] ✅ Pronto para enviar e receber mensagens!`);
         console.log(`[${timestamp}] [User ${userId}] ═══════════════════════════════════════\n`);
+        // FORÇA atualizar todas as flags imediatamente
         clients[userId].isReady = true;
         clients[userId].isAuthenticated = true;
         clients[userId].isConnecting = false; // Concluiu conexão
         clients[userId].qrCodeData = null;
         clients[userId].reconnectAttempts = 0;
         clients[userId].isReconnecting = false;
+        // Log adicional para debug
+        console.log(`[${timestamp}] [User ${userId}] 🔍 Flags após ready: isReady=${clients[userId].isReady}, isAuthenticated=${clients[userId].isAuthenticated}, isConnecting=${clients[userId].isConnecting}`);
     });
 
     client.on('authenticated', () => {
@@ -216,6 +219,14 @@ function initClient(userId) {
             if (clients[userId].client && clients[userId].client.info) {
                 clients[userId].isReady = true;
                 console.log(`[${timestamp}] [User ${userId}] ✅ Cliente marcado como ready (tem info)`);
+            } else {
+                // Se não tem info ainda, aguarda um pouco e verifica novamente
+                setTimeout(() => {
+                    if (clients[userId].client && clients[userId].client.info) {
+                        clients[userId].isReady = true;
+                        console.log(`[${timestamp}] [User ${userId}] ✅ Cliente marcado como ready (verificação tardia)`);
+                    }
+                }, 2000); // Aguarda 2 segundos para o cliente inicializar completamente
             }
             console.log(`[${timestamp}] [User ${userId}] ✅ Flags finais CONNECTED: isReady=${clients[userId].isReady}, isAuthenticated=true, isConnecting=false`);
         } else if (state === 'UNPAIRED' || state === 'UNPAIRED_IDLE') {
@@ -613,18 +624,19 @@ app.get('/status', async (req, res) => {
     
     // MELHORIA: Verifica mais agressivamente se está conectado
     // Se está autenticado e não tem QR, considera conectado mesmo que não esteja ready ainda
-    let finalConnected = actuallyReady;
+    let finalConnected = actuallyReady || clientData.isReady; // PRIORIDADE: se isReady=true, está conectado
     const hasQrFlag = !!clientData.qrCodeData;
     const isAuthFlag = isAuthenticated || clientData.isAuthenticated;
     
-    if (!finalConnected && isAuthFlag && !hasQrFlag) {
+    // Se isReady está true, FORÇA considerar conectado (mais confiável)
+    if (clientData.isReady) {
+        finalConnected = true;
+        console.log(`[User ${userId}] ✅ Considerando conectado: isReady=true (mais confiável)`);
+    } else if (!finalConnected && isAuthFlag && !hasQrFlag) {
         // Se está autenticado, sem QR, e tem cliente inicializado, considera conectado
         if (clientData.client && clientData.client.info) {
             finalConnected = true;
             console.log(`[User ${userId}] ✅ Considerando conectado: autenticado + sem QR + tem info`);
-        } else if (clientData.isReady) {
-            // Se está marcado como ready, confia
-            finalConnected = true;
         }
     }
     

@@ -1546,23 +1546,22 @@ def whatsapp_status():
             # Verifica múltiplos indicadores para garantir conexão real
             is_connected = False
             
-            # PRIORIDADE 1: actuallyConnected é o mais confiável
-            if actually_connected:
+            # PRIORIDADE 1: ready=true é o mais confiável (evento 'ready' foi disparado)
+            if ready:
+                is_connected = True
+                logger.info(f"✅ WhatsApp conectado (ready=true) para user_id={unique_user_id}")
+            # PRIORIDADE 2: actuallyConnected é o segundo mais confiável
+            elif actually_connected:
                 is_connected = True
                 logger.info(f"✅ WhatsApp conectado (actuallyConnected=true) para user_id={unique_user_id}")
-            # PRIORIDADE 2: ready + clientInfo com wid válido
-            elif ready and status_data.get('clientInfo'):
+            # PRIORIDADE 3: ready + clientInfo com wid válido
+            elif status_data.get('clientInfo'):
                 client_info = status_data.get('clientInfo', {})
                 wid = client_info.get('wid')
                 # Wid válido não deve ser None e não deve ser temporário
                 if wid and '@temp' not in str(wid):
                     is_connected = True
-                    logger.info(f"✅ WhatsApp conectado (ready + wid válido) para user_id={unique_user_id}")
-            # PRIORIDADE 3: ready sem QR (pode ser conexão, mas menos confiável)
-            elif ready and not has_qr:
-                # Só confia se não tiver QR e estiver marcado como ready
-                is_connected = True
-                logger.info(f"✅ WhatsApp conectado (ready sem QR) para user_id={unique_user_id}")
+                    logger.info(f"✅ WhatsApp conectado (clientInfo com wid válido) para user_id={unique_user_id}")
             # PRIORIDADE 4: Se está autenticado mas ainda não ready (processo de conexão)
             elif is_authenticated and not has_qr:
                 # Se está autenticado e não tem QR, está conectando ou conectado

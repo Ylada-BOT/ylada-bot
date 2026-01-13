@@ -261,21 +261,30 @@ function initClient(userId) {
     console.log(`[${timestamp}] [User ${userId}] 🆕 Cliente inicializado - Estado: ${STATES.INITIALIZING}`);
 
     client.on('qr', (qr) => {
-        // NÃO gera novo QR Code se já está conectando ou autenticado
-        if (clients[userId].isConnecting || clients[userId].isAuthenticated || clients[userId].isReady) {
-            console.log(`[User ${userId}] ⚠️ QR Code solicitado mas já está conectando/autenticado. Ignorando...`);
+        const currentState = getState(userId);
+        const timestamp = new Date().toISOString();
+        
+        // NÃO gera novo QR Code se já está conectando, autenticado ou ready
+        if (currentState === STATES.CONNECTING || 
+            currentState === STATES.AUTHENTICATED || 
+            currentState === STATES.READY ||
+            currentState === STATES.RECONNECTING) {
+            console.log(`[${timestamp}] [User ${userId}] ⚠️ QR Code solicitado mas estado atual é ${currentState}. Ignorando...`);
             return;
         }
         
-        console.log(`\n[User ${userId}] ═══════════════════════════════════════`);
-        console.log(`[User ${userId}] 📱 QR CODE PARA CONECTAR WHATSAPP`);
-        console.log(`[User ${userId}] ═══════════════════════════════════════\n`);
+        console.log(`\n[${timestamp}] [User ${userId}] ═══════════════════════════════════════`);
+        console.log(`[${timestamp}] [User ${userId}] 📱 QR CODE PARA CONECTAR WHATSAPP`);
+        console.log(`[${timestamp}] [User ${userId}] ═══════════════════════════════════════\n`);
+        
+        // Usa máquina de estados
         clients[userId].qrCodeData = qr;
-        clients[userId].isConnecting = false; // Reset flag quando gera novo QR
+        setState(userId, STATES.QR_AVAILABLE, 'event:qr');
+        
         qrcode.generate(qr, { small: true });
-        console.log(`\n[User ${userId}] ═══════════════════════════════════════`);
-        console.log(`[User ${userId}] Escaneie o QR Code acima com seu WhatsApp`);
-        console.log(`[User ${userId}] Vá em: Configurações > Aparelhos conectados > Conectar um aparelho`);
+        console.log(`\n[${timestamp}] [User ${userId}] ═══════════════════════════════════════`);
+        console.log(`[${timestamp}] [User ${userId}] Escaneie o QR Code acima com seu WhatsApp`);
+        console.log(`[${timestamp}] [User ${userId}] Vá em: Configurações > Aparelhos conectados > Conectar um aparelho`);
         console.log(`[User ${userId}] ═══════════════════════════════════════\n`);
         console.log(`[User ${userId}] ✅ QR Code gerado e disponível na API /qr?user_id=${userId}`);
     });
@@ -738,11 +747,13 @@ app.get('/status', async (req, res) => {
             hasQr: false,
             actuallyConnected: false,
             clientInitialized: false,
-            isAuthenticated: false
+            isAuthenticated: false,
+            state: STATES.DISCONNECTED
         });
     }
     
     const clientData = clients[userId];
+    const currentState = getState(userId); // Usa máquina de estados
     // Verifica se realmente está conectado tentando usar o cliente
     let actuallyReady = false;
     let clientInfo = null;

@@ -344,34 +344,40 @@ def get_whatsapp_server_url(port=None):
     if port is None:
         port = WHATSAPP_SERVER_PORT
     
-    # PRIORIDADE 1: Se está no Railway, usa comunicação interna (nome do serviço)
+    # PRIORIDADE 1: Se está no Railway, SEMPRE usa comunicação interna (nome do serviço)
+    # Isso garante que mesmo se WHATSAPP_SERVER_URL estiver configurada com URL pública,
+    # ainda usará comunicação interna (mais rápida e confiável)
     if IS_PRODUCTION and os.getenv('RAILWAY_ENVIRONMENT'):
         # No Railway, serviços se comunicam via nome do serviço usando HTTP interno
-        # Tenta detectar nome do serviço WhatsApp
-        service_name = os.getenv('WHATSAPP_SERVICE_NAME', 'whatsapp-server-2')
-        # Railway usa comunicação interna via nome do serviço
+        # Tenta detectar nome do serviço WhatsApp de várias formas:
+        
+        # 1. Variável de ambiente explícita
+        service_name = os.getenv('WHATSAPP_SERVICE_NAME')
+        
+        # 2. Se WHATSAPP_SERVER_URL está configurada com URL do Railway, extrai nome do serviço
+        if not service_name and WHATSAPP_SERVER_URL and 'railway.app' in WHATSAPP_SERVER_URL:
+            # Extrai nome do serviço da URL (ex: https://whatsapp-server-2-production.up.railway.app -> whatsapp-server-2)
+            url_parts = WHATSAPP_SERVER_URL.replace('https://', '').replace('http://', '').split('.')
+            if url_parts:
+                service_name = url_parts[0]  # Primeira parte antes do primeiro ponto
+        
+        # 3. Fallback para nome padrão
+        if not service_name:
+            service_name = 'whatsapp-server-2'
+        
+        # Railway usa comunicação interna via nome do serviço (HTTP, não HTTPS)
         return f"http://{service_name}:{port}"
     
-    # PRIORIDADE 2: Se WHATSAPP_SERVER_URL está configurado e não é localhost
+    # PRIORIDADE 2: Se WHATSAPP_SERVER_URL está configurado e não é localhost (outros ambientes)
     if IS_PRODUCTION and WHATSAPP_SERVER_URL and 'localhost' not in WHATSAPP_SERVER_URL:
         base_url = WHATSAPP_SERVER_URL.strip().rstrip('/')
         
         # Se a URL já começa com http:// ou https://, usa como está
         if base_url.startswith('http://') or base_url.startswith('https://'):
-            # Se é URL pública HTTPS mas estamos no Railway, tenta usar nome do serviço
-            if 'railway.app' in base_url and os.getenv('RAILWAY_ENVIRONMENT'):
-                # Extrai nome do serviço da URL (ex: whatsapp-server-2-production.up.railway.app -> whatsapp-server-2)
-                service_name = base_url.split('.')[0].replace('https://', '').replace('http://', '')
-                if service_name:
-                    return f"http://{service_name}:{port}"
             return base_url.rstrip('/')
         
-        # Se não tem protocolo, adiciona http:// (comunicação interna)
+        # Se não tem protocolo, adiciona https:// (assume público)
         if not base_url.startswith('http://') and not base_url.startswith('https://'):
-            # Se parece ser um nome de serviço (sem pontos ou com .railway), usa HTTP interno
-            if '.' not in base_url or 'railway' in base_url.lower():
-                return f"http://{base_url}:{port}"
-            # Caso contrário, assume HTTPS público
             return f"https://{base_url}"
         
         return base_url.rstrip('/')

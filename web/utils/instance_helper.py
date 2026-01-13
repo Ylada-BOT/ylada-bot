@@ -338,43 +338,41 @@ def get_whatsapp_server_url(port=None):
     Returns:
         str: URL do servidor WhatsApp (sempre com protocolo)
     """
+    import os
     from config.settings import WHATSAPP_SERVER_URL, WHATSAPP_SERVER_PORT, IS_PRODUCTION
     
     if port is None:
         port = WHATSAPP_SERVER_PORT
     
-    # Se está em produção e WHATSAPP_SERVER_URL está configurado
+    # PRIORIDADE 1: Se está no Railway, usa comunicação interna (nome do serviço)
+    if IS_PRODUCTION and os.getenv('RAILWAY_ENVIRONMENT'):
+        # No Railway, serviços se comunicam via nome do serviço usando HTTP interno
+        # Tenta detectar nome do serviço WhatsApp
+        service_name = os.getenv('WHATSAPP_SERVICE_NAME', 'whatsapp-server-2')
+        # Railway usa comunicação interna via nome do serviço
+        return f"http://{service_name}:{port}"
+    
+    # PRIORIDADE 2: Se WHATSAPP_SERVER_URL está configurado e não é localhost
     if IS_PRODUCTION and WHATSAPP_SERVER_URL and 'localhost' not in WHATSAPP_SERVER_URL:
-        # Garante que a URL tenha protocolo
         base_url = WHATSAPP_SERVER_URL.strip().rstrip('/')
         
-        # Se não começar com http:// ou https://, adiciona https://
+        # Se a URL já começa com http:// ou https://, usa como está
+        if base_url.startswith('http://') or base_url.startswith('https://'):
+            # Se é URL pública HTTPS mas estamos no Railway, tenta usar nome do serviço
+            if 'railway.app' in base_url and os.getenv('RAILWAY_ENVIRONMENT'):
+                # Extrai nome do serviço da URL (ex: whatsapp-server-2-production.up.railway.app -> whatsapp-server-2)
+                service_name = base_url.split('.')[0].replace('https://', '').replace('http://', '')
+                if service_name:
+                    return f"http://{service_name}:{port}"
+            return base_url.rstrip('/')
+        
+        # Se não tem protocolo, adiciona http:// (comunicação interna)
         if not base_url.startswith('http://') and not base_url.startswith('https://'):
-            base_url = f"https://{base_url}"
-        
-        # Remove porta da URL se existir (para usar a porta padrão do Railway)
-        # Extrai apenas o domínio sem porta
-        if base_url.startswith('http://'):
-            protocol = 'http://'
-            domain_part = base_url[7:]
-        elif base_url.startswith('https://'):
-            protocol = 'https://'
-            domain_part = base_url[8:]
-        else:
-            protocol = 'https://'
-            domain_part = base_url
-        
-        # Remove porta se existir no domínio
-        if ':' in domain_part.split('/')[0]:
-            domain = domain_part.split(':')[0]
-            path = '/' + '/'.join(domain_part.split('/')[1:]) if '/' in domain_part else ''
-            base_url = f"{protocol}{domain}{path}"
-        else:
-            # Garante que não tenha path duplicado
-            if '/' in domain_part and not domain_part.startswith('/'):
-                base_url = f"{protocol}{domain_part}"
-            else:
-                base_url = f"{protocol}{domain_part.lstrip('/')}"
+            # Se parece ser um nome de serviço (sem pontos ou com .railway), usa HTTP interno
+            if '.' not in base_url or 'railway' in base_url.lower():
+                return f"http://{base_url}:{port}"
+            # Caso contrário, assume HTTPS público
+            return f"https://{base_url}"
         
         return base_url.rstrip('/')
     

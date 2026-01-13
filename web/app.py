@@ -1277,28 +1277,51 @@ def get_conversations():
                 ready = status_data.get("ready", False)
                 has_qr = status_data.get("hasQr", False)
                 
-                # Verifica se realmente está conectado
-                is_connected = False
-                if actually_connected:
-                    is_connected = True
-                elif ready and not has_qr:
-                    is_connected = True
-                
-                # Verifica se está reconectando (não deve retornar erro 400 se está tentando reconectar)
-                is_reconnecting = status_data.get("reconnectInfo", {}).get("isReconnecting", False)
+                # Usa a MESMA lógica do /api/whatsapp-status para garantir consistência
+                is_authenticated = status_data.get("isAuthenticated", False)
                 is_connecting = status_data.get("isConnecting", False)
+                client_initialized = status_data.get("clientInitialized", False)
+                is_reconnecting = status_data.get("reconnectInfo", {}).get("isReconnecting", False)
                 
+                # Verifica se realmente está conectado (mesma lógica do whatsapp_status)
+                is_connected = False
+                
+                # PRIORIDADE 1: ready=true é o mais confiável
+                if ready:
+                    is_connected = True
+                    logger.info(f"✅ [get_conversations] WhatsApp conectado (ready=true) para user_id={unique_user_id}")
+                # PRIORIDADE 2: actuallyConnected é o segundo mais confiável
+                elif actually_connected:
+                    is_connected = True
+                    logger.info(f"✅ [get_conversations] WhatsApp conectado (actuallyConnected=true) para user_id={unique_user_id}")
+                # PRIORIDADE 3: Se está autenticado, sem QR e tem cliente inicializado = CONECTADO
+                # Isso detecta conexão imediatamente após scan, antes do evento 'ready'
+                elif is_authenticated and not has_qr and client_initialized:
+                    is_connected = True
+                    logger.info(f"✅ [get_conversations] WhatsApp conectado (authenticated + sem QR + cliente inicializado) para user_id={unique_user_id}")
+                
+                # Se não está conectado E não está conectando/reconectando, retorna erro
                 if not is_connected and not is_reconnecting and not is_connecting:
+                    logger.warning(f"⚠️ [get_conversations] WhatsApp não está conectado para user_id={unique_user_id}. Estado: ready={ready}, actually_connected={actually_connected}, is_authenticated={is_authenticated}, has_qr={has_qr}, client_initialized={client_initialized}")
                     return jsonify({
                         "success": False,
                         "error": "WhatsApp não está conectado",
                         "details": "Conecte o WhatsApp primeiro escaneando o QR Code na página 'Conectar WhatsApp'.",
                         "has_qr": has_qr,
-                        "needs_qr": has_qr
+                        "needs_qr": has_qr,
+                        "debug": {
+                            "ready": ready,
+                            "actually_connected": actually_connected,
+                            "is_authenticated": is_authenticated,
+                            "has_qr": has_qr,
+                            "client_initialized": client_initialized,
+                            "is_connecting": is_connecting,
+                            "is_reconnecting": is_reconnecting
+                        }
                     }), 400
                 elif is_reconnecting or is_connecting:
-                    # Se está reconectando, retorna sucesso mas com lista vazia (não erro)
-                    logger.info(f"⏳ WhatsApp está reconectando/conectando. Retornando lista vazia.")
+                    # Se está reconectando/conectando, retorna sucesso mas com lista vazia (não erro)
+                    logger.info(f"⏳ [get_conversations] WhatsApp está reconectando/conectando para user_id={unique_user_id}. Retornando lista vazia.")
                     return jsonify({
                         "success": True,
                         "chats": [],

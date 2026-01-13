@@ -837,12 +837,19 @@ app.get('/status', async (req, res) => {
         }
     }
     
-    // Se isReady está true, FORÇA considerar conectado (mais confiável)
-    if (clientData.isReady && !isReconnecting) {
+    // Usa estado da máquina de estados como fonte primária
+    const currentState = getState(userId);
+    
+    // Se estado é READY, FORÇA considerar conectado (mais confiável)
+    if (currentState === STATES.READY || (clientData.isReady && !isReconnecting)) {
         finalConnected = true;
-        console.log(`[User ${userId}] ✅ Considerando conectado: isReady=true (mais confiável)`);
+        console.log(`[User ${userId}] ✅ Considerando conectado: estado=${currentState} ou isReady=true (mais confiável)`);
+    } else if (currentState === STATES.AUTHENTICATED && !hasQrFlag && clientData.client) {
+        // Se estado é AUTHENTICATED, sem QR e tem cliente, considera conectado (aguardando ready)
+        finalConnected = true;
+        console.log(`[User ${userId}] ✅ Considerando conectado: estado=AUTHENTICATED + sem QR + tem cliente`);
     } else if (!finalConnected && isAuthFlag && !hasQrFlag && !isReconnecting) {
-        // Se está autenticado, sem QR, e tem cliente inicializado, considera conectado
+        // Fallback: Se está autenticado, sem QR, e tem cliente inicializado, considera conectado
         if (clientData.client && clientData.client.info) {
             finalConnected = true;
             console.log(`[User ${userId}] ✅ Considerando conectado: autenticado + sem QR + tem info`);

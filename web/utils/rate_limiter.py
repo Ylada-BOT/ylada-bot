@@ -176,13 +176,9 @@ def init_rate_limiter(app, redis_url=None):
     """
     global limiter
     
-    # Em desenvolvimento, usa limites mais generosos
-    from config.settings import IS_PRODUCTION
-    if IS_PRODUCTION:
-        default_limits = ["200 per hour"]
-    else:
-        # Desenvolvimento: limites muito mais generosos para evitar 429 durante testes
-        default_limits = ["1000 per hour", "100 per minute"]
+    # NÃO aplica limite padrão - deixa apenas os decorators específicos fazerem o trabalho
+    # Isso evita conflitos e permite controle fino por rota
+    default_limits = None  # Sem limite padrão - apenas decorators específicos
     
     # Configura storage (Redis se disponível, senão memória)
     if redis_url:
@@ -190,17 +186,17 @@ def init_rate_limiter(app, redis_url=None):
             limiter = Limiter(
                 app=app,
                 key_func=get_rate_limit_key,
-                default_limits=default_limits,
+                default_limits=default_limits,  # None = sem limite padrão
                 storage_uri=redis_url,
                 strategy="fixed-window"
             )
-            logger.info("✅ Rate limiter configurado com Redis")
+            logger.info("✅ Rate limiter configurado com Redis (sem limite padrão)")
         except Exception as e:
             logger.warning(f"⚠️ Erro ao configurar Redis, usando memória: {e}")
             limiter = Limiter(
                 app=app,
                 key_func=get_rate_limit_key,
-                default_limits=default_limits,
+                default_limits=default_limits,  # None = sem limite padrão
                 storage_uri="memory://",
                 strategy="fixed-window"
             )
@@ -208,11 +204,11 @@ def init_rate_limiter(app, redis_url=None):
         limiter = Limiter(
             app=app,
             key_func=get_rate_limit_key,
-            default_limits=default_limits,
+            default_limits=default_limits,  # None = sem limite padrão
             storage_uri="memory://",
             strategy="fixed-window"
         )
-        logger.info(f"✅ Rate limiter configurado com memória (limites: {default_limits})")
+        logger.info("✅ Rate limiter configurado com memória (sem limite padrão - apenas decorators específicos)")
     
     return limiter
 

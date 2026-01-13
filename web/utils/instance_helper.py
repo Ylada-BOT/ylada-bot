@@ -342,30 +342,37 @@ def get_whatsapp_server_url(port=None):
     if port is None:
         port = WHATSAPP_SERVER_PORT
     
-    # PRIORIDADE 1: Se está no Railway, SEMPRE usa comunicação interna (nome do serviço)
+    # PRIORIDADE 1: Se WHATSAPP_SERVICE_NAME está configurado, SEMPRE usa (mais confiável)
+    # Isso garante que mesmo se a detecção de Railway falhar, ainda funciona
+    service_name = os.getenv('WHATSAPP_SERVICE_NAME')
+    if service_name:
+        # Se tem WHATSAPP_SERVICE_NAME configurado, usa comunicação interna
+        internal_url = f"http://{service_name}:{port}"
+        logger.info(f"🔗 WHATSAPP_SERVICE_NAME configurado! Usando: {internal_url}")
+        return internal_url
+    
+    # PRIORIDADE 2: Se está no Railway, SEMPRE usa comunicação interna (nome do serviço)
     # Detecta Railway de várias formas (mais robusto)
     is_railway = (
         os.getenv('RAILWAY_ENVIRONMENT') or 
         os.getenv('RAILWAY_SERVICE_NAME') or 
         os.getenv('RAILWAY_PROJECT_NAME') or
-        'railway' in str(os.getenv('PLATFORM', '')).lower()
+        'railway' in str(os.getenv('PLATFORM', '')).lower() or
+        'railway.app' in str(WHATSAPP_SERVER_URL or '')
     )
     
     if IS_PRODUCTION or is_railway:
         # No Railway, serviços se comunicam via nome do serviço usando HTTP interno
         # Tenta detectar nome do serviço WhatsApp de várias formas:
         
-        # 1. Variável de ambiente explícita (mais confiável)
-        service_name = os.getenv('WHATSAPP_SERVICE_NAME')
-        
-        # 2. Se WHATSAPP_SERVER_URL está configurada com URL do Railway, extrai nome do serviço
-        if not service_name and WHATSAPP_SERVER_URL and 'railway.app' in WHATSAPP_SERVER_URL:
+        # 1. Se WHATSAPP_SERVER_URL está configurada com URL do Railway, extrai nome do serviço
+        if WHATSAPP_SERVER_URL and 'railway.app' in WHATSAPP_SERVER_URL:
             # Extrai nome do serviço da URL (ex: https://whatsapp-server-2-production.up.railway.app -> whatsapp-server-2)
             url_parts = WHATSAPP_SERVER_URL.replace('https://', '').replace('http://', '').split('.')
             if url_parts:
                 service_name = url_parts[0]  # Primeira parte antes do primeiro ponto
         
-        # 3. Fallback para nome padrão
+        # 2. Fallback para nome padrão
         if not service_name:
             service_name = 'whatsapp-server-2'
         

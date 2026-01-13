@@ -1103,8 +1103,9 @@ def get_qr():
         
         try:
             # Tenta buscar QR Code com retry (até 3 tentativas) e timeout maior
-            # Timeout aumentado para 30s porque servidor pode estar lento gerando QR Code
-            response = get_with_retry(qr_url, timeout=30, max_retries=3)
+            # Timeout aumentado para 45s porque servidor pode estar muito lento gerando QR Code
+            # Usa retry com backoff exponencial para dar mais tempo ao servidor
+            response = get_with_retry(qr_url, timeout=45, max_retries=3)
             if response.status_code == 200:
                 data = response.json()
                 

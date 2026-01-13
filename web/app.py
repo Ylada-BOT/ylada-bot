@@ -1284,7 +1284,11 @@ def get_conversations():
                 elif ready and not has_qr:
                     is_connected = True
                 
-                if not is_connected:
+                # Verifica se está reconectando (não deve retornar erro 400 se está tentando reconectar)
+                is_reconnecting = status_data.get("reconnectInfo", {}).get("isReconnecting", False)
+                is_connecting = status_data.get("isConnecting", False)
+                
+                if not is_connected and not is_reconnecting and not is_connecting:
                     return jsonify({
                         "success": False,
                         "error": "WhatsApp não está conectado",
@@ -1292,6 +1296,15 @@ def get_conversations():
                         "has_qr": has_qr,
                         "needs_qr": has_qr
                     }), 400
+                elif is_reconnecting or is_connecting:
+                    # Se está reconectando, retorna sucesso mas com lista vazia (não erro)
+                    logger.info(f"⏳ WhatsApp está reconectando/conectando. Retornando lista vazia.")
+                    return jsonify({
+                        "success": True,
+                        "chats": [],
+                        "total": 0,
+                        "message": "WhatsApp está reconectando. Aguarde alguns segundos."
+                    })
         except requests.exceptions.RequestException:
             # Se não conseguir verificar status, continua tentando buscar conversas
             # (pode ser que o endpoint /status não exista em versões antigas)

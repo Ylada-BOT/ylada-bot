@@ -182,19 +182,31 @@ function initClient(userId) {
         if (reason && typeof reason === 'object') {
             console.log(`[${timestamp}] [User ${userId}] Detalhes da desconexão:`, JSON.stringify(reason, null, 2));
         }
-        clients[userId].isReady = false;
-        clients[userId].qrCodeData = null;
         
         // Se foi desconectado por logout manual ou sessão removida, não tenta reconectar
         if (reason === 'LOGOUT' || (reason && reason.toString().includes('LOGOUT'))) {
             console.log(`[${timestamp}] [User ${userId}] 🚪 Logout manual detectado. Não tentará reconectar automaticamente.`);
+            clients[userId].isReady = false;
+            clients[userId].isAuthenticated = false;
+            clients[userId].qrCodeData = null;
             return;
         }
+        
+        // IMPORTANTE: Não marca como desconectado imediatamente se vai reconectar
+        // Mantém flags durante reconexão para não mostrar erro no dashboard
+        // Só marca como desconectado se não conseguir reconectar após todas as tentativas
         
         // Tenta reconectar automaticamente
         if (!clients[userId].isReconnecting) {
             console.log(`[${timestamp}] [User ${userId}] 🔄 Tentando reconectar automaticamente...`);
+            // Marca como reconectando ANTES de tentar reconectar
+            clients[userId].isReconnecting = true;
+            clients[userId].isConnecting = true; // Marca como conectando durante reconexão
+            // NÃO marca isReady=false ainda - deixa para depois se falhar todas as tentativas
             attemptReconnect(userId);
+        } else {
+            // Se já está reconectando, apenas loga
+            console.log(`[${timestamp}] [User ${userId}] ⏳ Já está tentando reconectar...`);
         }
     });
 
@@ -340,29 +352,57 @@ function attemptReconnect(userId) {
     console.log(`\n[${timestamp}] [User ${userId}] 🔄 Tentativa de reconexão ${clients[userId].reconnectAttempts}/${maxReconnectAttempts} em ${delaySeconds} segundos...`);
     
     setTimeout(() => {
-        if (!clients[userId].isReady) {
+        if (!clients[userId] || !clients[userId].isReady) {
             console.log(`[${new Date().toISOString()}] [User ${userId}] 🔄 Reconectando...`);
             try {
                 // Destroi cliente antigo se existir
-                if (clients[userId].client) {
+                if (clients[userId] && clients[userId].client) {
                     clients[userId].client.destroy().catch(() => {});
                 }
+                // Salva dados importantes antes de deletar
+                const savedData = clients[userId] ? {
+                    reconnectAttempts: clients[userId].reconnectAttempts,
+                    isReconnecting: true,
+                    isConnecting: true // Mantém como conectando durante reconexão
+                } : {};
                 // Remove cliente antigo
-                delete clients[userId];
+                if (clients[userId]) {
+                    delete clients[userId];
+                }
                 // Cria novo cliente
                 initClient(userId);
+                // Restaura flags de reconexão
+                if (clients[userId]) {
+                    clients[userId].reconnectAttempts = savedData.reconnectAttempts || 0;
+                    clients[userId].isReconnecting = true;
+                    clients[userId].isConnecting = true;
+                }
             } catch (error) {
                 const timestamp = new Date().toISOString();
                 console.error(`[${timestamp}] [User ${userId}] ❌ Erro ao tentar reconectar:`, error.message);
-                clients[userId].isReconnecting = false;
-                // Tenta novamente após delay
-                setTimeout(() => {
+                if (clients[userId]) {
                     clients[userId].isReconnecting = false;
-                    attemptReconnect(userId);
-                }, reconnectDelay);
+                    // Se falhou todas as tentativas, marca como desconectado
+                    if (clients[userId].reconnectAttempts >= maxReconnectAttempts) {
+                        clients[userId].isReady = false;
+                        clients[userId].isAuthenticated = false;
+                        clients[userId].isConnecting = false;
+                    }
+                    // Tenta novamente após delay
+                    setTimeout(() => {
+                        if (clients[userId] && clients[userId].reconnectAttempts < maxReconnectAttempts) {
+                            clients[userId].isReconnecting = false;
+                            attemptReconnect(userId);
+                        }
+                    }, reconnectDelay);
+                }
             }
         } else {
-            clients[userId].isReconnecting = false;
+            // Se reconectou com sucesso, limpa flags de reconexão
+            if (clients[userId]) {
+                clients[userId].isReconnecting = false;
+                clients[userId].isConnecting = false;
+            }
         }
     }, reconnectDelay);
 }
@@ -636,12 +676,26 @@ app.get('/status', async (req, res) => {
     let finalConnected = actuallyReady || clientData.isReady; // PRIORIDADE: se isReady=true, está conectado
     const hasQrFlag = !!clientData.qrCodeData;
     const isAuthFlag = isAuthenticated || clientData.isAuthenticated;
+    const isReconnecting = clientData.isReconnecting || false;
+    const isConnecting = clientData.isConnecting || false;
+    
+    // IMPORTANTE: Se está reconectando, considera como conectando (não desconectado)
+    // Isso evita mostrar erro no dashboard durante reconexão automática
+    if (isReconnecting || isConnecting) {
+        // Se estava conectado antes e está reconectando, mantém status como conectando
+        // Não marca como desconectado até esgotar todas as tentativas
+        if (clientData.client && clientData.client.info) {
+            // Ainda tem cliente válido, considera como conectando
+            finalConnected = false; // Não está ready ainda, mas está tentando reconectar
+            console.log(`[User ${userId}] ⏳ Reconectando... Mantendo status como conectando`);
+        }
+    }
     
     // Se isReady está true, FORÇA considerar conectado (mais confiável)
-    if (clientData.isReady) {
+    if (clientData.isReady && !isReconnecting) {
         finalConnected = true;
         console.log(`[User ${userId}] ✅ Considerando conectado: isReady=true (mais confiável)`);
-    } else if (!finalConnected && isAuthFlag && !hasQrFlag) {
+    } else if (!finalConnected && isAuthFlag && !hasQrFlag && !isReconnecting) {
         // Se está autenticado, sem QR, e tem cliente inicializado, considera conectado
         if (clientData.client && clientData.client.info) {
             finalConnected = true;
@@ -650,12 +704,12 @@ app.get('/status', async (req, res) => {
     }
     
     res.json({ 
-        ready: actuallyReady || clientData.isReady, 
+        ready: actuallyReady || (clientData.isReady && !isReconnecting), 
         hasQr: hasQrFlag,
-        actuallyConnected: finalConnected || actuallyReady || (isAuthFlag && !hasQrFlag), // Considera conectado se autenticado e sem QR
+        actuallyConnected: finalConnected || actuallyReady || (isAuthFlag && !hasQrFlag && !isReconnecting), // Considera conectado se autenticado e sem QR, mas não se está reconectando
         clientInitialized: !!clientData.client,
         isAuthenticated: isAuthFlag, // Flag de autenticado
-        isConnecting: clientData.isConnecting || false, // Flag de conectando (QR escaneado)
+        isConnecting: isConnecting || isReconnecting, // Flag de conectando (QR escaneado OU reconectando)
         phone_number: phoneNumber, // Adiciona número formatado
         clientInfo: clientInfo ? {
             wid: clientInfo.wid,
@@ -663,9 +717,9 @@ app.get('/status', async (req, res) => {
             platform: clientInfo.platform
         } : null,
         reconnectInfo: {
-            attempts: clientData.reconnectAttempts,
+            attempts: clientData.reconnectAttempts || 0,
             maxAttempts: maxReconnectAttempts,
-            isReconnecting: clientData.isReconnecting,
+            isReconnecting: isReconnecting,
             autoReconnectEnabled: true
         }
     });

@@ -7,9 +7,12 @@ import os
 import subprocess
 import time
 import requests
+import logging
 from datetime import datetime
 from pathlib import Path
 from web.utils.auth_helpers import get_current_user_id
+
+logger = logging.getLogger(__name__)
 
 
 def get_user_instances(user_id=None):
@@ -340,13 +343,19 @@ def get_whatsapp_server_url(port=None):
         port = WHATSAPP_SERVER_PORT
     
     # PRIORIDADE 1: Se está no Railway, SEMPRE usa comunicação interna (nome do serviço)
-    # Isso garante que mesmo se WHATSAPP_SERVER_URL estiver configurada com URL pública,
-    # ainda usará comunicação interna (mais rápida e confiável)
-    if IS_PRODUCTION and os.getenv('RAILWAY_ENVIRONMENT'):
+    # Detecta Railway de várias formas (mais robusto)
+    is_railway = (
+        os.getenv('RAILWAY_ENVIRONMENT') or 
+        os.getenv('RAILWAY_SERVICE_NAME') or 
+        os.getenv('RAILWAY_PROJECT_NAME') or
+        'railway' in str(os.getenv('PLATFORM', '')).lower()
+    )
+    
+    if IS_PRODUCTION or is_railway:
         # No Railway, serviços se comunicam via nome do serviço usando HTTP interno
         # Tenta detectar nome do serviço WhatsApp de várias formas:
         
-        # 1. Variável de ambiente explícita
+        # 1. Variável de ambiente explícita (mais confiável)
         service_name = os.getenv('WHATSAPP_SERVICE_NAME')
         
         # 2. Se WHATSAPP_SERVER_URL está configurada com URL do Railway, extrai nome do serviço
@@ -361,7 +370,9 @@ def get_whatsapp_server_url(port=None):
             service_name = 'whatsapp-server-2'
         
         # Railway usa comunicação interna via nome do serviço (HTTP, não HTTPS)
-        return f"http://{service_name}:{port}"
+        internal_url = f"http://{service_name}:{port}"
+        logger.info(f"🔗 Railway detectado! Usando comunicação interna: {internal_url}")
+        return internal_url
     
     # PRIORIDADE 2: Se WHATSAPP_SERVER_URL está configurado e não é localhost (outros ambientes)
     if IS_PRODUCTION and WHATSAPP_SERVER_URL and 'localhost' not in WHATSAPP_SERVER_URL:
@@ -378,7 +389,9 @@ def get_whatsapp_server_url(port=None):
         return base_url.rstrip('/')
     
     # Caso contrário, usa localhost (desenvolvimento)
-    return f"http://localhost:{port}"
+    localhost_url = f"http://localhost:{port}"
+    logger.info(f"🔗 Modo desenvolvimento! Usando: {localhost_url}")
+    return localhost_url
 
 def ensure_whatsapp_server_running(port):
     """

@@ -8,12 +8,167 @@ const port = process.env.PORT || process.argv[2] || 5001;
 
 app.use(express.json());
 
-// Gerencia múltiplos clientes simultaneamente (um por user_id)
-const clients = {}; // { user_id: { client, qrCodeData, isReady, reconnectAttempts, isReconnecting } }
+// ============================================
+// MÁQUINA DE ESTADOS - PREVENÇÃO DE BUGS
+// ============================================
+const STATES = {
+    INITIALIZING: 'initializing',
+    QR_AVAILABLE: 'qr_available',
+    CONNECTING: 'connecting',
+    AUTHENTICATED: 'authenticated',
+    READY: 'ready',
+    DISCONNECTED: 'disconnected',
+    RECONNECTING: 'reconnecting'
+};
 
-let maxReconnectAttempts = 10; // Máximo de tentativas de reconexão
-let reconnectDelay = 30000; // 30 segundos entre tentativas
+// Transições válidas de estado (previne estados inconsistentes)
+const VALID_TRANSITIONS = {
+    [STATES.INITIALIZING]: [STATES.QR_AVAILABLE, STATES.DISCONNECTED],
+    [STATES.QR_AVAILABLE]: [STATES.CONNECTING, STATES.DISCONNECTED, STATES.RECONNECTING],
+    [STATES.CONNECTING]: [STATES.AUTHENTICATED, STATES.DISCONNECTED, STATES.QR_AVAILABLE],
+    [STATES.AUTHENTICATED]: [STATES.READY, STATES.DISCONNECTED],
+    [STATES.READY]: [STATES.DISCONNECTED],
+    [STATES.DISCONNECTED]: [STATES.RECONNECTING, STATES.QR_AVAILABLE, STATES.INITIALIZING],
+    [STATES.RECONNECTING]: [STATES.READY, STATES.DISCONNECTED, STATES.QR_AVAILABLE, STATES.CONNECTING]
+};
+
+// Configuração centralizada (previne inconsistências)
+const CONFIG = {
+    TIMEOUTS: {
+        STATUS_CHECK: 10,
+        QR_GENERATION: 30,
+        RECONNECTION: 30,
+        HEALTH_CHECK: 120000 // 2 minutos
+    },
+    RETRY: {
+        MAX_ATTEMPTS: 3,
+        BACKOFF_BASE: 2,
+        INITIAL_DELAY: 2
+    },
+    RECONNECT: {
+        MAX_ATTEMPTS: 10,
+        DELAY: 30000 // 30 segundos
+    }
+};
+
+// Gerencia múltiplos clientes simultaneamente (um por user_id)
+const clients = {}; // { user_id: { client, state, qrCodeData, isReady, reconnectAttempts, isReconnecting, ... } }
+
+let maxReconnectAttempts = CONFIG.RECONNECT.MAX_ATTEMPTS;
+let reconnectDelay = CONFIG.RECONNECT.DELAY;
 let healthCheckInterval = null;
+
+// ============================================
+// FUNÇÕES DE GERENCIAMENTO DE ESTADO
+// ============================================
+
+/**
+ * Valida se transição de estado é permitida
+ */
+function isValidTransition(currentState, newState) {
+    if (!currentState) return true; // Primeiro estado sempre válido
+    const allowed = VALID_TRANSITIONS[currentState] || [];
+    return allowed.includes(newState);
+}
+
+/**
+ * Define estado com validação (fonte única de verdade)
+ */
+function setState(userId, newState, reason = '') {
+    if (!clients[userId]) {
+        console.warn(`[User ${userId}] Tentativa de setState sem cliente inicializado`);
+        return false;
+    }
+    
+    const currentState = clients[userId].state || STATES.INITIALIZING;
+    
+    if (!isValidTransition(currentState, newState)) {
+        console.warn(`[User ${userId}] ⚠️ Transição inválida ignorada: ${currentState} -> ${newState} ${reason ? `(${reason})` : ''}`);
+        return false;
+    }
+    
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] [User ${userId}] 🔄 Estado: ${currentState} -> ${newState} ${reason ? `(${reason})` : ''}`);
+    
+    clients[userId].state = newState;
+    updateFlagsFromState(userId);
+    
+    return true;
+}
+
+/**
+ * Atualiza flags baseado no estado (mantém consistência)
+ */
+function updateFlagsFromState(userId) {
+    if (!clients[userId]) return;
+    
+    const state = clients[userId].state;
+    
+    // Atualiza flags baseado no estado (fonte única de verdade)
+    switch (state) {
+        case STATES.READY:
+            clients[userId].isReady = true;
+            clients[userId].isAuthenticated = true;
+            clients[userId].isConnecting = false;
+            clients[userId].isReconnecting = false;
+            clients[userId].qrCodeData = null;
+            break;
+        case STATES.AUTHENTICATED:
+            clients[userId].isReady = false;
+            clients[userId].isAuthenticated = true;
+            clients[userId].isConnecting = true;
+            clients[userId].qrCodeData = null;
+            break;
+        case STATES.CONNECTING:
+            clients[userId].isReady = false;
+            clients[userId].isAuthenticated = false;
+            clients[userId].isConnecting = true;
+            clients[userId].qrCodeData = null;
+            break;
+        case STATES.QR_AVAILABLE:
+            clients[userId].isReady = false;
+            clients[userId].isAuthenticated = false;
+            clients[userId].isConnecting = false;
+            // qrCodeData é definido separadamente
+            break;
+        case STATES.RECONNECTING:
+            clients[userId].isReady = false;
+            clients[userId].isConnecting = true;
+            clients[userId].isReconnecting = true;
+            break;
+        case STATES.DISCONNECTED:
+            clients[userId].isReady = false;
+            clients[userId].isAuthenticated = false;
+            clients[userId].isConnecting = false;
+            clients[userId].qrCodeData = null;
+            // isReconnecting só é false se não for logout manual
+            break;
+        default:
+            // INITIALIZING - mantém flags como estão
+            break;
+    }
+}
+
+/**
+ * Obtém estado atual (fonte única de verdade)
+ */
+function getState(userId) {
+    if (!clients[userId]) return null;
+    
+    // Prioridade: estado explícito > flags > client.info
+    if (clients[userId].state) {
+        return clients[userId].state;
+    }
+    
+    // Fallback: deriva estado das flags (compatibilidade)
+    if (clients[userId].isReady) return STATES.READY;
+    if (clients[userId].isAuthenticated) return STATES.AUTHENTICATED;
+    if (clients[userId].isReconnecting) return STATES.RECONNECTING;
+    if (clients[userId].isConnecting) return STATES.CONNECTING;
+    if (clients[userId].qrCodeData) return STATES.QR_AVAILABLE;
+    
+    return STATES.DISCONNECTED;
+}
 
 // Inicializa cliente para um user_id específico
 function initClient(userId) {
@@ -90,13 +245,20 @@ function initClient(userId) {
     // Inicializa estrutura para este user_id
     clients[userId] = {
         client: client,
+        state: STATES.INITIALIZING, // Estado explícito (fonte única de verdade)
         qrCodeData: null,
         isReady: false,
         reconnectAttempts: 0,
         isReconnecting: false,
         isConnecting: false, // Flag para rastrear se está no processo de conexão (QR escaneado)
-        isAuthenticated: false // Flag para rastrear se está autenticado
+        isAuthenticated: false, // Flag para rastrear se está autenticado
+        lastStateChange: new Date().toISOString(),
+        stateHistory: [] // Histórico de mudanças de estado (debug)
     };
+    
+    // Log estado inicial
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] [User ${userId}] 🆕 Cliente inicializado - Estado: ${STATES.INITIALIZING}`);
 
     client.on('qr', (qr) => {
         // NÃO gera novo QR Code se já está conectando ou autenticado
@@ -126,47 +288,40 @@ function initClient(userId) {
         console.log(`[${timestamp}] [User ${userId}] 📱 Sessão salva em: .wwebjs_auth_user_${userId}`);
         console.log(`[${timestamp}] [User ${userId}] ✅ Pronto para enviar e receber mensagens!`);
         console.log(`[${timestamp}] [User ${userId}] ═══════════════════════════════════════\n`);
-        // FORÇA atualizar todas as flags imediatamente
-        clients[userId].isReady = true;
-        clients[userId].isAuthenticated = true;
-        clients[userId].isConnecting = false; // Concluiu conexão
-        clients[userId].qrCodeData = null;
-        clients[userId].reconnectAttempts = 0;
-        clients[userId].isReconnecting = false;
+        
+        // Usa máquina de estados para garantir consistência
+        setState(userId, STATES.READY, 'event:ready');
+        clients[userId].reconnectAttempts = 0; // Reset contador de reconexão
+        
         // Log adicional para debug
-        console.log(`[${timestamp}] [User ${userId}] 🔍 Flags após ready: isReady=${clients[userId].isReady}, isAuthenticated=${clients[userId].isAuthenticated}, isConnecting=${clients[userId].isConnecting}`);
+        console.log(`[${timestamp}] [User ${userId}] 🔍 Estado após ready: ${getState(userId)}`);
     });
 
     client.on('authenticated', () => {
         const timestamp = new Date().toISOString();
         console.log(`\n[${timestamp}] [User ${userId}] ✅ Autenticado com sucesso!`);
         console.log(`[${timestamp}] [User ${userId}] ⏳ Aguardando inicialização completa...`);
-        // authenticated não significa ready ainda, apenas que a autenticação foi aceita
-        // Mas já pode considerar como conectando - remove QR Code para evitar confusão
-        clients[userId].isAuthenticated = true; // Marca como autenticado
-        clients[userId].isConnecting = true; // Ainda está conectando (aguardando ready)
-        if (clients[userId].qrCodeData) {
-            console.log(`[${timestamp}] [User ${userId}] 🧹 Removendo QR Code (já autenticado)`);
-            clients[userId].qrCodeData = null;
-        }
+        
+        // Usa máquina de estados
+        setState(userId, STATES.AUTHENTICATED, 'event:authenticated');
         
         // MELHORIA: Se o cliente já tem info, marca como ready imediatamente
         // Isso acelera a detecção de conexão
         if (clients[userId].client && clients[userId].client.info) {
-            clients[userId].isReady = true;
-            clients[userId].isConnecting = false;
+            setState(userId, STATES.READY, 'event:authenticated + client.info available');
             console.log(`[${timestamp}] [User ${userId}] ✅ Cliente já tem info! Marcando como ready imediatamente`);
         }
         
-        console.log(`[${timestamp}] [User ${userId}] ✅ Flags após authenticated: isAuthenticated=true, isConnecting=${clients[userId].isConnecting}, isReady=${clients[userId].isReady}`);
+        console.log(`[${timestamp}] [User ${userId}] 🔍 Estado após authenticated: ${getState(userId)}`);
     });
 
     client.on('auth_failure', (msg) => {
         const timestamp = new Date().toISOString();
         console.error(`\n[${timestamp}] [User ${userId}] ❌ Falha na autenticação:`, msg);
         console.error(`[${timestamp}] [User ${userId}] Detalhes:`, JSON.stringify(msg, null, 2));
-        clients[userId].isReady = false;
-        clients[userId].qrCodeData = null;
+        
+        // Usa máquina de estados
+        setState(userId, STATES.DISCONNECTED, `auth_failure: ${msg}`);
         
         // Se a falha foi por sessão inválida, limpa e permite nova tentativa
         if (msg && (msg.includes('SESSION') || msg.includes('session') || msg.includes('invalid'))) {
@@ -186,23 +341,15 @@ function initClient(userId) {
         // Se foi desconectado por logout manual ou sessão removida, não tenta reconectar
         if (reason === 'LOGOUT' || (reason && reason.toString().includes('LOGOUT'))) {
             console.log(`[${timestamp}] [User ${userId}] 🚪 Logout manual detectado. Não tentará reconectar automaticamente.`);
-            clients[userId].isReady = false;
-            clients[userId].isAuthenticated = false;
-            clients[userId].qrCodeData = null;
+            setState(userId, STATES.DISCONNECTED, `logout: ${reason}`);
             return;
         }
-        
-        // IMPORTANTE: Não marca como desconectado imediatamente se vai reconectar
-        // Mantém flags durante reconexão para não mostrar erro no dashboard
-        // Só marca como desconectado se não conseguir reconectar após todas as tentativas
         
         // Tenta reconectar automaticamente
         if (!clients[userId].isReconnecting) {
             console.log(`[${timestamp}] [User ${userId}] 🔄 Tentando reconectar automaticamente...`);
-            // Marca como reconectando ANTES de tentar reconectar
-            clients[userId].isReconnecting = true;
-            clients[userId].isConnecting = true; // Marca como conectando durante reconexão
-            // NÃO marca isReady=false ainda - deixa para depois se falhar todas as tentativas
+            // Usa máquina de estados para garantir consistência
+            setState(userId, STATES.RECONNECTING, `disconnected: ${reason}`);
             attemptReconnect(userId);
         } else {
             // Se já está reconectando, apenas loga
@@ -221,41 +368,29 @@ function initClient(userId) {
         
         if (state === 'CONNECTING' || state === 'OPENING' || state === 'PAIRING') {
             console.log(`[${timestamp}] [User ${userId}] 🔗 Estado: ${state} - QR Code foi escaneado!`);
-            clients[userId].isConnecting = true; // Marca que está conectando
-            clients[userId].isAuthenticated = false; // Ainda não autenticado, mas conectando
-            // Remove QR Code IMEDIATAMENTE para evitar gerar novo durante conexão
-            if (clients[userId].qrCodeData) {
-                console.log(`[${timestamp}] [User ${userId}] 🧹 Removendo QR Code (foi escaneado, conectando...)`);
-                clients[userId].qrCodeData = null;
-            }
-            console.log(`[${timestamp}] [User ${userId}] ✅ Flags atualizadas: isConnecting=true, isAuthenticated=false`);
-            // IMPORTANTE: Força não gerar novo QR enquanto está conectando
-            console.log(`[${timestamp}] [User ${userId}] 🚫 Bloqueando geração de novo QR Code enquanto isConnecting=true`);
+            // Usa máquina de estados
+            setState(userId, STATES.CONNECTING, `change_state: ${state}`);
         } else if (state === 'CONNECTED') {
             // Estado CONNECTED indica que está conectado
             console.log(`[${timestamp}] [User ${userId}] ✅ Estado CONNECTED detectado!`);
-            clients[userId].isConnecting = false;
-            clients[userId].isAuthenticated = true;
             // Força atualizar isReady se o cliente tem info
             if (clients[userId].client && clients[userId].client.info) {
-                clients[userId].isReady = true;
+                setState(userId, STATES.READY, `change_state: CONNECTED + client.info available`);
                 console.log(`[${timestamp}] [User ${userId}] ✅ Cliente marcado como ready (tem info)`);
             } else {
-                // Se não tem info ainda, aguarda um pouco e verifica novamente
+                // Se não tem info ainda, marca como autenticado e aguarda ready
+                setState(userId, STATES.AUTHENTICATED, `change_state: CONNECTED (aguardando info)`);
+                // Aguarda um pouco e verifica novamente
                 setTimeout(() => {
                     if (clients[userId].client && clients[userId].client.info) {
-                        clients[userId].isReady = true;
+                        setState(userId, STATES.READY, `change_state: CONNECTED (verificação tardia)`);
                         console.log(`[${timestamp}] [User ${userId}] ✅ Cliente marcado como ready (verificação tardia)`);
                     }
                 }, 2000); // Aguarda 2 segundos para o cliente inicializar completamente
             }
-            console.log(`[${timestamp}] [User ${userId}] ✅ Flags finais CONNECTED: isReady=${clients[userId].isReady}, isAuthenticated=true, isConnecting=false`);
         } else if (state === 'UNPAIRED' || state === 'UNPAIRED_IDLE') {
             console.log(`[${timestamp}] [User ${userId}] ⚠️ Dispositivo não pareado. Precisa escanear QR Code novamente.`);
-            clients[userId].qrCodeData = null; // Força gerar novo QR
-            clients[userId].isConnecting = false; // Reset flag
-            clients[userId].isAuthenticated = false; // Reset flag
-            console.log(`[${timestamp}] [User ${userId}] 🔄 Flags resetadas: isConnecting=false, isAuthenticated=false`);
+            setState(userId, STATES.DISCONNECTED, `change_state: ${state}`);
         } else {
             // Outros estados (TIMEOUT, etc)
             console.log(`[${timestamp}] [User ${userId}] ℹ️ Estado recebido: ${state} (sem ação específica)`);

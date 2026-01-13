@@ -1489,6 +1489,7 @@ def whatsapp_status():
     try:
         from web.utils.instance_helper import get_or_create_user_instance, get_whatsapp_server_url
         from web.utils.auth_helpers import get_current_user_id
+        from config.settings import IS_PRODUCTION
         import requests
         
         # Obtém instância do usuário

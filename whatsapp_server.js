@@ -642,15 +642,18 @@ app.get('/qr', (req, res) => {
     
     // Inicializa cliente para este user_id se não existir
     if (!clients[userId]) {
-        console.log(`[User ${userId}] Cliente não existe, inicializando...`);
+        const timestamp = new Date().toISOString();
+        console.log(`[${timestamp}] [User ${userId}] Cliente não existe, inicializando...`);
         initClient(userId);
         // Aguarda um pouco para o cliente começar a inicializar
         // O QR code será gerado no evento 'qr'
+        // Retorna status "generating" para o frontend continuar tentando
         return res.json({ 
             ready: false, 
             qr: null, 
             hasQr: false,
-            message: "Inicializando cliente... Aguarde alguns segundos e recarregue a página."
+            status: "generating",
+            message: "Inicializando cliente... Isso pode levar 10-30 segundos. Aguarde..."
         });
     }
     

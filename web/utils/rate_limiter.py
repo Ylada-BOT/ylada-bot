@@ -178,7 +178,7 @@ def init_rate_limiter(app, redis_url=None):
     
     # NÃO aplica limite padrão - deixa apenas os decorators específicos fazerem o trabalho
     # Isso evita conflitos e permite controle fino por rota
-    default_limits = None  # Sem limite padrão - apenas decorators específicos
+    # Usa lista vazia para desabilitar limite padrão
     
     # Configura storage (Redis se disponível, senão memória)
     if redis_url:
@@ -186,7 +186,7 @@ def init_rate_limiter(app, redis_url=None):
             limiter = Limiter(
                 app=app,
                 key_func=get_rate_limit_key,
-                default_limits=default_limits,  # None = sem limite padrão
+                default_limits=[],  # Lista vazia = sem limite padrão
                 storage_uri=redis_url,
                 strategy="fixed-window"
             )
@@ -196,7 +196,7 @@ def init_rate_limiter(app, redis_url=None):
             limiter = Limiter(
                 app=app,
                 key_func=get_rate_limit_key,
-                default_limits=default_limits,  # None = sem limite padrão
+                default_limits=[],  # Lista vazia = sem limite padrão
                 storage_uri="memory://",
                 strategy="fixed-window"
             )
@@ -204,7 +204,7 @@ def init_rate_limiter(app, redis_url=None):
         limiter = Limiter(
             app=app,
             key_func=get_rate_limit_key,
-            default_limits=default_limits,  # None = sem limite padrão
+            default_limits=[],  # Lista vazia = sem limite padrão
             storage_uri="memory://",
             strategy="fixed-window"
         )

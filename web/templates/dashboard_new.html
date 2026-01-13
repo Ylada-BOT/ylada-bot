@@ -779,8 +779,24 @@
                 // Verifica se houve erro de rate limiting
                 if (statusResponse.status === 429) {
                     const errorData = await statusResponse.json();
-                    errorEl.textContent = `⚠️ Muitas requisições. Aguarde alguns segundos...`;
+                    errorEl.textContent = `⚠️ Muitas requisições. Aguardando antes de verificar novamente...`;
                     errorEl.classList.remove('hidden');
+                    // Para o intervalo atual e aumenta o delay
+                    if (statusInterval) {
+                        clearInterval(statusInterval);
+                    }
+                    // Aumenta delay progressivamente (mínimo 30s, máximo 120s)
+                    const currentDelay = statusInterval ? 30000 : 10000;
+                    const newDelay = Math.min(currentDelay * 2, 120000);
+                    setTimeout(() => {
+                        checkStatus().catch(() => {});
+                        // Reinicia intervalo com delay maior
+                        if (statusInterval) {
+                            statusInterval = setInterval(() => {
+                                checkStatus().catch(() => {});
+                            }, newDelay);
+                        }
+                    }, newDelay);
                     throw new Error('429 Too Many Requests');
                 }
                 
@@ -835,10 +851,10 @@
                     // Para verificação frequente quando conectado
                     if (statusInterval) {
                         clearInterval(statusInterval);
-                        // Verifica a cada 15 segundos quando conectado (menos frequente)
+                        // Verifica a cada 30 segundos quando conectado (reduzido para evitar 429)
                         statusInterval = setInterval(() => {
                             checkStatus().catch(() => {});
-                        }, 15000);
+                        }, 30000); // 30 segundos quando conectado
                     }
                 } else if (statusData.isConnecting || (statusData.isAuthenticated && !statusData.hasQr)) {
                     // Está conectando (QR escaneado ou autenticado)
@@ -849,12 +865,12 @@
                     updateBtn.style.display = 'none';
                     errorEl.classList.add('hidden');
                     
-                    // Verifica mais frequentemente quando está conectando (a cada 2 segundos)
+                    // Verifica quando está conectando (a cada 10 segundos - reduzido para evitar 429)
                     if (statusInterval) {
                         clearInterval(statusInterval);
                         statusInterval = setInterval(() => {
                             checkStatus().catch(() => {});
-                        }, 2000); // 2 segundos quando conectando
+                        }, 10000); // 10 segundos quando conectando (reduzido de 2s)
                     }
                 } else {
                     // Não conectado
@@ -1041,38 +1057,41 @@
                 checkStatus().then(data => {
                     // Se está conectando ou não conectado, verifica mais frequentemente
                     if (data && (data.isConnecting || !data.connected)) {
-                        // Se está conectando, verifica a cada 2 segundos
+                        // Se está conectando, verifica a cada 10 segundos (reduzido para evitar 429)
                         if (data.isConnecting) {
                             clearInterval(statusInterval);
-                            retryDelay = 2000; // 2 segundos quando conectando
+                            retryDelay = 10000; // 10 segundos quando conectando (aumentado de 2s)
                             scheduleStatusCheck();
                         } else if (!data.connected && !data.hasQr) {
-                            // Se não está conectado e não tem QR, verifica a cada 3 segundos
+                            // Se não está conectado e não tem QR, verifica a cada 15 segundos
                             clearInterval(statusInterval);
-                            retryDelay = 3000; // 3 segundos quando aguardando
+                            retryDelay = 15000; // 15 segundos quando aguardando (aumentado de 3s)
                             scheduleStatusCheck();
                         }
                     }
                 }).catch(error => {
-                    // Se der erro 429 (Too Many Requests), aumenta o delay
+                    // Se der erro 429 (Too Many Requests), aumenta o delay progressivamente
                     if (error.message && error.message.includes('429')) {
-                        retryDelay = Math.min(retryDelay * 1.5, 120000); // Máximo 120 segundos
-                        console.warn(`Rate limit atingido. Aumentando delay para ${retryDelay/1000}s`);
+                        retryDelay = Math.min(retryDelay * 2, 120000); // Máximo 120 segundos (dobra a cada erro)
+                        console.warn(`⚠️ Rate limit atingido. Aumentando delay para ${retryDelay/1000}s`);
                         clearInterval(statusInterval);
-                        setTimeout(scheduleStatusCheck, retryDelay);
+                        // Aguarda antes de tentar novamente
+                        setTimeout(() => {
+                            scheduleStatusCheck();
+                        }, retryDelay);
                     }
                 });
                 updateCount++;
-                // Após 12 atualizações (1 minuto com 5s), reduz frequência para 15 segundos
-                if (updateCount >= 12 && retryDelay >= 5000) {
+                // Após 12 atualizações, reduz frequência para 30 segundos (aumentado para evitar 429)
+                if (updateCount >= 12 && retryDelay >= 10000) {
                     clearInterval(statusInterval);
                     statusInterval = setInterval(() => {
                         checkStatus().catch(() => {
                             // Ignora erros silenciosamente após período inicial
                         });
-                    }, 15000); // Atualiza a cada 15 segundos depois
+                    }, 30000); // Atualiza a cada 30 segundos depois (aumentado de 15s)
                 }
-            }, retryDelay); // Começa com 5 segundos, mas pode mudar dinamicamente
+            }, retryDelay); // Começa com 10 segundos (aumentado de 5s), mas pode mudar dinamicamente
         }
         
         scheduleStatusCheck();

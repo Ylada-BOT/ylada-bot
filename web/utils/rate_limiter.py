@@ -78,14 +78,27 @@ def rate_limit_whatsapp(f):
     - 15 mensagens/minuto
     - 800 mensagens/dia
     """
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if limiter is None:
-            # Se limiter não foi inicializado, permite (modo dev)
-            return f(*args, **kwargs)
-        # Aplica limite
-        return limiter.limit(get_whatsapp_rate_limits())(f)(*args, **kwargs)
-    return decorated_function
+    if limiter is None:
+        # Se limiter não foi inicializado, retorna função sem rate limiting (modo dev)
+        return f
+    # Aplica limite diretamente na função
+    return limiter.limit(get_whatsapp_rate_limits())(f)
+
+
+def rate_limit_status(f):
+    """
+    Decorator para aplicar rate limiting em rotas de status (apenas leitura)
+    
+    Limites mais generosos para rotas de status:
+    - 100 requisições/minuto
+    - 5000 requisições/hora
+    """
+    if limiter is None:
+        # Se limiter não foi inicializado, retorna função sem rate limiting (modo dev)
+        return f
+    # Aplica limite mais generoso para rotas de status (apenas leitura)
+    # Aplica o decorator diretamente na função
+    return limiter.limit(["100 per minute", "5000 per hour"])(f)
 
 
 def rate_limit_by_plan(f):

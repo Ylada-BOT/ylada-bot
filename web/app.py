@@ -35,7 +35,7 @@ from whatsapp_webjs_handler import WhatsAppWebJSHandler
 from ai_handler import AIHandler
 
 # Rate limiting
-from web.utils.rate_limiter import init_rate_limiter, rate_limit_whatsapp, limiter
+from web.utils.rate_limiter import init_rate_limiter, rate_limit_whatsapp, rate_limit_status, limiter
 from config.settings import REDIS_URL, USE_REDIS
 
 # Fila de mensagens
@@ -1477,6 +1477,7 @@ def check_active_flow():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/whatsapp-status')
+@rate_limit_status  # Limite mais generoso para rotas de status (apenas leitura)
 def whatsapp_status():
     """Status da conexão WhatsApp (modo simplificado: usa instância do usuário)"""
     try:

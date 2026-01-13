@@ -131,18 +131,13 @@ def get_or_create_user_instance(user_id=None, instance_id=None):
         return user_instances[0]
     
     # Cria nova instância se não existir nenhuma
-    from config.settings import IS_PRODUCTION
+    from config.settings import IS_PRODUCTION, WHATSAPP_SERVER_PORT
     if IS_PRODUCTION:
-        base_port = 5001  # Todos usam a mesma porta em produção
+        base_port = WHATSAPP_SERVER_PORT  # Todos usam a mesma porta em produção
     else:
-        # Encontra próxima porta disponível
-        used_ports = set()
-        for user_data in all_user_instances.values():
-            for inst in user_data.get('instances', []):
-                used_ports.add(inst.get('port', 5001))
-        base_port = 5001
-        while base_port in used_ports:
-            base_port += 1
+        # Em desenvolvimento, TODAS as instâncias usam a mesma porta (5001)
+        # O servidor WhatsApp gerencia múltiplos clientes usando user_id único
+        base_port = WHATSAPP_SERVER_PORT  # Sempre 5001 em desenvolvimento
     
     # Gera novo ID de instância
     max_id = 0

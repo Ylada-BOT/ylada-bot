@@ -856,6 +856,31 @@
                             checkStatus().catch(() => {});
                         }, 30000); // 30 segundos quando conectado
                     }
+                } else if (statusData.reconnectInfo && statusData.reconnectInfo.isReconnecting) {
+                    // Está reconectando automaticamente
+                    lastStatus = 'reconnecting';
+                    statusEl.className = 'status connecting';
+                    statusEl.textContent = '🔄 Reconectando...';
+                    connectBtn.style.display = 'none';
+                    updateBtn.style.display = 'none';
+                    disconnectBtn.style.display = 'none';
+                    errorEl.classList.add('hidden');
+                    
+                    // Mostra informações de reconexão
+                    const reconnectAttempts = statusData.reconnectInfo.attempts || 0;
+                    const maxAttempts = statusData.reconnectInfo.maxAttempts || 5;
+                    if (reconnectAttempts > 0) {
+                        errorEl.textContent = `Tentativa ${reconnectAttempts}/${maxAttempts} de reconexão automática...`;
+                        errorEl.classList.remove('hidden');
+                    }
+                    
+                    // Verifica quando está reconectando (a cada 15 segundos)
+                    if (statusInterval) {
+                        clearInterval(statusInterval);
+                        statusInterval = setInterval(() => {
+                            checkStatus().catch(() => {});
+                        }, 15000); // 15 segundos quando reconectando
+                    }
                 } else if (statusData.isConnecting || (statusData.isAuthenticated && !statusData.hasQr)) {
                     // Está conectando (QR escaneado ou autenticado)
                     lastStatus = 'connecting';

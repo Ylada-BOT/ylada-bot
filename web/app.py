@@ -1621,17 +1621,20 @@ def whatsapp_status():
                         phone_number = f"+{phone_number}"
             
             # Considera conectado se realmente ready OU se está autenticado (processo de conexão)
-            if connected or (is_authenticated and not has_qr and client_initialized):
+            # Se está autenticado, sem QR e tem cliente inicializado = CONECTADO (mesmo antes do ready)
+            final_connected = connected or (is_authenticated and not has_qr and client_initialized)
+            
+            if final_connected:
                 return jsonify({
                     "connected": True, 
-                    "actuallyConnected": actually_connected,
+                    "actuallyConnected": actually_connected or final_connected,
                     "ready": ready,
-                    "message": "WhatsApp conectado" if connected else "WhatsApp conectando...",
+                    "message": "WhatsApp conectado",
                     "hasQr": False,
                     "port": whatsapp_port,
                     "phone_number": phone_number,
                     "isAuthenticated": is_authenticated,
-                    "isConnecting": not connected and is_authenticated,  # Conectando se autenticado mas não ready
+                    "isConnecting": False,  # Não está mais conectando, já conectou
                     "clientInitialized": client_initialized
                 })
             elif has_qr:
@@ -1650,7 +1653,8 @@ def whatsapp_status():
                     "hasQr": False,
                     "port": whatsapp_port,
                     "isConnecting": True,
-                    "isAuthenticated": is_authenticated
+                    "isAuthenticated": is_authenticated,
+                    "clientInitialized": client_initialized  # Adiciona para o frontend verificar
                 })
             else:
                 return jsonify({

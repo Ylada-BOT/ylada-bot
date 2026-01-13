@@ -1506,6 +1506,11 @@ def whatsapp_status():
         whatsapp_port = instance.get('port', 5001)
         server_url = get_whatsapp_server_url(whatsapp_port)
         
+        # LOG CRÍTICO: Verifica qual URL está sendo usada
+        logger.info(f"🔍 [whatsapp_status] Server URL: {server_url}, Port: {whatsapp_port}")
+        logger.info(f"🔍 [whatsapp_status] IS_PRODUCTION: {IS_PRODUCTION}")
+        logger.info(f"🔍 [whatsapp_status] WHATSAPP_SERVICE_NAME: {os.getenv('WHATSAPP_SERVICE_NAME')}")
+        
         # IMPORTANTE: Usa user_id_instance_id para identificar instância única
         from web.utils.instance_helper import get_instance_user_id
         unique_user_id = get_instance_user_id(user_id, instance.get('id', user_id))
@@ -1513,7 +1518,9 @@ def whatsapp_status():
         # Verifica status do servidor Node.js da instância do usuário
         try:
             # Tenta primeiro com unique_user_id (formato correto)
-            status_response = requests.get(f"{server_url}/status?user_id={unique_user_id}", timeout=3)
+            status_url = f"{server_url}/status?user_id={unique_user_id}"
+            logger.info(f"🔍 [whatsapp_status] Tentando acessar: {status_url}")
+            status_response = requests.get(status_url, timeout=3)
             status_data = None
             
             if status_response.status_code == 200:
@@ -1653,12 +1660,26 @@ def whatsapp_status():
                     "hasQr": False,
                     "port": whatsapp_port
                 })
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.ConnectionError as conn_err:
+            # Log detalhado do erro
+            logger.error(f"❌ [whatsapp_status] Erro de conexão: {conn_err}")
+            logger.error(f"❌ [whatsapp_status] Tentou acessar: {server_url}/status?user_id={unique_user_id}")
+            logger.error(f"❌ [whatsapp_status] Server URL configurada: {server_url}")
+            
+            # Mensagem mais útil baseada no ambiente
+            from config.settings import IS_PRODUCTION
+            if IS_PRODUCTION or os.getenv('RAILWAY_ENVIRONMENT'):
+                error_msg = "Servidor WhatsApp não está acessível. Verifique se o serviço está online no Railway."
+            else:
+                error_msg = f"Servidor WhatsApp não está rodando na porta {whatsapp_port}. Execute: node whatsapp_server.js"
+            
             return jsonify({
                 "connected": False, 
-                "error": f"Servidor WhatsApp não está rodando na porta {whatsapp_port}",
+                "error": error_msg,
                 "hasQr": False,
-                "port": whatsapp_port
+                "port": whatsapp_port,
+                "server_url": server_url,  # Adiciona para debug
+                "hint": "Verifique os logs do Flask para mais detalhes"
             })
         except requests.exceptions.RequestException as e:
             return jsonify({
